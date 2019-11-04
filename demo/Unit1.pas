@@ -1,4 +1,4 @@
-unit Unit1;
+п»їunit Unit1;
 
 interface
 
@@ -70,44 +70,14 @@ end;
 
 procedure TForm1.FillHex;
 begin
-  // RAW данные введены строкой со снимка и не соответствуют действительной ситуации
-  // Просто чтобы показать возможности контрола
-
-//  Hex.DataMap.AddSeparator('IMAGE_DOS_HEADER');
-//  Hex.DataMap.AddExDescription(2, 'e_magic = "MZ"', 'Magic number');
-//  Hex.DataMap.AddExDescription(2, 'e_cblp = 50', 'Bytes on last page of file');
-//  Hex.DataMap.AddExDescription(2, 'e_cp = 2', 'Pages in file');
-//  Hex.DataMap.AddExDescription(2, 'e_crlc = 0', 'Relocations');
-//  Hex.DataMap.AddExDescription(2, 'e_cparhdr = 4', 'Size of header in paragraphs');
-//  Hex.DataMap.AddExDescription(2, 'e_minalloc = F', 'Minimum extra paragraphs needed');
-//  Hex.DataMap.AddExDescription(2, 'e_maxalloc = FFFF', 'Maximum extra paragraphs needed');
-//  Hex.DataMap.AddExDescription(2, 'e_ss = 0', 'Initial (relative) SS value');
-//  Hex.DataMap.AddExDescription(2, 'e_sp = B8', 'Initial SP value');
-//  Hex.DataMap.AddExDescription(2, 'e_csum = 0', 'Checksum');
-//  Hex.DataMap.AddExDescription(2, 'e_ip = 0', 'Initial IP value');
-//  Hex.DataMap.AddExDescription(2, 'e_cs = 0', 'Initial (relative) CS value');
-//  Hex.DataMap.AddExDescription(2, 'e_lfarlc = 40', 'File address of relocation table');
-//  Hex.DataMap.AddExDescription(2, 'e_ovno = 1A', 'Overlay number');
-//  Hex.DataMap.AddExDescription(8, 'e_res', 'Reserved words', clGrayText);
-//  Hex.DataMap.AddExDescription(2, 'e_oemid = 0', 'OEM identifier (for e_oeminfo)');
-//  Hex.DataMap.AddExDescription(2, 'e_oeminfo = 0', 'OEM information; e_oemid specific');
-//  Hex.DataMap.AddExDescription(20, 'e_res2', 'Reserved words', clGrayText);
-//  Hex.DataMap.AddExDescription(4, '_lfanew = 100 ($400100)', 'File address of new exe header');
-//  Hex.DataMap.AddLine;
-//  Hex.DataMap.AddSeparator($400100, 'IMAGE_NT_HEADERS');
-//  Hex.DataMap.AddExDescription(4, 'Signature = "PE"');
-//  Hex.DataMap.AddSeparator('IMAGE_FILE_HEADER');
-//  Hex.DataMap.AddExDescription(2, 'Machine = 14C', 'IMAGE_FILE_MACHINE_I386');
-//  Hex.DataMap.AddExDescription(2, 'NumberOfSections = C');
-//  Hex.DataMap.AddExDescription(4, 'TimeDateStamp = 58F333A2', '16.04.2017 9:04:34');
-//  Hex.DataMap.AddExDescription(4, 'PointerToSymbolTable = 0', '', $40001A, 0, 0);
-
+  // RAW РґР°РЅРЅС‹Рµ РІРІРµРґРµРЅС‹ СЃС‚СЂРѕРєРѕР№ СЃРѕ СЃРЅРёРјРєР° Рё РЅРµ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‚ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕР№ СЃРёС‚СѓР°С†РёРё
+  // РџСЂРѕСЃС‚Рѕ С‡С‚РѕР±С‹ РїРѕРєР°Р·Р°С‚СЊ РІРѕР·РјРѕР¶РЅРѕСЃС‚Рё РєРѕРЅС‚СЂРѕР»Р°
   Hex.DataMap.AddSeparator('IMAGE_DOS_HEADER');
-  Hex.DataMap.AddExDescription(2, 'e_magic = "MZ"', 'Magic number', $400000, 0, 0);
-  Hex.DataMap.AddExDescription(2, 'e_cblp = 50', 'Bytes on last page of file', $400050, 0, 0);
+  Hex.DataMap.AddExDescription(2, 'e_magic = "MZ"', 'Magic number');
+  Hex.DataMap.AddExDescription(2, 'e_cblp = 50', 'Bytes on last page of file');
   Hex.DataMap.AddExDescription(2, 'e_cp = 2', 'Pages in file');
   Hex.DataMap.AddExDescription(2, 'e_crlc = 0', 'Relocations');
-  Hex.DataMap.AddExDescription(2, 'e_cparhdr = 4', 'Size of header in paragraphs', $40001A, 0, 0);
+  Hex.DataMap.AddExDescription(2, 'e_cparhdr = 4', 'Size of header in paragraphs');
   Hex.DataMap.AddExDescription(2, 'e_minalloc = F', 'Minimum extra paragraphs needed');
   Hex.DataMap.AddExDescription(2, 'e_maxalloc = FFFF', 'Maximum extra paragraphs needed');
   Hex.DataMap.AddExDescription(2, 'e_ss = 0', 'Initial (relative) SS value');
@@ -116,7 +86,7 @@ begin
   Hex.DataMap.AddExDescription(2, 'e_ip = 0', 'Initial IP value');
   Hex.DataMap.AddExDescription(2, 'e_cs = 0', 'Initial (relative) CS value');
   Hex.DataMap.AddExDescription(2, 'e_lfarlc = 40', 'File address of relocation table');
-  Hex.DataMap.AddExDescription(2, 'e_ovno = 1A', 'Overlay number', $400080, 0, 0);
+  Hex.DataMap.AddExDescription(2, 'e_ovno = 1A', 'Overlay number');
   Hex.DataMap.AddExDescription(8, 'e_res', 'Reserved words', clGrayText);
   Hex.DataMap.AddExDescription(2, 'e_oemid = 0', 'OEM identifier (for e_oeminfo)');
   Hex.DataMap.AddExDescription(2, 'e_oeminfo = 0', 'OEM information; e_oemid specific');
@@ -126,10 +96,10 @@ begin
   Hex.DataMap.AddSeparator($400100, 'IMAGE_NT_HEADERS');
   Hex.DataMap.AddExDescription(4, 'Signature = "PE"');
   Hex.DataMap.AddSeparator('IMAGE_FILE_HEADER');
-  Hex.DataMap.AddExDescription(2, 'Machine = 14C', 'IMAGE_FILE_MACHINE_I386', $400040, 0, 0);
+  Hex.DataMap.AddExDescription(2, 'Machine = 14C', 'IMAGE_FILE_MACHINE_I386');
   Hex.DataMap.AddExDescription(2, 'NumberOfSections = C');
   Hex.DataMap.AddExDescription(4, 'TimeDateStamp = 58F333A2', '16.04.2017 9:04:34');
-  Hex.DataMap.AddExDescription(4, 'PointerToSymbolTable = 0', '', $40001A, 0, 0);
+  Hex.DataMap.AddExDescription(4, 'PointerToSymbolTable = 0', '');
   Hex.DataMap.AddExDescription(4, 'NumberOfSymbols = 0');
   Hex.DataMap.AddExDescription(2, 'SizeOfOptionalHeader = E0');
   Hex.DataMap.AddExDescription(2, 'Characteristics = 818E');
@@ -157,7 +127,7 @@ begin
   Hex.DataMap.AddExDescription(4, 'SizeOfCode = 1F8200');
   Hex.DataMap.AddExDescription(4, 'SizeOfInitializedData = 901F5B');
   Hex.DataMap.AddExDescription(4, 'SizeOfUninitializedData = 0');
-  Hex.DataMap.AddExDescription(4, 'AddressOfEntryPoint = 1F956C', 'Вот тут активный линк на точку входа', $005E952C, 22, 6);
+  Hex.DataMap.AddExDescription(4, 'AddressOfEntryPoint = 1F956C', 'Р’РѕС‚ С‚СѓС‚ Р°РєС‚РёРІРЅС‹Р№ Р»РёРЅРє РЅР° С‚РѕС‡РєСѓ РІС…РѕРґР°', $005E952C, 22, 6);
   Hex.DataMap.AddExDescription(4, 'BaseOfCode = 1000');
   Hex.DataMap.AddExDescription(4, 'BaseOfData = 1FA000');
   Hex.DataMap.AddExDescription(4, 'ImageBase = 400000');
@@ -266,10 +236,10 @@ begin
   Hex.DataMap.AddCheck(0, 'IMAGE_SCN_CNT_UNINITIALIZED_DATA', '0x00000080', False);
 
 
-  Hex.DataMap.AddSeparator('НУ И ТАК ДАЛЕЕ');
+  Hex.DataMap.AddSeparator('РќРЈ Р РўРђРљ Р”РђР›Р•Р•');
 
 
-  // добавляем описание на точку входа
+  // РґРѕР±Р°РІР»СЏРµРј РѕРїРёСЃР°РЅРёРµ РЅР° С‚РѕС‡РєСѓ РІС…РѕРґР°
 
   Hex.DataMap.AddSeparator($005E952C, 'Entry point');
   Hex.DataMap.AddNone;
@@ -322,10 +292,8 @@ begin
   finally
     Hex.EndUpdate;
   end;
-  Hex.Bookmark[9] := $400008;
   Hex.Bookmark[1] := $400000;
-  Hex.Bookmark[6] := $400007;
-  Hex.FocusOnAddress($400000);
+  Hex.Bookmark[2] := $005E952C;
   Hex.OnKeyDown := HexKeyDown;
 end;
 
