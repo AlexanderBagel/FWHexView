@@ -5,13 +5,12 @@
 //  * Unit Name : FWHexView
 //  * Purpose   : Класс для просмотра данных
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2019.
-//  * Version   : 1.0.5
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2021.
+//  * Version   : 1.0.7
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
 //
-
 unit FWHexView;
 
 interface
@@ -41,6 +40,7 @@ uses
   Бряки в дополнение к букмаркам
   Выделять зеленым и желтым цветом по аналогии с дельфей на ctWorkSpace места редактирования
   Undo список (он же завязан на предыдущий пункт с желтыми и зелеными линиями)
+  При скроле колесом мышки если курсор был над джампом он не меняет вид на cDefault
 }
 
 type
@@ -84,6 +84,7 @@ type
   end;
 
   TMapLine = record
+    Index: Integer;
     Style: TLineStyle;
     Address: ULONG_PTR;
     RawLength: Byte;
@@ -168,6 +169,8 @@ type
     procedure BeginUpdate;
     procedure EndUpdate;
     property Data: TList<TMapLine> read FData;
+
+    function GetCurrentAddr: ULONG_PTR;
   end;
 
   ///<summary> TAddressMode - режим отображения адреса 32/64 бита. </summary>
@@ -309,6 +312,7 @@ type
     FHeader: THeader;
     FDataMap: TDataMap;
     FDataStream: TStream;
+    FStreamOwnerShip: TStreamOwnership;
     FStates: TControlStates;
     FStartAddress: ULONG_PTR;
     FAddressMode: TAddressMode;
@@ -358,6 +362,7 @@ type
     function GetLeftNCWidth: Integer;
     function GetBookMark(AIndex: TBookMark): ULONG_PTR;
     procedure SetBookMark(AIndex: TBookMark; const Value: ULONG_PTR);
+    procedure ReleaseDataStream;
   protected
     // перекрытые методы
     procedure CreateParams(var Params: TCreateParams); override;
@@ -462,8 +467,10 @@ type
     property DataMap: TDataMap read FDataMap;
     procedure FocusOnLine(LineIndex: Integer);
     procedure FocusOnAddress(Address: ULONG_PTR);
-    procedure SetDataStream(Value: TStream; StartAddress: ULONG_PTR);
+    procedure SetDataStream(Value: TStream; StartAddress: ULONG_PTR; AOwnerShip: TStreamOwnership = soReference);
     property Bookmark[AIndex: TBookMark]: ULONG_PTR read GetBookMark write SetBookMark;
+    property DataStream: TStream read FDataStream;
+    property StartAddress: ULONG_PTR read FStartAddress;
   protected
     property AddressMode: TAddressMode read FAddressMode write SetAddressMode;
     property AddressView: TAddressView read FAddressView write SetAddressView;
@@ -581,6 +588,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsAsm;
   LineData.Address := Address;
   LineData.Description := Description;
@@ -612,6 +620,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsCheck;
   LineData.Address := Address;
   LineData.Description := Description;
@@ -632,6 +641,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsCode;
   LineData.Address := Address;
   LineData.Description := Description;
@@ -668,6 +678,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsRawWithExDescription;
   LineData.Address := Address;
   LineData.Description := Description;
@@ -686,6 +697,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsLine;
   LineData.Address := Address;
   CurrentAddr := Address;
@@ -702,6 +714,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsNone;
   LineData.Address := Address;
   CurrentAddr := Address;
@@ -726,6 +739,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsRadio;
   LineData.Address := Address;
   LineData.Description := Description;
@@ -741,6 +755,7 @@ var
   LineData: TMapLine;
 begin
   ZeroMemory(@LineData, SizeOf(TMapLine));
+  LineData.Index := FData.Count;
   LineData.Style := lsSeparator;
   LineData.Address := Address;
   LineData.Description := Description;
@@ -770,7 +785,16 @@ end;
 constructor TDataMap.Create(AOwner: TFWCustomHexView);
 begin
   FOwner := AOwner;
-  FData := TList<TMapLine>.Create;
+  FData := TList<TMapLine>.Create(TComparer<TMapLine>.Construct(
+      function (const A, B: TMapLine): Integer
+      begin
+        Result := LONG_PTR(A.Address) - LONG_PTR(B.Address);
+        if Result = 0 then
+          Result := A.RawLength - B.RawLength;
+        if Result = 0 then
+          Result := A.Index - B.Index;
+      end)
+      );
   FData.OnNotify := DataChange;
 end;
 
@@ -791,6 +815,11 @@ procedure TDataMap.EndUpdate;
 begin
   Dec(FUpdateCount);
   RebuildDataMap;
+end;
+
+function TDataMap.GetCurrentAddr: ULONG_PTR;
+begin
+  Result := CurrentAddr;
 end;
 
 procedure TDataMap.RebuildDataMap;
@@ -1071,7 +1100,7 @@ begin
         CopyBuff := CopyBuff + StringOfChar(UncopiedData, 120) + sLineBreak;
       lsSeparator, lsCode:
         CopyBuff := CopyBuff + FRawData.List[I].Description + sLineBreak;
-      lsRaw..lsAsm:
+      lsRaw..lsRadio:
       begin
         LineData := RawToHex(I);
         SelData := GetSelectData(I);
@@ -1437,6 +1466,7 @@ begin
   FDataMap.Free;
   FHeader.Free;
   FRawData.Free;
+  ReleaseDataStream;
   inherited;
 end;
 
@@ -3018,6 +3048,7 @@ var
   Data: array of Byte;
   AnsiResult: AnsiString;
 begin
+  Result := '';
   SetLength(Data, FRawData.List[LineIndex].RawLength);
   if Length(Data) = 0 then Exit;
   FDataStream.Position := FRawData.List[LineIndex].DataOffset;
@@ -3054,6 +3085,12 @@ procedure TFWCustomHexView.RebuildDataMap;
 begin
   Include(FStates, csNeedUpdateDataMap);
   DoChange;
+end;
+
+procedure TFWCustomHexView.ReleaseDataStream;
+begin
+  if FStreamOwnerShip = soOwned then
+    FreeAndNil(FDataStream);
 end;
 
 procedure TFWCustomHexView.Resize;
@@ -3146,10 +3183,12 @@ begin
 end;
 
 procedure TFWCustomHexView.SetDataStream(Value: TStream;
-  StartAddress: ULONG_PTR);
+  StartAddress: ULONG_PTR; AOwnerShip: TStreamOwnership);
 begin
   if FDataStream <> Value then
   begin
+    ReleaseDataStream;
+    FStreamOwnerShip := AOwnerShip;
     FDataStream := Value;
     FStartAddress := StartAddress;
     FDataMap.CurrentAddr := StartAddress;
@@ -3441,9 +3480,11 @@ begin
   FRawData.Clear;
   FJmpData.Clear;
   if FDataStream = nil then Exit;
+  if FDataMap.Data.Count = 0 then Exit;  
   StreamOffset := 0;
   FDataStream.Position := 0;
   MapIndex := 0;
+  FDataMap.Data.Sort;
   while StreamOffset < FDataStream.Size do
   begin
     Line.Address := FStartAddress + StreamOffset;
@@ -3594,7 +3635,8 @@ var
 begin
   FTextBoundary.X := 0;
   for I := Low(TColumnType) to High(TColumnType) do
-    Inc(FTextBoundary.X, FHeader.ColumnWidth[I]);
+    if I in FHeader.Columns then
+      Inc(FTextBoundary.X, FHeader.ColumnWidth[I]);
   Inc(FTextBoundary.X, BORDER_MARGIN);
   FTextBoundary.Y := FRawData.Count * FLineHeight +
     ClientHeight mod FLineHeight + FLineHeight;
