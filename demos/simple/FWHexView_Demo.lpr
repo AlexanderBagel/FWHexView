@@ -1,13 +1,15 @@
 program FWHexView_Demo;
 
+{$MODE Delphi}
+
 uses
-  Vcl.Forms,
-  Unit1 in 'Unit1.pas' {Form1},
-  FWHexView in '..\FWHexView.pas';
+  Forms, Interfaces,
+  Unit1 in 'Unit1.pas' {Form1};
 
 {$R *.res}
 
 begin
+  Application.Scaled:=True;
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TForm1, Form1);

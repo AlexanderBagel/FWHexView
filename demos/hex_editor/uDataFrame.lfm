@@ -1,0 +1,25 @@
+object PageFrame: TPageFrame
+  Left = 0
+  Height = 766
+  Top = 0
+  Width = 1328
+  ClientHeight = 766
+  ClientWidth = 1328  
+  ParentFont = False
+  TabOrder = 0
+  DesignLeft = 1035
+  DesignTop = 426
+  object HexView: TFWHexView
+    Left = 0
+    Height = 766
+    Top = 0
+    Width = 1328
+    Align = alClient
+    Header.Columns = [ctAddress, ctOpcode, ctDescription]
+    NoDataText = 'Open file using the menu or drag and drop it from Explorer'
+    TabOrder = 0
+    OnDrawColumnBackground = HexViewDrawColumnBackground
+    OnDrawToken = HexViewDrawToken
+    OnEdit = HexViewEdit
+  end
+end

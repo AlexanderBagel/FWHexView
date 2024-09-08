@@ -75,4 +75,16 @@ object Form1: TForm1
       OnClick = Button2Click
     end
   end
+  object Hex: TMappedHexView
+    Left = 0
+    Top = 0
+    Width = 1100
+    Height = 544
+    Cursor = crDefault
+    Align = alClient
+    Header.Columns = [ctWorkSpace, ctJmpLine, ctAddress, ctOpcode, ctDescription]
+    ParentFont = False
+    TabOrder = 1
+    TabStop = True
+  end
 end

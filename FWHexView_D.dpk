@@ -1,0 +1,42 @@
+package FWHexView_D;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  designide;
+
+contains
+  FWHexView.Actions in 'src\FWHexView.Actions.pas',
+  FWHexView.AsmTokenizer in 'src\FWHexView.AsmTokenizer.pas',
+  FWHexView.Common in 'src\FWHexView.Common.pas',
+  FWHexView.MappedView in 'src\FWHexView.MappedView.pas',
+  FWHexView in 'src\FWHexView.pas',
+  FWHexView.Reg in 'src\FWHexView.Reg.pas';
+
+end.

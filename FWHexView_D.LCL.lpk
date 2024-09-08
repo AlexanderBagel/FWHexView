@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="5">
+    <PathDelim Value="\"/>
+    <Name Value="FWHexView_D.LCL"/>
+    <Type Value="RunAndDesignTime"/>
+    <AddToProjectUsesSection Value="True"/>
+    <Author Value="Alexander (Rouse_) Bagel"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <PathDelim Value="\"/>
+      <SearchPaths>
+        <IncludeFiles Value="src\CPUView;src;res"/>
+        <OtherUnitFiles Value="src;src\CPUView;src\CPUView\gui"/>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+    </CompilerOptions>
+    <Description Value="Cross-platform HEX editor"/>
+    <License Value="GPL v3"/>
+    <Version Major="2" Release="14"/>
+    <Files Count="7">
+      <Item1>
+        <Filename Value="src\FWHexView.AsmTokenizer.pas"/>
+        <UnitName Value="FWHexView.AsmTokenizer"/>
+      </Item1>
+      <Item2>
+        <Filename Value="src\FWHexView.Common.pas"/>
+        <UnitName Value="FWHexView.Common"/>
+      </Item2>
+      <Item3>
+        <Filename Value="src\FWHexView.MappedView.pas"/>
+        <UnitName Value="FWHexView.MappedView"/>
+      </Item3>
+      <Item4>
+        <Filename Value="src\FWHexView.pas"/>
+        <UnitName Value="FWHexView"/>
+      </Item4>
+      <Item5>
+        <Filename Value="src\FWHexView.Reg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="FWHexView.Reg"/>
+      </Item5>
+      <Item6>
+        <Filename Value="src\FWHexView.Actions.pas"/>
+        <UnitName Value="FWHexView.Actions"/>
+      </Item6>
+      <Item7>
+        <Filename Value="src\FWHexView.AsmTokenizer.dcu"/>
+        <Type Value="Binary"/>
+      </Item7>
+    </Files>
+    <CompatibilityMode Value="True"/>
+    <RequiredPkgs Count="2">
+      <Item1>
+        <PackageName Value="LCLBase"/>
+      </Item1>
+      <Item2>
+        <PackageName Value="FCL"/>
+      </Item2>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir);."/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+      <UseFileFilters Value="True"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>
