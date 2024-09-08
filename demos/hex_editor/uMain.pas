@@ -14,6 +14,7 @@ uses
   Messages,
   Actions,
   UITypes,
+  ShellApi,
   {$ENDIF}
   SysUtils, Classes, Graphics,
   Controls, Forms, Dialogs, ActnList,
@@ -248,6 +249,9 @@ type
     procedure acViewDisplayOffsetUpdate(Sender: TObject);
     procedure acViewDisplayOffsetExecute(Sender: TObject);
   private
+    {$IFNDEF FPC}
+    procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
+    {$ENDIF}
     function ActiveDoc: TPageFrame;
     function CreateNewFrame: TPageFrame;
     procedure OpenFile(const FilePath: string);
@@ -600,11 +604,33 @@ procedure TdlgHexEditor.FormCreate(Sender: TObject);
 begin
   {$IFNDEF FPC}
   ReportMemoryLeaksOnShutdown := True;
+  DragAcceptFiles(Handle, True);
   {$ENDIF}
   CreateNewFrame;
   UpdateView;
   UpdateStatusBar(nil);
 end;
+
+{$IFNDEF FPC}
+procedure TdlgHexEditor.WMDropFiles(var Msg: TWMDropFiles);
+var
+  Count, FileNameLength: integer;
+  FileName: string;
+begin
+  try
+    Count := DragQueryFile(Msg.Drop, $FFFFFFFF, nil, 0);
+    if Count > 0 then
+    begin
+      FileNameLength := DragQueryFile(Msg.Drop, 0, nil, 0);
+      SetLength(FileName, FileNameLength);
+      DragQueryFile(Msg.Drop, 0, PWideChar(FileName), FileNameLength + 1);
+      OpenFile(FileName);
+    end;
+  finally
+    DragFinish(Msg.Drop);
+  end;
+end;
+{$ENDIF}
 
 function TdlgHexEditor.GetFrameAtIndex(Index: Integer): TPageFrame;
 begin
