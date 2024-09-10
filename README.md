@@ -68,6 +68,7 @@ Extended TMappedHexView - covers the full range of tasks required from this type
 ### Setup:
 
 Delphi - build and install FWHexView_D.dproj
+
 Lazarus - build and install FWHexView_D.LCL.lpk
 
 ### Appearance:
