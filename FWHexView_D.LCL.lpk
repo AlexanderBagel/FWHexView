@@ -17,8 +17,8 @@
     </CompilerOptions>
     <Description Value="Cross-platform HEX editor"/>
     <License Value="GPL v3"/>
-    <Version Major="2" Release="14"/>
-    <Files Count="7">
+    <Version Major="2" Release="15"/>
+    <Files Count="6">
       <Item1>
         <Filename Value="src\FWHexView.AsmTokenizer.pas"/>
         <UnitName Value="FWHexView.AsmTokenizer"/>
@@ -44,10 +44,6 @@
         <Filename Value="src\FWHexView.Actions.pas"/>
         <UnitName Value="FWHexView.Actions"/>
       </Item6>
-      <Item7>
-        <Filename Value="src\FWHexView.AsmTokenizer.dcu"/>
-        <Type Value="Binary"/>
-      </Item7>
     </Files>
     <CompatibilityMode Value="True"/>
     <RequiredPkgs Count="2">
@@ -59,7 +55,7 @@
       </Item2>
     </RequiredPkgs>
     <UsageOptions>
-      <UnitPath Value="$(PkgOutDir);."/>
+      <UnitPath Value="."/>
     </UsageOptions>
     <PublishOptions>
       <Version Value="2"/>

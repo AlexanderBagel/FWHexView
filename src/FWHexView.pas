@@ -6,7 +6,7 @@
 //  * Purpose   : Implementation of a basic HexView editor
 //  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 2.0.14
+//  * Version   : 2.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -904,6 +904,7 @@ type
     procedure DoCaretHome(Shift: TShiftState);
     procedure DoCaretEdit(AKey: TNativeChar);
     procedure DoCaretEnd(Shift: TShiftState);
+    procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); virtual;
     function GetCaretChangeMode(APainter: TAbstractPrimaryRowPainter;
       AColumn: TColumnType; Shift: TShiftState): TCaretChangeMode; virtual;
     function GetCaretNextRowIndex(FromIndex: Int64; AColumn: TColumnType = ctNone): Int64; virtual;
@@ -1057,6 +1058,7 @@ type
     /// </summary>
     procedure ResetViewState;
     function RowToAddress(RowIndex: Int64; ValueOffset: Integer): Int64;
+    function SelectedRowIndex: Int64;
     procedure SetDataStream(Value: TStream; StartAddress: Int64;
       AOwnerShip: TStreamOwnership = soReference);
     procedure SetCaretPos(AColumn: TColumnType; ARowIndex: Int64; ACharIndex: Integer);
@@ -1839,25 +1841,27 @@ function TCharEncoder.EncodeBuff(const Buff: TBytes): string;
     Result := (AChar >= #$20) and (AChar < #$F000);
   end;
 
-  function GetEmpty: string;
+  function GetEmpty: UnicodeString;
   begin
-    Result := StringOfChar('.', Length(Buff));
+    Result := UnicodeString(StringOfChar('.', Length(Buff)));
   end;
 
 var
   E: TEncoding;
   BuffLen, ByteIndex, GlyphLen, MaxLen: Integer;
-  EncodedString, EncodedChar: UnicodeString;
+  EncodedString: UnicodeString;
   {$IFDEF FPC}
-  ResIndex, I: Integer;
+  ResIndex, I, InitialBuffLen, StringLen, CmpIdx: Integer;
   EncodedBuf: UnicodeString;
   CharBytes: TBytes;
   CharPosFound: Boolean;
+  {$ELSE}
+  EncodedChar: string;
   {$ENDIF}
 begin
   E := GetEncoding;
   if E = nil then
-    Exit(GetEmpty);
+    Exit(string(GetEmpty));
 
   BuffLen := Length(Buff);
   if E.IsSingleByte then
@@ -1866,13 +1870,15 @@ begin
     for ByteIndex := 1 to BuffLen do
       if not CharVisible(EncodedString[ByteIndex]) then
         EncodedString[ByteIndex] := '.';
-    Result := EncodedString;
+    Result := string(EncodedString);
     Exit;
   end;
 
   {$IFDEF FPC}
 
   EncodedBuf := E.GetString(Buff, 0, BuffLen);
+  StringLen := Length(EncodedBuf);
+  InitialBuffLen := BuffLen;
   ByteIndex := 1;
   ResIndex := 1;
   EncodedString := GetEmpty;
@@ -1884,12 +1890,16 @@ begin
 
     CharPosFound := False;
     for I := 0 to MaxLen - 1 do
-      if CompareMem(@CharBytes[0], @Buff[ResIndex - 1 + I], GlyphLen) then
+    begin
+      CmpIdx := ResIndex - 1 + I;
+      if CmpIdx > InitialBuffLen - GlyphLen then Break;
+      if CompareMem(@CharBytes[0], @Buff[CmpIdx], GlyphLen) then
       begin
         Inc(ResIndex, I);
         CharPosFound := True;
         Break;
       end;
+    end;
 
     if CharPosFound and CharVisible(EncodedBuf[ByteIndex]) then
       EncodedString[ResIndex] := EncodedBuf[ByteIndex]
@@ -1897,10 +1907,12 @@ begin
       GlyphLen := 1;
 
     Inc(ByteIndex);
+    if ByteIndex > StringLen then
+      Break;
     Inc(ResIndex, GlyphLen);
     Dec(BuffLen, GlyphLen);
   end;
-  Result := EncodedString;
+  Result := string(EncodedString);
 
   {$ELSE}
 
@@ -1940,7 +1952,7 @@ var
 begin
   E := GetEncoding;
   if E <> nil then
-    Result := E.GetBytes(AChar);
+    Result := E.GetBytes(AChar{%H-});
 end;
 
 function TCharEncoder.GetEncoding: TEncoding;
@@ -4578,6 +4590,11 @@ begin
     GetCaretChangeMode(Painter, FCaretPosData.Column, Shift));
 end;
 
+procedure TFWCustomHexView.DoCaretKeyDown(var Key: Word; Shift: TShiftState);
+begin
+  // Method for inheritors...
+end;
+
 procedure TFWCustomHexView.DoCaretHome(Shift: TShiftState);
 var
   NewRowIndex, NewCharIndex: Integer;
@@ -5475,6 +5492,7 @@ begin
   inherited;
   UpdateCaretTimer;
   FSavedShift := Shift;
+  DoCaretKeyDown(Key, Shift);
   case Key of
     VK_SHIFT: FShiftSelectionInit := True;
     VK_LEFT: DoCaretLeft(Shift);
@@ -5486,7 +5504,10 @@ begin
     VK_HOME: DoCaretHome(Shift);
     VK_END: DoCaretEnd(Shift);
   end;
+  // Special processing under Lazarus to block focus transfer
+  {$IFDEF FPC}
   Key := 0;
+  {$ENDIF}
 end;
 
 procedure TFWCustomHexView.KeyPress(var Key: Char);
@@ -5925,6 +5946,11 @@ function TFWCustomHexView.RowToAddress(RowIndex: Int64;
   ValueOffset: Integer): Int64;
 begin
   Result := RawData.RowToAddress(RowIndex, ValueOffset);
+end;
+
+function TFWCustomHexView.SelectedRowIndex: Int64;
+begin
+  Result := RawData.AddressToRowIndex(Min(SelStart, SelEnd));
 end;
 
 function TFWCustomHexView.RowVisible(RowIndex: Int64): Boolean;

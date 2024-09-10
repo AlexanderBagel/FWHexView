@@ -6,7 +6,7 @@
 //  * Purpose   : Implementation of advanced HexView editor with data map support
 //  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 2.0.14
+//  * Version   : 2.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -488,6 +488,8 @@ type
   TJmpToEvent = procedure(Sender: TObject; const AJmpAddr: Int64;
     AJmpState: TJmpState; var Handled: Boolean) of object;
 
+  { TCustomMappedHexView }
+
   TCustomMappedHexView = class(TFWCustomHexView)
   strict private
     FAddressToRowIndexMode: TAddressToRowIndexMode;
@@ -505,6 +507,7 @@ type
     procedure UpdateJumpList;
   protected
     function CalculateJmpToRow(JmpFromRow: Int64): Int64; virtual;
+    procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); override;
     procedure DoInvalidateRange(AStartRow, AEndRow: Int64); override;
     procedure DoJmpTo(RowIndex: Int64; AJmpState: TJmpState);
     function DoLButtonDown(Shift: TShiftState): Boolean; override;
@@ -513,7 +516,6 @@ type
     function GetRawDataClass: TRawDataClass; override;
     procedure InitPainters; override;
     function InternalGetRowPainter(RowIndex: Int64): TAbstractPrimaryRowPainter; override;
-    procedure KeyDown(var Key: Word; Shift: TShiftState); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     function RawData: TMappedRawData; inline;
     procedure UpdateCursor(const HitTest: TMouseHitInfo); override;
@@ -2794,6 +2796,22 @@ begin
   AddressToRowIndexMode := OldAddressToRowMode;
 end;
 
+procedure TCustomMappedHexView.DoCaretKeyDown(var Key: Word; Shift: TShiftState);
+var
+  RowIndex: Int64;
+begin
+  case Key of
+    VK_RETURN:
+    begin
+      RowIndex := SelectedRowIndex;
+      if RowIndex < 0 then Exit;
+      if RawData[RowIndex].JmpToAddr = 0 then Exit;
+      DoJmpTo(RowIndex, jsPushToUndo);
+    end;
+    VK_ESCAPE: DoJmpTo(0, jsPopFromUndo);
+  end;
+end;
+
 procedure TCustomMappedHexView.ClearDataMap;
 begin
   SetDataStream(nil, 0);
@@ -2967,13 +2985,6 @@ begin
   else
     Result := nil;
   end;
-end;
-
-procedure TCustomMappedHexView.KeyDown(var Key: Word; Shift: TShiftState);
-begin
-  inherited;
-  if Key = VK_ESCAPE then
-    DoJmpTo(0, jsPopFromUndo);
 end;
 
 procedure TCustomMappedHexView.MouseMove(Shift: TShiftState; X, Y: Integer);
