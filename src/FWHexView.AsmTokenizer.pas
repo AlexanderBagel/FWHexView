@@ -50,7 +50,7 @@ uses
   Generics.Collections;
 
 type
-  TTokenType = (ttUnknown, ttNumber, ttInstruction, ttReg, ttPrefix, ttJmp, ttKernel, ttNop);
+  TTokenType = (ttUnknown, ttNumber, ttInstruction, ttReg, ttPrefix, ttJmp, ttKernel, ttNop, ttSize);
 
   TAsmTokenizer = class
   private
@@ -64,7 +64,7 @@ type
 
 implementation
 
-const InstBuff: array[0..727] of string = (
+const InstBuff: array[0..722] of string = (
   'AAA', 'AAD', 'AAM', 'AAS', 'ADC', 'ADCX', 'ADD', 'ADDPD', 'ADDPS', 'ADDSD', 'ADDSS',
   'ADDSUBPD', 'ADDSUBPS', 'ADOX', 'AESDEC', 'AESDEC128KL', 'AESDEC256KL', 'AESDECLAST',
   'AESDECWIDE128KL', 'AESDECWIDE256KL', 'AESENC', 'AESENC128KL', 'AESENC256KL', 'AESENCLAST',
@@ -153,8 +153,10 @@ const InstBuff: array[0..727] of string = (
   'XGETBV', 'XLAT', 'XOR', 'XORPD', 'XORPS', 'XRELEASE', 'XRESLDTRK', 'XRSTOR', 'XRSTOR64',
   'XSAVE', 'XSAVE64', 'XSAVEC', 'XSAVEC64', 'XSAVEOPT', 'XSAVEOPT64', 'XSHA1', 'XSHA256',
   'XSTORE', 'XSUSLDTRK', 'XTEST',
-  'BYTE', 'WORD', 'DWORD', 'QWORD', 'TBYTE', 'PTR'
+  'PTR'
   );
+
+const SizeBuff: array[0..4] of string = ('BYTE', 'WORD', 'DWORD', 'QWORD', 'TBYTE');
 
 const JmpBuff: array[0..34] of string = (
   'CALL', 'JA', 'JAE', 'JB', 'JBE', 'JC', 'JCXZ', 'JE', 'JECXZ', 'JG', 'JGE', 'JL',
@@ -180,10 +182,10 @@ const PrefixBuff: array[0..6] of string = (
   'LOCK', 'NOTRACK', 'REP', 'REPE', 'REPNE', 'REPNZ', 'REPZ'
   );
 
-const RegsBuff: array[0..133] of string = (
+const RegsBuff: array[0..134] of string = (
   'AH', 'AL', 'AX', 'BH', 'BL', 'BP', 'BPL', 'BX', 'CH', 'CL', 'CR0', 'CR2', 'CR3',
   'CR4', 'CR8', 'CS', 'CX', 'DH', 'DI', 'DIL', 'DL', 'DR0', 'DR1', 'DR2', 'DR3', 'DR6',
-  'DR7', 'DS', 'DX', 'EAX', 'EBP', 'EBX', 'ECX', 'EDI', 'EDX', 'ES', 'ESI', 'ESP',
+  'DR7', 'DS', 'DX', 'EAX', 'EBP', 'EBX', 'ECX', 'EDI', 'EDX', 'EIP', 'ES', 'ESI', 'ESP',
   'FS', 'GS', 'MM0', 'MM1', 'MM2', 'MM3', 'MM4', 'MM5', 'MM6', 'MM7', 'R10', 'R10B',
   'R10D', 'R10W', 'R11', 'R11B', 'R11D', 'R11W', 'R12', 'R12B', 'R12D', 'R12W', 'R13',
   'R13B', 'R13D', 'R13W', 'R14', 'R14B', 'R14D', 'R14W', 'R15', 'R15B', 'R15D', 'R15W',
@@ -208,6 +210,8 @@ begin
   FTokens := TDictionary<string, TTokenType>.Create;
   for I := 0 to Length(InstBuff) - 1 do
     FTokens.Add(InstBuff[I], ttInstruction);
+  for I := 0 to Length(SizeBuff) - 1 do
+    FTokens.Add(SizeBuff[I], ttSize);
   for I := 0 to Length(RegsBuff) - 1 do
     FTokens.Add(RegsBuff[I], ttReg);
   for I := 0 to Length(PrefixBuff) - 1 do
@@ -218,6 +222,7 @@ begin
     FTokens.Add(KernelBuff[I], ttKernel);
   for I := 0 to Length(NopBuff) - 1 do
     FTokens.Add(NopBuff[I], ttNop);
+
 end;
 
 destructor TAsmTokenizer.Destroy;

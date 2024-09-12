@@ -2910,13 +2910,12 @@ begin
         Inc(ATokenParam.CharIndex, nTokenLength);
         ATokenParam.ValueOffset := TextMetric.CharIndexToValueOffset(AColumn, ATokenParam.CharIndex);
         ATokenParam.AddrVA := RowToAddress(RowIndex, ATokenParam.ValueOffset);
-        if nSize > 0 then
-          while nTokenLength > 0 do
-          begin
-            Inc(XOffset, Dx^);
-            Inc(Dx);
-            Dec(nTokenLength);
-          end;
+        while nTokenLength > 0 do
+        begin
+          Inc(XOffset, Dx^);
+          Inc(Dx);
+          Dec(nTokenLength);
+        end;
       end;
       ACanvas.Font.Assign(SavedFont);
     end;
