@@ -39,6 +39,10 @@ Licence:
 
 unit FWHexView.Actions;
 
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 interface
 
 uses
