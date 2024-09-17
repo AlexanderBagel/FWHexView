@@ -123,7 +123,7 @@ type
     function DrawRowSmallSeparator: Boolean; virtual;
     function RawLength: Int64; virtual;
     function Comment: string; virtual;
-    function RowToAddress(RowIndex: Int64; ValueOffset: Integer): Int64; virtual;
+    function RowToAddress(ARowIndex: Int64; ValueOffset: Integer): Int64; virtual;
     function Count: Int64; virtual;
     procedure Clear; virtual;
     procedure Update; virtual;
@@ -482,9 +482,9 @@ type
     function Encoder: TCharEncoder; inline;
     function Focused: Boolean; inline;
     function GetLeftNCWidth: Integer; inline;
-    function GetRowOffset(RowIndex: Int64): Int64; inline;
-    function GetSelectData(RowIndex: Int64): TSelectData; inline;
-    function GetSelectDataWithSelection(RowIndex: Int64; ASelStart, ASelEnd: TSelectPoint): TSelectData; inline;
+    function GetRowOffset(ARowIndex: Int64): Int64; inline;
+    function GetSelectData(ARowIndex: Int64): TSelectData; inline;
+    function GetSelectDataWithSelection(ARowIndex: Int64; ASelStart, ASelEnd: TSelectPoint): TSelectData; inline;
     function HeaderVisible: Boolean; inline;
     function HeaderWidth: Integer; inline;
     function IsAddrVisible(AAddrVA: Int64): Boolean; inline;
@@ -494,8 +494,8 @@ type
     function NoDataText: string; inline;
     function ReadOnly: Boolean; inline;
     function RowHeight: Integer; inline;
-    function RowToAddress(RowIndex: Int64; ValueOffset: Integer): Int64; inline;
-    function RowVisible(RowIndex: Int64): Boolean; inline;
+    function RowToAddress(ARowIndex: Int64; ValueOffset: Integer): Int64; inline;
+    function RowVisible(ARowIndex: Int64): Boolean; inline;
     function ScrollOffset: TLargePoint; inline;
     function Selections: TSelections; inline;
     function SeparateGroupByColor: Boolean; inline;
@@ -693,7 +693,7 @@ type
     procedure DrawArrowWithOffset(ACanvas: TCanvas; Direction: TScrollDirection;
       Location: TPoint; ArrowSize: Integer; StartPoint: Boolean);
     function DrawLine(ACanvas: TCanvas; const Param: TDrawLineParam): Boolean;
-    function IsNeedOffsetRow(RowIndex: Int64; FirstRow: Boolean): Boolean; virtual;
+    function IsNeedOffsetRow(ARowIndex: Int64; FirstRow: Boolean): Boolean; virtual;
     function LineColorPresent(Selected: Boolean; const Param: TDrawLineParam;
       out LineColor: TColor): Boolean; virtual;
   end;
@@ -937,7 +937,7 @@ type
     // functions for obtaining text data for drawing and for copying to the buffer
 
     function GetDataStreamSize: Int64; virtual;
-    procedure GetRawBuff(RowIndex: Int64; var Data: TBytes); virtual;
+    procedure GetRawBuff(ARowIndex: Int64; var Data: TBytes); virtual;
 
     // рассчеты для отрисовки
 
@@ -945,15 +945,15 @@ type
 
     function GetLeftNCWidth: Integer;
     function GetPageHeight: Integer;
-    function GetRowOffset(RowIndex: Int64): Int64;
+    function GetRowOffset(ARowIndex: Int64): Int64;
     function CheckSelected(Value: TSelectPoint): Boolean;
-    function GetSelectData(RowIndex: Int64): TSelectData;
-    function GetSelectDataWithSelection(RowIndex: Int64; ASelStart, ASelEnd: TSelectPoint): TSelectData;
+    function GetSelectData(ARowIndex: Int64): TSelectData;
+    function GetSelectDataWithSelection(ARowIndex: Int64; ASelStart, ASelEnd: TSelectPoint): TSelectData;
     function MeasureCanvas: TCanvas;
-    function RowVisible(RowIndex: Int64): Boolean;
+    function RowVisible(ARowIndex: Int64): Boolean;
     procedure RestoreViewParam; virtual;
     procedure SetScrollOffset(X, Y: Int64); virtual;
-    procedure SetTopRow(RowIndex: Int64);
+    procedure SetTopRow(ARowIndex: Int64);
     procedure SaveViewParam;
 
     // переопредение внутренних классов
@@ -975,11 +975,11 @@ type
     procedure DrawEditMark(var Offset: TPoint);
     procedure DrawRows(StartRow, EndRow: Int64; var Offset: TPoint);
     procedure DrawRowSmallSeparator(var Offset: TPoint);
-    function GetRowPainter(RowIndex: Int64; TempPainter: Boolean = False): TAbstractPrimaryRowPainter;
+    function GetRowPainter(ARowIndex: Int64; TempPainter: Boolean = False): TAbstractPrimaryRowPainter;
     procedure InitDefault; virtual;
     procedure InitPainters; virtual;
-    function InternalGetRowPainter(RowIndex: Int64): TAbstractPrimaryRowPainter; virtual;
-    procedure InvalidateRow(RowIndex: Int64);
+    function InternalGetRowPainter(ARowIndex: Int64): TAbstractPrimaryRowPainter; virtual;
+    procedure InvalidateRow(ARowIndex: Int64);
     function MakeDrawRect(LeftOffset, TopOffset, ColumnWidth: Integer): TRect;
     procedure ResetCanvas;
     procedure ResetPainters;
@@ -1013,6 +1013,7 @@ type
     procedure BeginUpdate;
     function CaretPosToAddress(const Value: TCaretPosData): Int64;
     procedure ClearSelection(ResetCaretPos: Boolean = True);
+    function ColumnAsString(ARowIndex: Int64; AColumn: TColumnType): string;
     procedure CopySelected(CopyStyle: TCopyStyle); virtual;
     function CurrentVisibleRow: Int64;
     procedure EndUpdate;
@@ -1041,7 +1042,7 @@ type
     ///  is undefined, if the invisible string is above the current window,
     ///  it will appear at the top. If it is lower, it will appear at the bottom.
     /// </summary>
-    procedure FocusOnRow(RowIndex: Int64; ACaretChangeMode: TCaretChangeMode);
+    procedure FocusOnRow(ARowIndex: Int64; ACaretChangeMode: TCaretChangeMode);
     /// <summary>
     ///  Общий метод чтения данных с начала выделения вьювера
     /// </summary>
@@ -1058,7 +1059,10 @@ type
     ///  Reset viewer settings to default values
     /// </summary>
     procedure ResetViewState;
-    function RowToAddress(RowIndex: Int64; ValueOffset: Integer): Int64;
+    function RowRawLength(ARowIndex: Int64): Integer;
+    function RowToAddress(ARowIndex: Int64; ValueOffset: Integer): Int64;
+    function SelectedColumnAsString(AColumn: TColumnType): string;
+    function SelectedRawLength: Integer;
     function SelectedRowIndex: Int64;
     procedure SetDataStream(Value: TStream; StartAddress: Int64;
       AOwnerShip: TStreamOwnership = soReference);
@@ -1346,11 +1350,11 @@ begin
   Result := FRowRawLength;
 end;
 
-function TRawData.RowToAddress(RowIndex: Int64; ValueOffset: Integer): Int64;
+function TRawData.RowToAddress(ARowIndex: Int64; ValueOffset: Integer): Int64;
 var
   Tmp: TRawData;
 begin
-  Tmp := GetDataAtRowIndex(RowIndex);
+  Tmp := GetDataAtRowIndex(ARowIndex);
   Result := Tmp.Address;
   if Tmp.RawLength = 0 then Exit;
   if ValueOffset < 0 then
@@ -2396,20 +2400,20 @@ begin
   Result := FOwner.DefaultPainter.CalcLeftNCWidth;;
 end;
 
-function TBasePainter.GetRowOffset(RowIndex: Int64): Int64;
+function TBasePainter.GetRowOffset(ARowIndex: Int64): Int64;
 begin
-  Result := FOwner.GetRowOffset(RowIndex);
+  Result := FOwner.GetRowOffset(ARowIndex);
 end;
 
-function TBasePainter.GetSelectData(RowIndex: Int64): TSelectData;
+function TBasePainter.GetSelectData(ARowIndex: Int64): TSelectData;
 begin
-   Result := FOwner.GetSelectData(RowIndex);
+   Result := FOwner.GetSelectData(ARowIndex);
 end;
 
-function TBasePainter.GetSelectDataWithSelection(RowIndex: Int64; ASelStart,
+function TBasePainter.GetSelectDataWithSelection(ARowIndex: Int64; ASelStart,
   ASelEnd: TSelectPoint): TSelectData;
 begin
-  Result := FOwner.GetSelectDataWithSelection(RowIndex, ASelStart, ASelEnd);
+  Result := FOwner.GetSelectDataWithSelection(ARowIndex, ASelStart, ASelEnd);
 end;
 
 function TBasePainter.HeaderVisible: Boolean;
@@ -2467,15 +2471,15 @@ begin
   Result := FOwner.RowHeight;
 end;
 
-function TBasePainter.RowToAddress(RowIndex: Int64;
+function TBasePainter.RowToAddress(ARowIndex: Int64;
   ValueOffset: Integer): Int64;
 begin
-  Result := RawData.RowToAddress(RowIndex, ValueOffset);
+  Result := RawData.RowToAddress(ARowIndex, ValueOffset);
 end;
 
-function TBasePainter.RowVisible(RowIndex: Int64): Boolean;
+function TBasePainter.RowVisible(ARowIndex: Int64): Boolean;
 begin
-  Result := FOwner.RowVisible(RowIndex);
+  Result := FOwner.RowVisible(ARowIndex);
 end;
 
 function TBasePainter.ScrollOffset: TLargePoint;
@@ -3654,7 +3658,7 @@ type
     ldtInvisibleLines      // both lines are invisible, but painter requires rendering
     );
 
-  function CalcVisibleRowOffset(RowIndex: Integer;
+  function CalcVisibleRowOffset(ARowIndex: Integer;
     PathBegin, FirstRow: Boolean): TPoint;
   begin
     if PathBegin then
@@ -3663,9 +3667,9 @@ type
       Result.X := GetLeftNCWidth -
         TextMargin - PaintedLinesCount * Param.LineIndent;
 
-    Result.Y := GetRowOffset(RowIndex) + RowHeight shr 1;
+    Result.Y := GetRowOffset(ARowIndex) + RowHeight shr 1;
 
-    if IsNeedOffsetRow(RowIndex, FirstRow) then
+    if IsNeedOffsetRow(ARowIndex, FirstRow) then
       if FirstRow then
         Inc(Result.Y, SplitMargin)
       else
@@ -3830,7 +3834,7 @@ begin
   end;
 end;
 
-function TLinesPostPainter.IsNeedOffsetRow(RowIndex: Int64;
+function TLinesPostPainter.IsNeedOffsetRow(ARowIndex: Int64;
   FirstRow: Boolean): Boolean;
 begin
   Result := False;
@@ -4168,6 +4172,19 @@ begin
       SetNewEditRowIndex(-1)
     else
       FCaretPosData.RowIndex := -1;
+  end;
+end;
+
+function TFWCustomHexView.ColumnAsString(ARowIndex: Int64; AColumn: TColumnType
+  ): string;
+var
+  Painter: TAbstractPrimaryRowPainter;
+begin
+  Result := '';
+  begin
+    Painter := GetRowPainter(ARowIndex);
+    if Assigned(Painter) then
+      Result := Painter.ColumnAsString(AColumn);
   end;
 end;
 
@@ -4982,24 +4999,24 @@ begin
   FMousePressed := False;
 end;
 
-procedure TFWCustomHexView.FocusOnRow(RowIndex: Int64;
+procedure TFWCustomHexView.FocusOnRow(ARowIndex: Int64;
   ACaretChangeMode: TCaretChangeMode);
 var
   Diapason: TVisibleRowDiapason;
   NewVerticalOffset: Int64;
 begin
-  if RowVisible(RowIndex) then
+  if RowVisible(ARowIndex) then
   begin
-    UpdateCaretPosData(SelectPoint(RowIndex, 0, ctOpcode), ACaretChangeMode);
+    UpdateCaretPosData(SelectPoint(ARowIndex, 0, ctOpcode), ACaretChangeMode);
     Exit;
   end;
   Diapason := VisibleRowDiapason;
-  if RowIndex < Diapason.StartRow then
-    NewVerticalOffset := RowIndex * FRowHeight
+  if ARowIndex < Diapason.StartRow then
+    NewVerticalOffset := ARowIndex * FRowHeight
   else
-    NewVerticalOffset := (RowIndex - (Diapason.EndRow - Diapason.StartRow)) * FRowHeight;
+    NewVerticalOffset := (ARowIndex - (Diapason.EndRow - Diapason.StartRow)) * FRowHeight;
   UpdateScrollY(-NewVerticalOffset);
-  UpdateCaretPosData(SelectPoint(RowIndex, 0, ctOpcode), ACaretChangeMode);
+  UpdateCaretPosData(SelectPoint(ARowIndex, 0, ctOpcode), ACaretChangeMode);
 end;
 
 function TFWCustomHexView.GetBookMark(AIndex: TBookMark): Int64;
@@ -5246,13 +5263,13 @@ begin
     Dec(Result, FRowHeight);
 end;
 
-procedure TFWCustomHexView.GetRawBuff(RowIndex: Int64; var Data: TBytes);
+procedure TFWCustomHexView.GetRawBuff(ARowIndex: Int64; var Data: TBytes);
 begin
   if FDataStream = nil then
     raise Exception.Create('DataStream = nil');
-  SetLength(Data, FRawData[RowIndex].RawLength);
+  SetLength(Data, FRawData[ARowIndex].RawLength);
   if Length(Data) = 0 then Exit;
-  FDataStream.Position := FRawData[RowIndex].DataOffset;
+  FDataStream.Position := FRawData[ARowIndex].DataOffset;
   FDataStream.ReadBuffer(Data[0], Length(Data));
 end;
 
@@ -5261,32 +5278,32 @@ begin
   Result := TRawData;
 end;
 
-function TFWCustomHexView.GetRowOffset(RowIndex: Int64): Int64;
+function TFWCustomHexView.GetRowOffset(ARowIndex: Int64): Int64;
 begin
-  Result := FScrollOffset.Y + RowIndex * FRowHeight;
+  Result := FScrollOffset.Y + ARowIndex * FRowHeight;
   if Header.Visible then
     Inc(Result, FRowHeight);
 end;
 
-function TFWCustomHexView.GetRowPainter(RowIndex: Int64;
+function TFWCustomHexView.GetRowPainter(ARowIndex: Int64;
   TempPainter: Boolean): TAbstractPrimaryRowPainter;
 begin
-  Result := InternalGetRowPainter(RowIndex);
+  Result := InternalGetRowPainter(ARowIndex);
   if Assigned(Result) and not TempPainter then
   begin
-    if (RowIndex < 0) or (RowIndex >= RawData.Count) then
+    if (ARowIndex < 0) or (ARowIndex >= RawData.Count) then
       Result := nil
     else
-      Result.RowIndex := RowIndex;
+      Result.RowIndex := ARowIndex;
   end;
 end;
 
-function TFWCustomHexView.GetSelectData(RowIndex: Int64): TSelectData;
+function TFWCustomHexView.GetSelectData(ARowIndex: Int64): TSelectData;
 begin
-  Result := GetSelectDataWithSelection(RowIndex, FSelStart, FSelEnd);
+  Result := GetSelectDataWithSelection(ARowIndex, FSelStart, FSelEnd);
 end;
 
-function TFWCustomHexView.GetSelectDataWithSelection(RowIndex: Int64; ASelStart,
+function TFWCustomHexView.GetSelectDataWithSelection(ARowIndex: Int64; ASelStart,
   ASelEnd: TSelectPoint): TSelectData;
 var
   SelStartIdx, SelEndIdx: Int64;
@@ -5309,10 +5326,10 @@ begin
     RightSel := ASelEnd;
   end;
 
-  if LeftSel.RowIndex > RowIndex then Exit;
-  if RightSel.RowIndex < RowIndex then Exit;
+  if LeftSel.RowIndex > ARowIndex then Exit;
+  if RightSel.RowIndex < ARowIndex then Exit;
 
-  if LeftSel.RowIndex = RowIndex then
+  if LeftSel.RowIndex = ARowIndex then
     SelStartIdx := LeftSel.ValueOffset
   else
     SelStartIdx := 0;
@@ -5324,7 +5341,7 @@ begin
   if MaxPosInRow > 0 then
     Dec(MaxPosInRow);
 
-  if RightSel.RowIndex > RowIndex then
+  if RightSel.RowIndex > ARowIndex then
     SelEndIdx := MaxPosInRow
   else
     SelEndIdx := RightSel.ValueOffset;
@@ -5408,7 +5425,7 @@ begin
 end;
 
 function TFWCustomHexView.InternalGetRowPainter(
-  RowIndex: Int64): TAbstractPrimaryRowPainter;
+  ARowIndex: Int64): TAbstractPrimaryRowPainter;
 begin
   Result := DefaultPainter;
 end;
@@ -5419,12 +5436,12 @@ begin
   InvalidateRow(FCaretPosData.RowIndex);
 end;
 
-procedure TFWCustomHexView.InvalidateRow(RowIndex: Int64);
+procedure TFWCustomHexView.InvalidateRow(ARowIndex: Int64);
 var
   R: TRect;
   LeftOffset: Integer;
 begin
-  if not RowVisible(RowIndex) then
+  if not RowVisible(ARowIndex) then
   begin
     Invalidate;
     Exit;
@@ -5865,6 +5882,13 @@ begin
   FitColumnsToBestSize;
 end;
 
+function TFWCustomHexView.RowRawLength(ARowIndex: Int64): Integer;
+begin
+  Result := 0;
+  if (ARowIndex >= 0) and (ARowIndex < RawData.Count) then
+    Result := RawData[ARowIndex].RawLength;
+end;
+
 procedure TFWCustomHexView.Resize;
 begin
   inherited;
@@ -5942,10 +5966,20 @@ begin
   end;
 end;
 
-function TFWCustomHexView.RowToAddress(RowIndex: Int64;
+function TFWCustomHexView.RowToAddress(ARowIndex: Int64;
   ValueOffset: Integer): Int64;
 begin
-  Result := RawData.RowToAddress(RowIndex, ValueOffset);
+  Result := RawData.RowToAddress(ARowIndex, ValueOffset);
+end;
+
+function TFWCustomHexView.SelectedColumnAsString(AColumn: TColumnType): string;
+begin
+  Result := ColumnAsString(SelectedRowIndex, AColumn);
+end;
+
+function TFWCustomHexView.SelectedRawLength: Integer;
+begin
+  Result := RowRawLength(SelectedRowIndex);
 end;
 
 function TFWCustomHexView.SelectedRowIndex: Int64;
@@ -5953,13 +5987,13 @@ begin
   Result := RawData.AddressToRowIndex(Min(SelStart, SelEnd));
 end;
 
-function TFWCustomHexView.RowVisible(RowIndex: Int64): Boolean;
+function TFWCustomHexView.RowVisible(ARowIndex: Int64): Boolean;
 var
   D: TVisibleRowDiapason;
 begin
-  if RowIndex < 0 then Exit(False);
+  if ARowIndex < 0 then Exit(False);
   D := VisibleRowDiapason;
-  Result := (D.StartRow <= RowIndex) and (D.EndRow >= RowIndex);
+  Result := (D.StartRow <= ARowIndex) and (D.EndRow >= ARowIndex);
 end;
 
 procedure TFWCustomHexView.SaveViewParam;
@@ -6238,11 +6272,11 @@ begin
   end;
 end;
 
-procedure TFWCustomHexView.SetTopRow(RowIndex: Int64);
+procedure TFWCustomHexView.SetTopRow(ARowIndex: Int64);
 begin
-  if RowIndex < 0 then
-    RowIndex := 0;
-  UpdateScrollY(-RowIndex * FRowHeight);
+  if ARowIndex < 0 then
+    ARowIndex := 0;
+  UpdateScrollY(-ARowIndex * FRowHeight);
 end;
 
 function TFWCustomHexView.ToDpi(Value: Integer): Integer;

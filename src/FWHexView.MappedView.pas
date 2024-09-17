@@ -124,7 +124,7 @@ type
     function GetItem: TRowData;
     function GetRawIndexByAddr(AAddr: Int64): Integer;
     function GetRawIndexByRowIndex(RowIndex: Int64): Integer;
-    function InternalGetItem (RowIndex: Int64): TRowData; inline;
+    function InternalGetItem (ARowIndex: Int64): TRowData; inline;
   protected
     procedure SetLinked(Index: Int64);
     function Owner: TCustomMappedHexView;
@@ -407,7 +407,7 @@ type
 
   TCommonMapViewPostPainter = class(TLinesPostPainter)
   protected
-    function IsNeedOffsetRow(RowIndex: Int64; FirstRow: Boolean): Boolean; override;
+    function IsNeedOffsetRow(ARowIndex: Int64; FirstRow: Boolean): Boolean; override;
     function LineColorPresent(Selected: Boolean; const Param: TDrawLineParam;
       out LineColor: TColor): Boolean; override;
     function RawData: TMappedRawData; inline;
@@ -509,13 +509,13 @@ type
     function CalculateJmpToRow(JmpFromRow: Int64): Int64; virtual;
     procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); override;
     procedure DoInvalidateRange(AStartRow, AEndRow: Int64); override;
-    procedure DoJmpTo(RowIndex: Int64; AJmpState: TJmpState);
+    procedure DoJmpTo(ARowIndex: Int64; AJmpState: TJmpState);
     function DoLButtonDown(Shift: TShiftState): Boolean; override;
     function GetColorMapClass: THexViewColorMapClass; override;
     function GetDefaultPainterClass: TPrimaryRowPainterClass; override;
     function GetRawDataClass: TRawDataClass; override;
     procedure InitPainters; override;
-    function InternalGetRowPainter(RowIndex: Int64): TAbstractPrimaryRowPainter; override;
+    function InternalGetRowPainter(ARowIndex: Int64): TAbstractPrimaryRowPainter; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     function RawData: TMappedRawData; inline;
     procedure UpdateCursor(const HitTest: TMouseHitInfo); override;
@@ -936,13 +936,13 @@ begin
   Result := GetItem.HintType;
 end;
 
-function TMappedRawData.InternalGetItem(RowIndex: Int64): TRowData;
+function TMappedRawData.InternalGetItem(ARowIndex: Int64): TRowData;
 var
   RawRowIndex: Integer;
   Offset, LinesBetween: Int64;
 begin
-  RawRowIndex := GetRawIndexByRowIndex(RowIndex);
-  if FRows.List[RawRowIndex].RowIndex = RowIndex then
+  RawRowIndex := GetRawIndexByRowIndex(ARowIndex);
+  if FRows.List[RawRowIndex].RowIndex = ARowIndex then
   begin
     Result := FRows.List[RawRowIndex];
     Result.RawLength := Min(Owner.BytesInRow, Result.RawLength);
@@ -2363,13 +2363,13 @@ begin
     raise Exception.CreateFmt(SInvalidOwnerClass, [ClassName, AOwner.ClassName]);
 end;
 
-function TCommonMapViewPostPainter.IsNeedOffsetRow(RowIndex: Int64;
+function TCommonMapViewPostPainter.IsNeedOffsetRow(ARowIndex: Int64;
   FirstRow: Boolean): Boolean;
 begin
   if FirstRow then
-    Result := RawData[RowIndex].Linked
+    Result := RawData[ARowIndex].Linked
   else
-    Result := RawData[RowIndex].JmpToAddr <> 0;
+    Result := RawData[ARowIndex].JmpToAddr <> 0;
 end;
 
 function TCommonMapViewPostPainter.LineColorPresent(Selected: Boolean;
@@ -2861,7 +2861,7 @@ begin
   inherited;
 end;
 
-procedure TCustomMappedHexView.DoJmpTo(RowIndex: Int64; AJmpState: TJmpState);
+procedure TCustomMappedHexView.DoJmpTo(ARowIndex: Int64; AJmpState: TJmpState);
 var
   Handled: Boolean;
   JmpAddr: Int64;
@@ -2869,7 +2869,7 @@ var
 begin
   Handled := False;
 
-  if RawData[RowIndex].Style = rsMask then
+  if RawData[ARowIndex].Style = rsMask then
   begin
     DataMap.Data.List[RawData.MapRowIndex].Expanded := not RawData.Expanded;
     ClearSelection;
@@ -2881,7 +2881,7 @@ begin
   end;
 
   if AJmpState = jsPushToUndo then
-    JmpAddr := RawData[RowIndex].JmpToAddr
+    JmpAddr := RawData[ARowIndex].JmpToAddr
   else
     JmpAddr := -1;
   if Assigned(FJmpToEvent) then
@@ -2896,9 +2896,9 @@ begin
 
     // jumps are divided in two steps to restore the screen state on rollback
 
-    FPreviosJmp.Push(RowIndex);
+    FPreviosJmp.Push(ARowIndex);
     FPreviosJmp.Push(CurrentVisibleRow);
-    FocusOnAddress(RawData[RowIndex].JmpToAddr, ccmSelectRow);
+    FocusOnAddress(RawData[ARowIndex].JmpToAddr, ccmSelectRow);
   end
   else
   begin
@@ -2969,11 +2969,11 @@ begin
 end;
 
 function TCustomMappedHexView.InternalGetRowPainter(
-  RowIndex: Int64): TAbstractPrimaryRowPainter;
+  ARowIndex: Int64): TAbstractPrimaryRowPainter;
 begin
-  if (RowIndex < 0) or (RowIndex >= RawData.Count) then
+  if (ARowIndex < 0) or (ARowIndex >= RawData.Count) then
     Exit(nil);
-  case RawData[RowIndex].Style of
+  case RawData[ARowIndex].Style of
     rsRaw: Result := Painters[0];
     rsRawWithExDescription: Result := Painters[1];
     rsAsm: Result := Painters[2];
