@@ -376,7 +376,7 @@ type
     property DisplayName: string read FEncodingDisplayName;
   end;
 
-  TColorMode = (cmLight, cmDark, cmCustom);
+  TColorMode = (cmAuto, cmLight, cmDark, cmCustom);
 
   THexViewColorMap = class(TPersistent)
   strict private
@@ -436,7 +436,7 @@ type
     property BookmarkTextColor: TColor read FBookmarkTextColor write SetBookmarkTextColor stored IsColorStored;
     property CaretColor: TColor read FCaretColor write SetCaretColor stored IsColorStored;
     property CaretTextColor: TColor read FCaretTextColor write SetCaretTextColor stored IsColorStored;
-    property ColorMode: TColorMode read FColorMode write SetColorMode default cmLight;
+    property ColorMode: TColorMode read FColorMode write SetColorMode default cmAuto;
     property GroupColor: TColor read FGroupColor write SetGroupColor stored IsColorStored;
     property InfoBackgroundColor: TColor read FInfoBackgroundColor write SetInfoBackgroundColor stored IsColorStored;
     property InfoBorderColor: TColor read FInfoBorderColor write SetInfoBorderColor stored IsColorStored;
@@ -2039,7 +2039,7 @@ end;
 constructor THexViewColorMap.Create(AOwner: TFWCustomHexView);
 begin
   FOwner := AOwner;
-  InitLightMode;
+  InitDefault;
 end;
 
 procedure THexViewColorMap.DoChange;
@@ -2050,12 +2050,47 @@ end;
 
 procedure THexViewColorMap.InitDarkMode;
 begin
-
+  FBackgroundColor := clWindow;
+  FBookmarkBackgroundColor := clHighlight;
+  FBookmarkBorderColor := clHotLight;
+  FBookmarkTextColor := clHighlightText;
+  FCaretColor := RGB(31, 31, 255);
+  FCaretTextColor := clWhite;
+  FGroupColor := RGB(239, 239, 239);
+  FSelectInactiveColor := RGB(220, 220, 220);
+  FInfoBackgroundColor := clGray;
+  FInfoBorderColor := clWindowFrame;
+  FInfoTextColor := clWindow;
+  FHeaderBorder := clGrayText;
+  FHeaderBackgroundColor := clWindow;
+  FHeaderColumnSeparatorColor := RGB(140, 140, 140);
+  FHeaderTextColor := clWindowText;
+  FRowSeparatorColor := clGray;
+  FSelectColor := RGB(224, 224, 255);
+  FTextColor := clWindowText;
+  FTextCommentColor := clGrayText;
 end;
 
 procedure THexViewColorMap.InitDefault;
+
+  function IsColorRefDark(Value: TColorRef): Boolean;
+  begin
+    Result :=
+      (PRGBTriple(@Value)^.rgbtRed * 30 +
+      PRGBTriple(@Value)^.rgbtGreen * 59 +
+      PRGBTriple(@Value)^.rgbtBlue * 11) div 100 <= 130;
+  end;
+
+var
+  DefColorMode: TColorMode;
 begin
-  ColorMode := cmLight;
+  DefColorMode := cmDark;
+  if IsColorRefDark(ColorToRGB(clWindow)) then
+    DefColorMode := cmDark;
+  case DefColorMode of
+    cmLight: InitLightMode;
+    cmDark: InitDarkMode;
+  end;
 end;
 
 procedure THexViewColorMap.InitLightMode;
@@ -2069,11 +2104,12 @@ begin
   FGroupColor := RGB(239, 239, 239);
   FSelectInactiveColor := RGB(220, 220, 220);
   FInfoBackgroundColor := clGray;
-  FInfoBorderColor := clBlack;
-  FInfoTextColor := clWhite;
+  FInfoBorderColor := clWindowFrame;
+  FInfoTextColor := clWindowText;
   FHeaderBorder := clGrayText;
-  FHeaderBackgroundColor := clWhite;
+  FHeaderBackgroundColor := clWindow;
   FHeaderColumnSeparatorColor := RGB(140, 140, 140);
+  FHeaderTextColor := clWindowText;
   FRowSeparatorColor := clGray;
   FSelectColor := RGB(224, 224, 255);
   FTextColor := clWindowText;
@@ -2363,6 +2399,7 @@ end;
 procedure TBasePainter.DefaultDrawHeaderColumn(ACanvas: TCanvas;
   var ARect: TRect; const ACaption: string; Flags: DWORD);
 begin
+  ACanvas.Font.Color := FOwner.ColorMap.HeaderTextColor;
   DrawText(ACanvas.Handle, PChar(ACaption), -1, ARect, Flags);
   ACanvas.Pen.Color := ColorMap.HeaderBorderColor;
   InflateRect(ARect, FOwner.TextMargin, 0);
