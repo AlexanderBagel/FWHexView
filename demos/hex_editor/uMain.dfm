@@ -94,21 +94,24 @@ object dlgHexEditor: TdlgHexEditor
         Caption = '-'
       end
       object Copy2: TMenuItem
-        Action = acCopy
+        Action = acCopyBytes
       end
       object CopyasText2: TMenuItem
-        Action = acCopyAsText
+        Action = acCopyText
+      end
+      object CopyAddress1: TMenuItem
+        Action = acCopyAddr
       end
       object CopyasArray2: TMenuItem
         Caption = 'Copy as Array'
         object CopyasPasArray2: TMenuItem
-          Action = acCopyAsPas
+          Action = acCopyPas
         end
         object CopyasCppArray2: TMenuItem
-          Action = acCopyAsCpp
+          Action = acCopyCpp
         end
         object CopyasAsmArray2: TMenuItem
-          Action = acCopyAsAsm
+          Action = acCopyAsm
         end
       end
       object N8: TMenuItem
@@ -486,40 +489,6 @@ object dlgHexEditor: TdlgHexEditor
       OnExecute = acBvmHex8Execute
       OnUpdate = acBvmHex8Update
     end
-    object acCopy: TAction
-      Tag = 1
-      Category = 'Edit'
-      Caption = 'Copy'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsText: TAction
-      Category = 'Edit'
-      Caption = 'Copy as Text'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsCpp: TAction
-      Tag = 3
-      Category = 'Edit'
-      Caption = 'Copy as Cpp Array'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsPas: TAction
-      Tag = 2
-      Category = 'Edit'
-      Caption = 'Copy as Pas Array'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsAsm: TAction
-      Tag = 4
-      Category = 'Edit'
-      Caption = 'Copy as Asm Array'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
     object acFind: TAction
       Category = 'Search'
       Caption = 'Find...'
@@ -739,6 +708,30 @@ object dlgHexEditor: TdlgHexEditor
       OnExecute = acViewMode8Execute
       OnUpdate = acViewMode8Update
     end
+    object acCopyAddr: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csAddress
+    end
+    object acCopyAsm: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csAsmOpcodes
+    end
+    object acCopyText: THexViewCopyAction
+      Category = 'HexView Actions'
+    end
+    object acCopyBytes: THexViewCopyAction
+      Category = 'HexView Actions'
+      Caption = 'Copy'
+      CopyStyle = csBytes
+    end
+    object acCopyCpp: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csCpp
+    end
+    object acCopyPas: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csPascal
+    end
   end
   object OpenDialog: TOpenDialog
     Filter = 'All files (*.*)|*.*'
@@ -755,21 +748,24 @@ object dlgHexEditor: TdlgHexEditor
     Left = 436
     Top = 144
     object Copy1: TMenuItem
-      Action = acCopy
+      Action = acCopyBytes
     end
     object CopyasText1: TMenuItem
-      Action = acCopyAsText
+      Action = acCopyText
+    end
+    object CopyAddress2: TMenuItem
+      Action = acCopyAddr
     end
     object CopyasArray1: TMenuItem
       Caption = 'Copy as Array'
       object CopyasPasArray1: TMenuItem
-        Action = acCopyAsPas
+        Action = acCopyPas
       end
       object CopyasCppArray1: TMenuItem
-        Action = acCopyAsCpp
+        Action = acCopyCpp
       end
       object CopyasAsmArray1: TMenuItem
-        Action = acCopyAsAsm
+        Action = acCopyAsm
       end
     end
     object N15: TMenuItem

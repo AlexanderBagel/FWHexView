@@ -57,6 +57,7 @@ type
     FHighAddress: Int64;
     FHasSearchResult: Boolean;
     procedure RefreshView;
+    function GetSelBkColor(DefSelection: Boolean): TColor;
     function GetHighlightBuff(AddrVA: Int64): Boolean;
     procedure PushToUndoStack(const Value: TUndoRec);
     procedure OnBuffUpdate(AddrVA: Int64; ASize: Integer; pBuff: PByte);
@@ -99,8 +100,10 @@ implementation
 const
   SearchTag = 1;
   SearchSelTag = 2;
-  SelectColor = $ccff;
-  SearchSelColor = $98FB98;
+  SelectColorL = $CCFF;
+  SelectColorD = $8FB2;
+  SearchSelColorL = $98FB98;
+  SearchSelColorD = $A07B51;
 
 { TPageFrame }
 
@@ -204,6 +207,22 @@ begin
     Inc(I, Metric.ByteCount);
   end;
   Result := FHighlightBuffLen > 0;
+end;
+
+function TPageFrame.GetSelBkColor(DefSelection: Boolean): TColor;
+begin
+  if HexView.ColorMap.IsDarkMode then
+  begin
+    if DefSelection then
+      Result := SelectColorD
+    else
+      Result := SearchSelColorD;
+  end
+  else
+    if DefSelection then
+      Result := SelectColorL
+    else
+      Result := SearchSelColorL;
 end;
 
 procedure TPageFrame.GotoBookmark(Index: Integer);
@@ -479,7 +498,7 @@ begin
     begin
       HexView.Selections.DropSelectionsAtTag(SearchTag);
       HexView.Selections.Add(SearchSelTag,
-        FSearchPos - Length(FSearchBuff), FSearchPos - 1, SearchSelColor);
+        FSearchPos - Length(FSearchBuff), FSearchPos - 1, GetSelBkColor(False));
       SearchAtSearchPos;
     end;
   end;
@@ -554,7 +573,7 @@ begin
     begin
       HexView.Selections.DropSelectionsAtTag(SearchTag);
       HexView.Selections.Add(SearchTag, FSearchPos + I,
-        FSearchPos + I + Length(FSearchBuff) - 1, SelectColor);
+        FSearchPos + I + Length(FSearchBuff) - 1, GetSelBkColor(True));
       HexView.FocusOnAddress(FSearchPos + I, ccmSetNewSelection);
       Inc(FSearchPos, I + Length(FSearchBuff));
       Exit;

@@ -303,15 +303,15 @@ type
     procedure InitLightMode; override;
     procedure InitDarkMode; override;
   published
-    property ArrowDownColor: TColor read FArrowDownColor write SetArrowDownColor;
-    property ArrowDownSelectedColor: TColor read FArrowDownSelectedColor write SetArrowDownSelectedColor;
-    property ArrowUpColor: TColor read FArrowUpColor write SetArrowUpColor;
-    property ArrowUpSelectedColor: TColor read FArrowUpSelectedColor write SetArrowUpSelectedColor;
-    property JmpMarkColor: TColor read FJmpMarkColor write SetJmpMarkColor default clDefault;
-    property JmpMarkTextColor: TColor read FJmpMarkTextColor write SetJmpMarkTextColor;
-    property SeparatorBackgroundColor: TColor read FSeparatorBackgroundColor write SetSeparatorBackgroundColor;
-    property SeparatorBorderColor: TColor read FSeparatorBorderColor write SetSeparatorBorderColor;
-    property SeparatorTextColor: TColor read FSeparatorTextColor write SetSeparatorTextColor;
+    property ArrowDownColor: TColor read FArrowDownColor write SetArrowDownColor stored IsColorStored;
+    property ArrowDownSelectedColor: TColor read FArrowDownSelectedColor write SetArrowDownSelectedColor stored IsColorStored;
+    property ArrowUpColor: TColor read FArrowUpColor write SetArrowUpColor stored IsColorStored;
+    property ArrowUpSelectedColor: TColor read FArrowUpSelectedColor write SetArrowUpSelectedColor stored IsColorStored;
+    property JmpMarkColor: TColor read FJmpMarkColor write SetJmpMarkColor stored IsColorStored;
+    property JmpMarkTextColor: TColor read FJmpMarkTextColor write SetJmpMarkTextColor stored IsColorStored;
+    property SeparatorBackgroundColor: TColor read FSeparatorBackgroundColor write SetSeparatorBackgroundColor stored IsColorStored;
+    property SeparatorBorderColor: TColor read FSeparatorBorderColor write SetSeparatorBorderColor stored IsColorStored;
+    property SeparatorTextColor: TColor read FSeparatorTextColor write SetSeparatorTextColor stored IsColorStored;
   end;
 
   TFixedHexByteTextMetric = class(TDefaultTextMetric)
@@ -1776,7 +1776,15 @@ end;
 procedure TMapViewColors.InitDarkMode;
 begin
   inherited;
-
+  FArrowDownColor := $B1B1B1;
+  FArrowDownSelectedColor := $B87149;
+  FArrowUpColor := $D9D4FF;
+  FArrowUpSelectedColor := $8B6EFF;
+  FJmpMarkColor := clDefault;
+  FJmpMarkTextColor := $B87149;
+  FSeparatorBackgroundColor := $5D5D5D;
+  FSeparatorBorderColor := clGrayText;
+  FSeparatorTextColor := TextColor;
 end;
 
 procedure TMapViewColors.InitLightMode;

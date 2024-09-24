@@ -429,6 +429,7 @@ type
     function IsColorStored: Boolean;
   public
     constructor Create(AOwner: TFWCustomHexView); virtual;
+    function IsDarkMode: Boolean;
   published
     property BackgroundColor: TColor read FBackgroundColor write SetBackgroundColor stored IsColorStored;
     property BookmarkBackgroundColor: TColor read FBookmarkBackgroundColor write SetBookmarkBackgroundColor stored IsColorStored;
@@ -2050,42 +2051,33 @@ end;
 
 procedure THexViewColorMap.InitDarkMode;
 begin
-  FBackgroundColor := clWindow;
+  FBackgroundColor := $212121;
   FBookmarkBackgroundColor := clHighlight;
   FBookmarkBorderColor := clHotLight;
   FBookmarkTextColor := clHighlightText;
-  FCaretColor := RGB(31, 31, 255);
+  FCaretColor := $F6A289;
   FCaretTextColor := clWhite;
-  FGroupColor := RGB(239, 239, 239);
-  FSelectInactiveColor := RGB(220, 220, 220);
+  FGroupColor := $303030;
+  FSelectInactiveColor := $414141;
   FInfoBackgroundColor := clGray;
   FInfoBorderColor := clWindowFrame;
   FInfoTextColor := clWindow;
   FHeaderBorder := clGrayText;
-  FHeaderBackgroundColor := clWindow;
-  FHeaderColumnSeparatorColor := RGB(140, 140, 140);
-  FHeaderTextColor := clWindowText;
+  FHeaderBackgroundColor := $212121;
+  FHeaderColumnSeparatorColor := $8C8C8C;
+  FHeaderTextColor := $E0E0E0;
   FRowSeparatorColor := clGray;
-  FSelectColor := RGB(224, 224, 255);
-  FTextColor := clWindowText;
-  FTextCommentColor := clGrayText;
+  FSelectColor := $505050;
+  FTextColor := $E0E0E0;
+  FTextCommentColor := $A0A0A0;
 end;
 
 procedure THexViewColorMap.InitDefault;
-
-  function IsColorRefDark(Value: TColorRef): Boolean;
-  begin
-    Result :=
-      (PRGBTriple(@Value)^.rgbtRed * 30 +
-      PRGBTriple(@Value)^.rgbtGreen * 59 +
-      PRGBTriple(@Value)^.rgbtBlue * 11) div 100 <= 130;
-  end;
-
 var
   DefColorMode: TColorMode;
 begin
-  DefColorMode := cmDark;
-  if IsColorRefDark(ColorToRGB(clWindow)) then
+  DefColorMode := cmLight;
+  if IsDarkMode then
     DefColorMode := cmDark;
   case DefColorMode of
     cmLight: InitLightMode;
@@ -2119,6 +2111,26 @@ end;
 function THexViewColorMap.IsColorStored: Boolean;
 begin
   Result := ColorMode = cmCustom;
+end;
+
+function THexViewColorMap.IsDarkMode: Boolean;
+
+  function IsColorRefDark(Value: LongInt): Boolean;
+  begin
+    Result := (
+      GetRValue(Value) * 30 +
+      GetGValue(Value) * 59 +
+      GetBValue(Value) * 11)  div 100 <= 130;
+  end;
+
+begin
+  case ColorMode of
+    cmAuto: Result := IsColorRefDark(ColorToRGB(clWindow));
+    cmDark: Result := True;
+    cmCustom: Result := IsColorRefDark(ColorToRGB(BackgroundColor));
+  else
+    Result := False;
+  end;
 end;
 
 procedure THexViewColorMap.SetBackgroundColor(const Value: TColor);
@@ -4266,7 +4278,8 @@ begin
 
   if CopyStyle = csAddress then
   begin
-    Clipboard.AsText := IntToHex(Min(SelStart, SelEnd), 1);
+    Painter := GetRowPainter(SelectedRowIndex);
+    Clipboard.AsText := Painter.ColumnAsString(ctAddress);
     Exit;
   end;
 

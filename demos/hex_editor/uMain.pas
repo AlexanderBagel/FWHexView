@@ -20,6 +20,7 @@ uses
   Controls, Forms, Dialogs, ActnList,
   Menus, ComCtrls, Math,
 
+  FWHexView.Actions,
   FWHexView.Common,
   FWHexView,
   uDataFrame,
@@ -108,11 +109,6 @@ type
     Double64bit1: TMenuItem;
     N6: TMenuItem;
     ext1: TMenuItem;
-    acCopy: TAction;
-    acCopyAsText: TAction;
-    acCopyAsCpp: TAction;
-    acCopyAsPas: TAction;
-    acCopyAsAsm: TAction;
     PopupMenu: TPopupMenu;
     Copy1: TMenuItem;
     CopyasText1: TMenuItem;
@@ -208,6 +204,14 @@ type
     N15: TMenuItem;
     acBvmFloat80: TAction;
     Extended80bit1: TMenuItem;
+    acCopyAddr: THexViewCopyAction;
+    acCopyAsm: THexViewCopyAction;
+    acCopyText: THexViewCopyAction;
+    acCopyBytes: THexViewCopyAction;
+    acCopyCpp: THexViewCopyAction;
+    acCopyPas: THexViewCopyAction;
+    CopyAddress1: TMenuItem;
+    CopyAddress2: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure acRedoUpdate(Sender: TObject);
     procedure acRedoExecute(Sender: TObject);
@@ -227,8 +231,6 @@ type
     procedure acEncAnsiUpdate(Sender: TObject);
     procedure acBvmHex8Update(Sender: TObject);
     procedure acBvmHex8Execute(Sender: TObject);
-    procedure acCopyUpdate(Sender: TObject);
-    procedure acCopyExecute(Sender: TObject);
     procedure acFindExecute(Sender: TObject);
     procedure PageControlChange(Sender: TObject);
     procedure acFillZerosUpdate(Sender: TObject);
@@ -324,17 +326,6 @@ end;
 procedure TdlgHexEditor.acCloseUpdate(Sender: TObject);
 begin
   TAction(Sender).Enabled := ActiveDoc.Active;
-end;
-
-procedure TdlgHexEditor.acCopyExecute(Sender: TObject);
-begin
-  ActiveDoc.HexView.CopySelected(TCopyStyle(TAction(Sender).Tag));
-end;
-
-procedure TdlgHexEditor.acCopyUpdate(Sender: TObject);
-begin
-  TAction(Sender).Enabled := ActiveDoc.Active and
-    (ActiveDoc.HexView.SelStart >= 0);
 end;
 
 procedure TdlgHexEditor.acEncAnsiExecute(Sender: TObject);
