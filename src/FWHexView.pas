@@ -4442,6 +4442,7 @@ end;
 
 function TFWCustomHexView.CurrentVisibleRow: Int64;
 begin
+  if FRowHeight = 0 then Exit(0);
   Result := -FScrollOffset.Y div FRowHeight;
   if Result < 0 then
   begin

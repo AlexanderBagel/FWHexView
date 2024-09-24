@@ -1,56 +1,56 @@
 object dlgHexEditor: TdlgHexEditor
-  Left = 1238
-  Height = 926
-  Top = 605
-  Width = 1438
+  Left = 0
+  Top = 0
   Caption = 'HexEditor'
-  ClientHeight = 926
-  ClientWidth = 1438
+  ClientHeight = 617
+  ClientWidth = 959
   Color = clBtnFace
-  DesignTimePPI = 144
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -17
+  Font.Height = -11
   Font.Name = 'Tahoma'
+  Font.Style = []
   Menu = MainMenu
   Position = poScreenCenter
-  LCLVersion = '3.99.0.0'
   OnCreate = FormCreate
+  PixelsPerInch = 96
   object StatusBar: TStatusBar
     Left = 0
-    Height = 29
-    Top = 897
-    Width = 1438
-    Panels = <    
-      item
-        Width = 112
-      end    
-      item
-        Width = 262
-      end    
-      item
-        Width = 225
-      end    
-      item
-        Width = 450
-      end    
+    Top = 598
+    Width = 959
+    Height = 19
+    Panels = <
       item
         Width = 75
+      end
+      item
+        Width = 175
+      end
+      item
+        Width = 150
+      end
+      item
+        Width = 300
+      end
+      item
+        Width = 50
       end>
+    ParentColor = True
     SimplePanel = False
   end
   object PageControl: TPageControl
     Left = 0
-    Height = 897
     Top = 0
-    Width = 1438
+    Width = 959
+    Height = 598
     Align = alClient
     PopupMenu = TabPopupMenu
     TabOrder = 1
     OnChange = PageControlChange
   end
   object MainMenu: TMainMenu
-    Left = 540
-    Top = 216
+    Left = 352
+    Top = 144
     object File1: TMenuItem
       Caption = 'File'
       object Open1: TMenuItem
@@ -93,21 +93,24 @@ object dlgHexEditor: TdlgHexEditor
         Caption = '-'
       end
       object Copy2: TMenuItem
-        Action = acCopy
+        Action = acCopyBytes
       end
       object CopyasText2: TMenuItem
-        Action = acCopyAsText
+        Action = acCopyText
+      end
+      object CopyAddress1: TMenuItem
+        Action = acCopyAddr
       end
       object CopyasArray2: TMenuItem
         Caption = 'Copy as Array'
         object CopyasPasArray2: TMenuItem
-          Action = acCopyAsPas
+          Action = acCopyPas
         end
         object CopyasCppArray2: TMenuItem
-          Action = acCopyAsCpp
+          Action = acCopyCpp
         end
         object CopyasAsmArray2: TMenuItem
-          Action = acCopyAsAsm
+          Action = acCopyAsm
         end
       end
       object N8: TMenuItem
@@ -245,6 +248,9 @@ object dlgHexEditor: TdlgHexEditor
         object Double64bit1: TMenuItem
           Action = acBvmFloat64
         end
+        object Extended80bit1: TMenuItem
+          Action = acBvmFloat80
+        end
         object N6: TMenuItem
           Caption = '-'
         end
@@ -262,8 +268,8 @@ object dlgHexEditor: TdlgHexEditor
     end
   end
   object ActionList: TActionList
-    Left = 336
-    Top = 216
+    Left = 224
+    Top = 144
     object acUndo: TAction
       Category = 'Edit'
       Caption = 'Undo'
@@ -468,46 +474,19 @@ object dlgHexEditor: TdlgHexEditor
       OnExecute = acBvmHex8Execute
       OnUpdate = acBvmHex8Update
     end
+    object acBvmFloat80: TAction
+      Tag = 14
+      Category = 'ByteViewMode'
+      Caption = 'Extended (80-bit)'
+      OnExecute = acBvmHex8Execute
+      OnUpdate = acBvmHex8Update
+    end
     object acBvmText: TAction
       Tag = 15
       Category = 'ByteViewMode'
       Caption = 'Text'
       OnExecute = acBvmHex8Execute
       OnUpdate = acBvmHex8Update
-    end
-    object acCopy: TAction
-      Tag = 1
-      Category = 'Edit'
-      Caption = 'Copy'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsText: TAction
-      Category = 'Edit'
-      Caption = 'Copy as Text'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsCpp: TAction
-      Tag = 3
-      Category = 'Edit'
-      Caption = 'Copy as Cpp Array'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsPas: TAction
-      Tag = 2
-      Category = 'Edit'
-      Caption = 'Copy as Pas Array'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
-    end
-    object acCopyAsAsm: TAction
-      Tag = 4
-      Category = 'Edit'
-      Caption = 'Copy as Asm Array'
-      OnExecute = acCopyExecute
-      OnUpdate = acCopyUpdate
     end
     object acFind: TAction
       Category = 'Search'
@@ -728,37 +707,64 @@ object dlgHexEditor: TdlgHexEditor
       OnExecute = acViewMode8Execute
       OnUpdate = acViewMode8Update
     end
+    object acCopyAddr: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csAddress
+    end
+    object acCopyAsm: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csAsmOpcodes
+    end
+    object acCopyText: THexViewCopyAction
+      Category = 'HexView Actions'
+    end
+    object acCopyBytes: THexViewCopyAction
+      Category = 'HexView Actions'
+      Caption = 'Copy'
+      CopyStyle = csBytes
+    end
+    object acCopyCpp: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csCpp
+    end
+    object acCopyPas: THexViewCopyAction
+      Category = 'HexView Actions'
+      CopyStyle = csPascal
+    end
   end
   object OpenDialog: TOpenDialog
     Filter = 'All files (*.*)|*.*'
     Options = [ofHideReadOnly, ofAllowMultiSelect, ofEnableSizing]
-    Left = 444
-    Top = 336
+    Left = 296
+    Top = 224
   end
   object SaveDialog: TSaveDialog
     Filter = 'All files (*.*)|*.*'
-    Left = 324
-    Top = 336
+    Left = 216
+    Top = 224
   end
   object PopupMenu: TPopupMenu
-    Left = 654
-    Top = 216
+    Left = 436
+    Top = 144
     object Copy1: TMenuItem
-      Action = acCopy
+      Action = acCopyBytes
     end
     object CopyasText1: TMenuItem
-      Action = acCopyAsText
+      Action = acCopyText
+    end
+    object CopyAddress2: TMenuItem
+      Action = acCopyAddr
     end
     object CopyasArray1: TMenuItem
       Caption = 'Copy as Array'
       object CopyasPasArray1: TMenuItem
-        Action = acCopyAsPas
+        Action = acCopyPas
       end
       object CopyasCppArray1: TMenuItem
-        Action = acCopyAsCpp
+        Action = acCopyCpp
       end
       object CopyasAsmArray1: TMenuItem
-        Action = acCopyAsAsm
+        Action = acCopyAsm
       end
     end
     object N15: TMenuItem
@@ -838,8 +844,8 @@ object dlgHexEditor: TdlgHexEditor
     end
   end
   object TabPopupMenu: TPopupMenu
-    Left = 816
-    Top = 216
+    Left = 544
+    Top = 144
     object Close2: TMenuItem
       Action = acClose
     end
