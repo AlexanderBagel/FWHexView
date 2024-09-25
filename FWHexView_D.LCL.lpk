@@ -10,8 +10,8 @@
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
-        <IncludeFiles Value="src\CPUView;src;res"/>
-        <OtherUnitFiles Value="src;src\CPUView;src\CPUView\gui"/>
+        <IncludeFiles Value="src;res"/>
+        <OtherUnitFiles Value="src"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>

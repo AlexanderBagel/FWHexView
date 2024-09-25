@@ -43,12 +43,12 @@ unit FWHexView;
   {$MODE Delphi}
   {$WARN 5024 off : Parameter "$1" not used}
   {$WARN 5091 off : Local variable "$1" of a managed type does not seem to be initialized}
+  {$WARN 6060 off : Case statement does not handle all possible cases}
 {$ENDIF}
-
 interface
 
 //{$define show_dbg_lines}
-{$define dbg_check_last_row}
+//{$define dbg_check_last_row}
 //{$define profile_speed}
 //{$define profile_paint_speed}
 
@@ -252,7 +252,7 @@ type
   strict private
     FOwner: TFWCustomHexView;
     procedure InitBuff;
-    function IsOpcode(AColumn: TColumnType): Boolean; inline;
+    function IsOpcode(AColumn: TColumnType): Boolean; {$ifndef fpc} inline; {$endif}
   protected
     FCharPositions: array [Boolean] of TIntegerDynArray;
     FSelectionPositions: array [Boolean] of TIntegerDynArray;
@@ -494,14 +494,14 @@ type
     function MakeSelectRect(LeftOffset, TopOffset, SelectWidth: Integer): TRect; inline;
     function NoDataText: string; inline;
     function ReadOnly: Boolean; inline;
-    function RowHeight: Integer; inline;
+    function RowHeight: Integer; {$ifndef fpc} inline; {$endif}
     function RowToAddress(ARowIndex: Int64; ValueOffset: Integer): Int64; inline;
     function RowVisible(ARowIndex: Int64): Boolean; inline;
     function ScrollOffset: TLargePoint; inline;
     function Selections: TSelections; inline;
     function SeparateGroupByColor: Boolean; inline;
     function SplitMargin: Integer; inline;
-    function TextMargin: Integer; inline;
+    function TextMargin: Integer; {$ifndef fpc} inline; {$endif}
     function TextMetric: TAbstractTextMetric; virtual;
     function ToDpi(Value: Integer): Integer; inline;
     function VisibleRowDiapason: TVisibleRowDiapason; inline;
@@ -858,7 +858,7 @@ type
     {$IFDEF FPC}
     FCurrentPPI: Integer;
     {$ENDIF}
-    procedure ChangeScale(M, D: Integer; isDpiChange: Boolean); {$IFNDEF FPC}override;{$ENDIF}
+    procedure ChangeScale(M, D: Integer{$IFNDEF FPC}; isDpiChange: Boolean{$ENDIF}); override;
     procedure CreateParams(var Params: TCreateParams); override;
     procedure CreateWnd; override;
     procedure DblClick; override;
@@ -1805,7 +1805,7 @@ var
   E: TEncoding;
 begin
   try
-    E := TEncoding.GetEncoding(Value);
+    E := TEncoding.GetEncoding(UnicodeString(Value));
     Result := E <> nil;
   except
     Result := False;
@@ -2032,7 +2032,7 @@ end;
 
 procedure TCharEncoder.UpdateDisplayName;
 begin
-  FEncodingDisplayName := GetEncoding.EncodingName;
+  FEncodingDisplayName := string(GetEncoding.EncodingName);
 end;
 
 { THexViewColorMap }
@@ -3264,7 +3264,7 @@ function TRowHexPainter.CalcEditParam(ACaretPosData: TCaretPosData;
 
     if DataString <> '' then
       if ACaretPosData.CharIndex < Length(DataString) then
-         Result := DataString[ACaretPosData.CharIndex + 1];
+         Result := DataString{%H-}[ACaretPosData.CharIndex + 1];
   end;
 
 var
@@ -3652,6 +3652,7 @@ end;
 
 function TSecondaryRowPainter.GetTextMetricClass: TAbstractTextMetricClass;
 begin
+  {$ifdef fpc} Result := nil; {$endif}
   raise Exception.CreateFmt('%s can''t be the default painter.', [ClassName]);
 end;
 
@@ -4175,13 +4176,12 @@ begin
   Result := RowToAddress(ASelectPoint.RowIndex, ASelectPoint.ValueOffset);
 end;
 
-procedure TFWCustomHexView.ChangeScale(M, D: Integer; isDpiChange: Boolean);
+procedure TFWCustomHexView.ChangeScale(M, D: Integer
+  {$IFNDEF FPC}; isDpiChange: Boolean{$ENDIF});
 begin
-  {$IFNDEF FPC}
   DoChangeScale(True);
   inherited;
   DoChangeScale(False);
-  {$ENDIF}
 end;
 
 function TFWCustomHexView.CheckSelected(Value: TSelectPoint): Boolean;
@@ -5361,7 +5361,7 @@ var
   MaxPosInRow: Integer;
   LeftSel, RightSel: TSelectPoint;
 begin
-  FillChar(Result, SizeOf(TSelectData), 0);
+  Result := Default(TSelectData);
 
   if ASelStart.InvalidRow then Exit;
   if ASelEnd.InvalidRow then Exit;
@@ -6602,7 +6602,7 @@ var
 {$ENDIF}
 begin
   {$IFDEF UNIX}
-  GetTextMetrics(MeasureCanvas.Handle, TM);
+  GetTextMetrics(MeasureCanvas.Handle, TM{%H-});
   FCharWidth := TM.tmAveCharWidth;
   FRowHeight := GetTextExtent.cy;
   {$ELSE}

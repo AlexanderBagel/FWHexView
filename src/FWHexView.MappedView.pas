@@ -41,6 +41,9 @@ unit FWHexView.MappedView;
 
 {$IFDEF FPC}
   {$MODE Delphi}
+  {$WARN 5024 off : Parameter "$1" not used}
+  {$WARN 6058 off : Call to subroutine "$1" marked as inline is not inlined}
+  {$WARN 6060 off : Case statement does not handle all possible cases}
 {$ENDIF}
 
 interface
@@ -200,8 +203,8 @@ type
     FUpdateCount: Integer;
     FCurrentAddr, FSavedCurrentAddr: Int64;
     function AddMapLine(Value: TMapRow): Integer;
-    procedure DataChange(Sender: TObject; const Item: TMapRow;
-      Action: TCollectionNotification);
+    procedure DataChange(Sender: TObject; const {%H-}Item: TMapRow;
+      {%H-}Action: TCollectionNotification);
     procedure RebuildDataMap;
   protected
     procedure InternalClear(NewStartAddress: Int64);
@@ -269,7 +272,7 @@ type
     function AddNone(Address: Int64): Integer; overload;
     function AddNone: Integer; overload;
 
-    procedure Assign(Value: TDataMap);
+    procedure Assign({%H-}Value: TDataMap);
     procedure BeginUpdate;
     procedure EndUpdate;
     property Data: TList<TMapRow> read FData;
@@ -331,14 +334,14 @@ type
   protected
     function ByteViewMode: TByteViewMode; override;
     function ColumnAsString(AColumn: TColumnType): string; override;
-    procedure DrawColorGroup(ACanvas: TCanvas; var ARect: TRect); override;
+    procedure DrawColorGroup({%H-}ACanvas: TCanvas; var {%H-}ARect: TRect); override;
     procedure DrawDataPart(ACanvas: TCanvas; var ARect: TRect); override;
     function FormatRowColumn(AColumn: TColumnType;
       const Value: string): string; override;
     procedure GetHitInfo(var AMouseHitInfo: TMouseHitInfo;
       XPos, YPos: Int64); override;
     function GetTextMetricClass: TAbstractTextMetricClass; override;
-    function RawData: TMappedRawData; inline;
+    function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     function TextMetric: TAbstractTextMetric; override;
   public
     constructor Create(AOwner: TFWCustomHexView); override;
@@ -360,7 +363,7 @@ type
 
   TSecondaryMappedRowPainter = class(TSecondaryRowPainter)
   protected
-    function RawData: TMappedRawData; inline;
+    function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
   public
     constructor Create(AOwner: TFWCustomHexView); override;
   end;
@@ -400,7 +403,7 @@ type
       var ARect: TRect); override;
     function GetTextMetricClass: TAbstractTextMetricClass; override;
     function TextMetric: TAbstractTextMetric; override;
-    function RawData: TMappedRawData; inline;
+    function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
   public
     constructor Create(AOwner: TFWCustomHexView); override;
   end;
@@ -410,7 +413,7 @@ type
     function IsNeedOffsetRow(ARowIndex: Int64; FirstRow: Boolean): Boolean; override;
     function LineColorPresent(Selected: Boolean; const Param: TDrawLineParam;
       out LineColor: TColor): Boolean; override;
-    function RawData: TMappedRawData; inline;
+    function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     function Owner: TCustomMappedHexView;
   public
     constructor Create(AOwner: TFWCustomHexView); override;
@@ -473,7 +476,7 @@ type
     function Count: Integer;
     procedure Delete(Index: Integer);
     function GetPageIndex(VirtualAddress: Int64;
-      var Index: Integer): TPageIndexResult;
+      out Index: Integer): TPageIndexResult;
     function CheckAddrInPages(VirtualAddress: Int64): Boolean;
     function MaxAddrAware: Int64;
     property Items[Index: Integer]: TVirtualPage read GetItem; default;
@@ -517,7 +520,7 @@ type
     procedure InitPainters; override;
     function InternalGetRowPainter(ARowIndex: Int64): TAbstractPrimaryRowPainter; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
-    function RawData: TMappedRawData; inline;
+    function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     procedure UpdateCursor(const HitTest: TMouseHitInfo); override;
     procedure UpdateDataMap; override;
   protected
@@ -626,7 +629,7 @@ type
 
   StyleServices = class(TThemeServices)
     class function Enabled: Boolean;
-    class function DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect = nil; DPI: Integer = 0): Boolean;
+    class function {%H-}DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect = nil; {%H-}DPI: Integer = 0): Boolean;
     class function GetElementDetails(Detail: TThemedButton): TThemedElementDetails; overload;
   end;
 
@@ -647,7 +650,7 @@ begin
   Result := ThemeServices.ThemesAvailable;
 end;
 
-class function StyleServices.DrawElement(DC: HDC;
+class function StyleServices.{%H-}DrawElement(DC: HDC;
   Details: TThemedElementDetails; const R: TRect; ClipRect: PRect; DPI: Integer): Boolean;
 begin
   ThemeServices.DrawElement(DC, Details, R, ClipRect);
@@ -1302,7 +1305,7 @@ function TDataMap.AddAsm(Address: Int64; DataLength: Byte;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsAsm;
   LineData.Address := Address;
@@ -1328,7 +1331,7 @@ function TDataMap.AddBlockComment(StartAddress, EndAddress: Int64;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsBlockComment;
   LineData.Address := StartAddress;
@@ -1361,7 +1364,7 @@ function TDataMap.AddComment(Address: Int64;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsLineComment;
   LineData.Address := Address;
@@ -1398,7 +1401,7 @@ function TDataMap.AddExDescription(Address: Int64; DataLength: Byte;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsRawWithExDescription;
   LineData.Address := Address;
@@ -1422,7 +1425,7 @@ function TDataMap.AddLine(Address: Int64; UnBroken: Boolean): Integer;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   if UnBroken then
     LineData.Style := rsUnbrokenLine
@@ -1475,7 +1478,7 @@ function TDataMap.AddMask(Address: Int64; DataLength: Byte; const Description,
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsMask;
   LineData.Address := Address;
@@ -1505,7 +1508,7 @@ function TDataMap.AddMaskCheck(ByteIndex: Byte; const Description,
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsMaskCheck;
   LineData.Address := CurrentAddr;
@@ -1521,7 +1524,7 @@ function TDataMap.AddMaskRadio(ByteIndex: Byte; const Description,
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsMaskRadio;
   LineData.Address := CurrentAddr;
@@ -1536,7 +1539,7 @@ function TDataMap.AddMaskSeparator: Integer;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsMaskSeparator;
   LineData.Address := CurrentAddr;
@@ -1547,7 +1550,7 @@ function TDataMap.AddNone(Address: Int64): Integer;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsNone;
   LineData.Address := Address;
@@ -1569,7 +1572,7 @@ function TDataMap.AddRaw(Address, DataLength: Int64): Integer;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsRaw;
   LineData.Address := Address;
@@ -1588,7 +1591,7 @@ function TDataMap.AddSeparator(Address: Int64;
 var
   LineData: TMapRow;
 begin
-  FillChar(LineData, SizeOf(TMapRow), 0);
+  LineData := Default(TMapRow);
   LineData.Index := FData.Count;
   LineData.Style := rsSeparator;
   LineData.Address := Address;
@@ -2561,7 +2564,6 @@ procedure TCheckRadioRowPostPainter.PostPaint(ACanvas: TCanvas;
 var
   I, TopOffset, StartRowWithMask, EndRowWithMask: Integer;
 begin
-  inherited;
   TopOffset := Offset.Y;
 
   // Быстрая проверка валидности данных
@@ -2757,7 +2759,7 @@ begin
 end;
 
 function TVirtualPages.GetPageIndex(VirtualAddress: Int64;
-  var Index: Integer): TPageIndexResult;
+  out Index: Integer): TPageIndexResult;
 var
   I: Integer;
 begin
