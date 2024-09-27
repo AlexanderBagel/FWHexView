@@ -47,6 +47,7 @@ interface
 uses
   {$IFDEF FPC}
   ActnList,
+  LResources,
   {$ELSE}
   Actions,
   DesignIntf,
@@ -80,7 +81,13 @@ begin
   RegisterComponents('FWControls', [TFWHexView, TMappedHexView]);
 end;
 
-{$IFNDEF FPC}
+{$IFDEF FPC}
+
+initialization
+
+  {$I FWHexView.lrs}
+
+{$ELSE}
 
 { TFWHexViewActionsSelectionEditor }
 

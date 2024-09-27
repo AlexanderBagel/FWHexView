@@ -2,21 +2,15 @@
   This source is only used to compile and install the package.
  }
 
-unit FWHexView_D.LCL;
+unit FWHexView.LCL;
 
 {$warn 5023 off : no warning about unused units}
 interface
 
 uses
-  FWHexView.Reg, LazarusPackageIntf;
+  FWHexView.Actions, FWHexView.AsmTokenizer, FWHexView.Common, 
+  FWHexView.MappedView, FWHexView;
 
 implementation
 
-procedure Register;
-begin
-  RegisterUnit('FWHexView.Reg', @FWHexView.Reg.Register);
-end;
-
-initialization
-  RegisterPackage('FWHexView_D.LCL', @Register);
 end.

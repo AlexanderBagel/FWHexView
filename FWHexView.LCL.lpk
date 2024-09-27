@@ -2,37 +2,46 @@
 <CONFIG>
   <Package Version="5">
     <PathDelim Value="\"/>
-    <Name Value="FWHexView_D.LCL"/>
-    <Type Value="DesignTime"/>
+    <Name Value="FWHexView.LCL"/>
     <AddToProjectUsesSection Value="True"/>
-    <Author Value="Alexander (Rouse_) Bagel"/>
+    <Author Value="Alexander (Rouse) Bagel"/>
     <CompilerOptions>
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
-        <IncludeFiles Value="src;res"/>
         <OtherUnitFiles Value="src"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
-    <Description Value="Cross-platform HEX editor, design time"/>
+    <Description Value="Cross-platform HEX editor"/>
     <License Value="GPL v3"/>
     <Version Major="2" Release="15"/>
-    <Files Count="2">
+    <Files Count="5">
       <Item1>
-        <Filename Value="src\FWHexView.Reg.pas"/>
-        <HasRegisterProc Value="True"/>
-        <UnitName Value="FWHexView.Reg"/>
+        <Filename Value="src\FWHexView.Actions.pas"/>
+        <UnitName Value="FWHexView.Actions"/>
       </Item1>
       <Item2>
-        <Filename Value="FWHexView.lrs"/>
-        <Type Value="LRS"/>
+        <Filename Value="src\FWHexView.AsmTokenizer.pas"/>
+        <UnitName Value="FWHexView.AsmTokenizer"/>
       </Item2>
+      <Item3>
+        <Filename Value="src\FWHexView.Common.pas"/>
+        <UnitName Value="FWHexView.Common"/>
+      </Item3>
+      <Item4>
+        <Filename Value="src\FWHexView.MappedView.pas"/>
+        <UnitName Value="FWHexView.MappedView"/>
+      </Item4>
+      <Item5>
+        <Filename Value="src\FWHexView.pas"/>
+        <UnitName Value="FWHexView"/>
+      </Item5>
     </Files>
     <CompatibilityMode Value="True"/>
     <RequiredPkgs Count="2">
       <Item1>
-        <PackageName Value="FWHexView.LCL"/>
+        <PackageName Value="LCLBase"/>
       </Item1>
       <Item2>
         <PackageName Value="FCL"/>
