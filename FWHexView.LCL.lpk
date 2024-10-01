@@ -3,7 +3,6 @@
   <Package Version="5">
     <PathDelim Value="\"/>
     <Name Value="FWHexView.LCL"/>
-    <AddToProjectUsesSection Value="True"/>
     <Author Value="Alexander (Rouse) Bagel"/>
     <CompilerOptions>
       <Version Value="11"/>
@@ -16,36 +15,35 @@
     <Description Value="Cross-platform HEX editor"/>
     <License Value="GPL v3"/>
     <Version Major="2" Release="15"/>
-    <Files Count="5">
-      <Item1>
+    <Files>
+      <Item>
         <Filename Value="src\FWHexView.Actions.pas"/>
         <UnitName Value="FWHexView.Actions"/>
-      </Item1>
-      <Item2>
+      </Item>
+      <Item>
         <Filename Value="src\FWHexView.AsmTokenizer.pas"/>
         <UnitName Value="FWHexView.AsmTokenizer"/>
-      </Item2>
-      <Item3>
+      </Item>
+      <Item>
         <Filename Value="src\FWHexView.Common.pas"/>
         <UnitName Value="FWHexView.Common"/>
-      </Item3>
-      <Item4>
+      </Item>
+      <Item>
         <Filename Value="src\FWHexView.MappedView.pas"/>
         <UnitName Value="FWHexView.MappedView"/>
-      </Item4>
-      <Item5>
+      </Item>
+      <Item>
         <Filename Value="src\FWHexView.pas"/>
         <UnitName Value="FWHexView"/>
-      </Item5>
+      </Item>
     </Files>
-    <CompatibilityMode Value="True"/>
-    <RequiredPkgs Count="2">
-      <Item1>
+    <RequiredPkgs>
+      <Item>
         <PackageName Value="LCLBase"/>
-      </Item1>
-      <Item2>
+      </Item>
+      <Item>
         <PackageName Value="FCL"/>
-      </Item2>
+      </Item>
     </RequiredPkgs>
     <UsageOptions>
       <UnitPath Value="$(PkgOutDir)"/>

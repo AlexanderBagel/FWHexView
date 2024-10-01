@@ -4,7 +4,6 @@
     <PathDelim Value="\"/>
     <Name Value="FWHexView_D.LCL"/>
     <Type Value="DesignTime"/>
-    <AddToProjectUsesSection Value="True"/>
     <Author Value="Alexander (Rouse_) Bagel"/>
     <CompilerOptions>
       <Version Value="11"/>
@@ -18,25 +17,24 @@
     <Description Value="Cross-platform HEX editor, design time"/>
     <License Value="GPL v3"/>
     <Version Major="2" Release="15"/>
-    <Files Count="2">
-      <Item1>
+    <Files>
+      <Item>
         <Filename Value="src\FWHexView.Reg.pas"/>
         <HasRegisterProc Value="True"/>
         <UnitName Value="FWHexView.Reg"/>
-      </Item1>
-      <Item2>
+      </Item>
+      <Item>
         <Filename Value="FWHexView.lrs"/>
         <Type Value="LRS"/>
-      </Item2>
+      </Item>
     </Files>
-    <CompatibilityMode Value="True"/>
-    <RequiredPkgs Count="2">
-      <Item1>
+    <RequiredPkgs>
+      <Item>
         <PackageName Value="FWHexView.LCL"/>
-      </Item1>
-      <Item2>
+      </Item>
+      <Item>
         <PackageName Value="FCL"/>
-      </Item2>
+      </Item>
     </RequiredPkgs>
     <UsageOptions>
       <UnitPath Value="$(PkgOutDir)"/>
