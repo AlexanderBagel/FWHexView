@@ -286,6 +286,7 @@ begin
     Assigned(Target) and
     Supports(Target, IHexViewCopyAction, Intf) and
     Intf.CopyCommandEnabled(CopyStyle);
+  AChecked := False;
   DoUpdateTarget(Target, AEnabled, AChecked);
   Enabled := AEnabled;
 end;

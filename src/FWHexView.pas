@@ -478,7 +478,7 @@ type
     function ColorMap: THexViewColorMap; inline;
     function Columns: TFWHexViewColumnTypes; inline;
     function CurrentPPI: Integer; inline;
-    procedure DoQueryComment(AddrVA: Int64; var AComment: string); inline;
+    procedure DoQueryComment(AddrVA: Int64; AColumn: TColumnType; var AComment: string); inline;
     function DrawColumnSeparator: Boolean; inline;
     function Encoder: TCharEncoder; inline;
     function Focused: Boolean; inline;
@@ -740,7 +740,7 @@ type
 
   THeaderClass = class of THexViewHeader;
 
-  TQueryCommentEvent = procedure(Sender: TObject; AddrVA: UInt64; var AComment: string) of object;
+  TQueryStringEvent = procedure(Sender: TObject; AddrVA: UInt64; AColumn: TColumnType; var AComment: string) of object;
   TDrawColumnBackgroundEvent = procedure(Sender: TObject; ACanvas: TCanvas;
     ARowParam: TDrawParam; const ARect: TRect; var Handled: Boolean) of object;
   TDrawTokenEvent = procedure(Sender: TObject; ACanvas: TCanvas;
@@ -792,7 +792,7 @@ type
     FPainters: TObjectList<TAbstractPrimaryRowPainter>;
     FPostPainters: TObjectList<TAbstractPostPainter>;
     FPreviosCharWidth: Integer;
-    FQueryCommentEvent: TQueryCommentEvent;
+    FQueryStringEvent: TQueryStringEvent;
     FRawData: TRawData;
     FReadOnly: Boolean;
     FSavedShift: TShiftState;
@@ -929,7 +929,7 @@ type
     procedure DoEncodingChange;
     procedure DoFontChange(Sender: TObject);
     procedure DoFontResize(Value: Integer);
-    procedure DoQueryComment(AddrVA: Int64; var AComment: string);
+    procedure DoQueryString(AddrVA: Int64; AColumn: TColumnType; var AComment: string);
     procedure DoSelectionChage(AStartAddr, AEndAddr: Int64); virtual;
     function DoLButtonDown(Shift: TShiftState): Boolean; virtual;
 
@@ -1142,7 +1142,7 @@ type
     property OnDrawColumnBackground: TDrawColumnBackgroundEvent read FOnDrawColBack write FOnDrawColBack;
     property OnDrawToken: TDrawTokenEvent read FOnDrawToken write FOnDrawToken;
     property OnEdit: TEditEvent read FOnEdit write FOnEdit;
-    property OnQueryComment: TQueryCommentEvent read FQueryCommentEvent write FQueryCommentEvent;
+    property OnQueryComment: TQueryStringEvent read FQueryStringEvent write FQueryStringEvent;
     property OnSelectionChange: TNotifyEvent read FSelectionChange write FSelectionChange;
   end;
 
@@ -2419,9 +2419,10 @@ begin
   ACanvas.LineTo(ARect.Right, ARect.Bottom);
 end;
 
-procedure TBasePainter.DoQueryComment(AddrVA: Int64; var AComment: string);
+procedure TBasePainter.DoQueryComment(AddrVA: Int64; AColumn: TColumnType;
+  var AComment: string);
 begin
-  FOwner.DoQueryComment(AddrVA, AComment);
+  FOwner.DoQueryString(AddrVA, AColumn, AComment);
 end;
 
 function TBasePainter.DrawColumnSeparator: Boolean;
@@ -2725,9 +2726,9 @@ begin
     ctComment:
     begin
       Result := RawData[RowIndex].Comment;
-      DoQueryComment(RawData[RowIndex].Address, Result);
     end;
   end;
+  DoQueryComment(RawData[RowIndex].Address, AColumn, Result);
 end;
 
 function TAbstractPrimaryRowPainter.ColumnsDrawSupport: TFWHexViewColumnTypes;
@@ -4891,10 +4892,11 @@ begin
   end;
 end;
 
-procedure TFWCustomHexView.DoQueryComment(AddrVA: Int64; var AComment: string);
+procedure TFWCustomHexView.DoQueryString(AddrVA: Int64; AColumn: TColumnType;
+  var AComment: string);
 begin
-  if Assigned(FQueryCommentEvent) then
-    FQueryCommentEvent(Self, AddrVA, AComment);
+  if Assigned(FQueryStringEvent) then
+    FQueryStringEvent(Self, AddrVA, AColumn, AComment);
 end;
 
 procedure TFWCustomHexView.DoSelectionChage(AStartAddr, AEndAddr: Int64);

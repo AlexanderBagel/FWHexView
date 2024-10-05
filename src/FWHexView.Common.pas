@@ -329,7 +329,6 @@ begin
 end;
 
 type
-  PUint64Rec = ^TUint64Rec;
   TUint64Rec = record
     case Integer of
       0: (Val64: UInt64);
@@ -619,7 +618,7 @@ begin
     I := 0;
     while I < nSize - UnmappedCount do
     begin
-      FillChar(Buff, SizeOf(TExtended80Support), 0);
+      FillChar(Buff{%H-}, SizeOf(TExtended80Support), 0);
       Move(Value[I], Buff, Metric.ByteCount);
       if (I > 0) and FormatMode.Divide then
         Builder.Append(' ');
@@ -663,7 +662,7 @@ function RawBufToHex(Value: PByte; nSize: Integer; Inverted: Boolean): string;
 var
   I, A: Integer;
 begin
-  SetLength(Result, nSize shl 1);
+  SetLength(Result{%H-}, nSize shl 1);
   A := nSize - 1;
   for I := 0 to A do
   begin
@@ -833,7 +832,7 @@ function TSimplyStringBuilder.AsString(Inverted: Boolean): string;
 var
   I, Cursor, Len: Integer;
 begin
-  SetLength(Result, FLength);
+  SetLength(Result{%H-}, FLength);
   Cursor := 1;
   if Inverted then
   begin
