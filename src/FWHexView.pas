@@ -401,6 +401,7 @@ type
     FSelectInactiveColor: TColor;
     FTextColor: TColor;
     FTextCommentColor: TColor;
+    FWorkSpaceTextColor: TColor;
     procedure SetBackgroundColor(const Value: TColor);
     procedure SetBookmarkBackgroundColor(const Value: TColor);
     procedure SetBookmarkBorderColor(const Value: TColor);
@@ -421,6 +422,7 @@ type
     procedure SetSelectInactiveColor(const Value: TColor);
     procedure SetTextColor(const Value: TColor);
     procedure SetTextCommentColor(const Value: TColor);
+    procedure SetWorkSpaceTextColor(const Value: TColor);
   protected
     procedure DoChange;
     procedure InitDarkMode; virtual;
@@ -451,6 +453,7 @@ type
     property SelectInactiveColor: TColor read FSelectInactiveColor write SetSelectInactiveColor stored IsColorStored;
     property TextColor: TColor read FTextColor write SetTextColor stored IsColorStored;
     property TextCommentColor: TColor read FTextCommentColor write SetTextCommentColor stored IsColorStored;
+    property WorkSpaceTextColor: TColor read FWorkSpaceTextColor write SetWorkSpaceTextColor stored IsColorStored;
   end;
 
   THexViewColorMapClass = class of THexViewColorMap;
@@ -577,6 +580,7 @@ type
       AColumn: TColumnType; const ARect: TRect): Boolean;
     procedure DrawTextBlock(ACanvas: TCanvas; AColumn: TColumnType;
       const ARect: TRect; const DrawString: string; Dx: PInteger);
+    procedure DrawWorkSpace(ACanvas: TCanvas; var ARect: TRect); virtual;
     /// <summary>
     ///  Форматирует колонку в текстовое представления для копирования
     /// </summary>
@@ -2070,6 +2074,7 @@ begin
   FSelectColor := $505050;
   FTextColor := $E0E0E0;
   FTextCommentColor := $A0A0A0;
+  FWorkSpaceTextColor := clWhite;
 end;
 
 procedure THexViewColorMap.InitDefault;
@@ -2106,6 +2111,7 @@ begin
   FSelectColor := RGB(224, 224, 255);
   FTextColor := clWindowText;
   FTextCommentColor := clGrayText;
+  FWorkSpaceTextColor := clDkGray;
 end;
 
 function THexViewColorMap.IsColorStored: Boolean;
@@ -2312,6 +2318,15 @@ begin
   if FTextCommentColor <> Value then
   begin
     FTextCommentColor := Value;
+    DoChange;
+  end;
+end;
+
+procedure THexViewColorMap.SetWorkSpaceTextColor(const Value: TColor);
+begin
+  if WorkSpaceTextColor <> Value then
+  begin
+    FWorkSpaceTextColor := Value;
     DoChange;
   end;
 end;
@@ -2979,6 +2994,18 @@ begin
   end;
 end;
 
+procedure TAbstractPrimaryRowPainter.DrawWorkSpace(ACanvas: TCanvas;
+  var ARect: TRect);
+begin
+  ACanvas.Font.Color := ColorMap.TextColor;
+  DrawRowColumnBackground(ACanvas, ctWorkSpace, ARect);
+  ACanvas.Brush.Style := bsClear;
+  ACanvas.Font.Color := ColorMap.WorkSpaceTextColor;
+  CorrectCanvasFont(ACanvas, ctWorkSpace);
+  Dec(ARect.Left, TextMargin);
+  DrawText(ACanvas.Handle, PChar(ColumnAsString(ctWorkSpace)), -1, ARect, 0);
+end;
+
 function TAbstractPrimaryRowPainter.FormatRowColumn(AColumn: TColumnType;
   const Value: string): string;
 const
@@ -3394,6 +3421,8 @@ procedure TRowHexPainter.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
   var ARect: TRect);
 begin
   case AColumn of
+    ctWorkSpace:
+      DrawWorkSpace(ACanvas, ARect);
     ctAddress:
       DrawAddress(ACanvas, ARect);
     ctOpcode:
