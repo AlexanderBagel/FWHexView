@@ -9,8 +9,8 @@
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
-        <IncludeFiles Value="src;res"/>
-        <OtherUnitFiles Value="src"/>
+        <IncludeFiles Value="dsgn"/>
+        <OtherUnitFiles Value="dsgn"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
@@ -19,13 +19,13 @@
     <Version Major="2" Release="15"/>
     <Files>
       <Item>
-        <Filename Value="src\FWHexView.Reg.pas"/>
-        <HasRegisterProc Value="True"/>
-        <UnitName Value="FWHexView.Reg"/>
+        <Filename Value="dsgn\FWHexView.lrs"/>
+        <Type Value="LRS"/>
       </Item>
       <Item>
-        <Filename Value="FWHexView.lrs"/>
-        <Type Value="LRS"/>
+        <Filename Value="dsgn\FWHexView.Reg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="FWHexView.Reg"/>
       </Item>
     </Files>
     <RequiredPkgs>

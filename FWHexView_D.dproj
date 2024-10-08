@@ -80,7 +80,7 @@
         <DCCReference Include="src\FWHexView.Common.pas"/>
         <DCCReference Include="src\FWHexView.MappedView.pas"/>
         <DCCReference Include="src\FWHexView.pas"/>
-        <DCCReference Include="src\FWHexView.Reg.pas"/>
+        <DCCReference Include="dsgn\FWHexView.Reg.pas"/>
         <BuildConfiguration Include="Debug">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

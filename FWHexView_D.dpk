@@ -37,6 +37,6 @@ contains
   FWHexView.Common in 'src\FWHexView.Common.pas',
   FWHexView.MappedView in 'src\FWHexView.MappedView.pas',
   FWHexView in 'src\FWHexView.pas',
-  FWHexView.Reg in 'src\FWHexView.Reg.pas';
+  FWHexView.Reg in 'dsgn\FWHexView.Reg.pas';
 
 end.
