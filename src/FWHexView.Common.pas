@@ -431,7 +431,7 @@ begin
     end;
     bvmFloat32:
     begin
-      Result.CharCount := 13;
+      Result.CharCount := 16;
       Result.ByteCount := 4;
     end;
     bvmFloat64:
