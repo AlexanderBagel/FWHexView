@@ -5605,7 +5605,8 @@ begin
   end;
   // Special processing under Lazarus to block focus transfer
   {$IFDEF FPC}
-  Key := 0;
+  if Key = VK_UP then
+    Key := 0;
   {$ENDIF}
 end;
 
