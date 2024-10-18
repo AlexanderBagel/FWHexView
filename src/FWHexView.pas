@@ -925,6 +925,7 @@ type
 
     // internal events
 
+    procedure DoBeforePaint(const ADiapason: TVisibleRowDiapason); virtual;
     procedure DoChange(ChangeCode: Integer); virtual;
     function DoDrawRowColumnBackground(ACanvas: TCanvas;
       APainter: TAbstractPrimaryRowPainter; AColumn: TColumnType; const ARect: TRect): Boolean;
@@ -5848,6 +5849,8 @@ begin
   if Diapason.EndRow < FRawData.Count - 1 then
     Inc(Diapason.EndRow);
 
+  DoBeforePaint(Diapason);
+
   // бэкграунд
 
   // background
@@ -6610,6 +6613,11 @@ begin
     DoSelectionChage(FSelStartAddr, FSelEndAddr);
     InvalidateSelections;
   end;
+end;
+
+procedure TFWCustomHexView.DoBeforePaint(const ADiapason: TVisibleRowDiapason);
+begin
+  // do nothing...
 end;
 
 procedure TFWCustomHexView.UpdateTextBoundary;

@@ -26,10 +26,10 @@
     </RunParams>
     <RequiredPackages>
       <Item>
-        <PackageName Value="FWZipLCL"/>
+        <PackageName Value="FWHexView.LCL"/>
       </Item>
       <Item>
-        <PackageName Value="FWHexView_D.LCL"/>
+        <PackageName Value="FWZipLCL"/>
       </Item>
       <Item>
         <PackageName Value="LCL"/>

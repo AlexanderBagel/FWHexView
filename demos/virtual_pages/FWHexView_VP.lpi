@@ -26,7 +26,7 @@
     </RunParams>
     <RequiredPackages>
       <Item>
-        <PackageName Value="FWHexView_D.LCL"/>
+        <PackageName Value="FWHexView.LCL"/>
       </Item>
       <Item>
         <PackageName Value="LCL"/>

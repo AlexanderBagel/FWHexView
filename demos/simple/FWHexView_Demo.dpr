@@ -3,9 +3,11 @@ program FWHexView_Demo;
 uses
   Vcl.Forms,
   Unit1 in 'Unit1.pas' {Form1},
-  FWHexView in '..\..\FWHexView.pas',
-  FWHexView.Common in '..\..\FWHexView.Common.pas',
-  FWHexView.MappedView in '..\..\FWHexView.MappedView.pas';
+  FWHexView.Actions in '..\..\src\FWHexView.Actions.pas',
+  FWHexView.AsmTokenizer in '..\..\src\FWHexView.AsmTokenizer.pas',
+  FWHexView.Common in '..\..\src\FWHexView.Common.pas',
+  FWHexView.MappedView in '..\..\src\FWHexView.MappedView.pas',
+  FWHexView in '..\..\src\FWHexView.pas';
 
 {$R *.res}
 

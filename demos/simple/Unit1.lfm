@@ -12,7 +12,7 @@ object Form1: TForm1
   Font.Height = -18
   Font.Name = 'Tahoma'
   Position = poScreenCenter
-  LCLVersion = '3.99.0.0'
+  LCLVersion = '4.99.0.0'
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   object Panel1: TPanel
@@ -83,14 +83,11 @@ object Form1: TForm1
     Height = 816
     Top = 0
     Width = 1650
-    AddressView = avHex
     Align = alClient
-    BorderStyle = bsSingle
     Font.Color = clWindowText
     Font.Height = -18
     Font.Name = 'Lucida Console'
     ParentFont = False
-    SeparateGroupByColor = True
     TabOrder = 1
     TabStop = True
   end

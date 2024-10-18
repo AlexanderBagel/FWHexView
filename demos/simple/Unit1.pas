@@ -15,8 +15,9 @@ uses
   Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, ExtCtrls,
 
+  FWHexView,
   FWHexView.Common,
-  FWHexView.MappedView, FWHexView;
+  FWHexView.MappedView;
 
 type
 

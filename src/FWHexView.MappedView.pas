@@ -487,7 +487,7 @@ type
   end;
 
   TAddressToRowIndexMode = (armFindFirstRaw, armFindFirstAny);
-  TJmpState = (jsPushToUndo, jsPopFromUndo, jsJmpDone);
+  TJmpState = (jsPushToUndo, jsPopFromUndo, jsRestorePopFromUndo, jsJmpDone);
   TJmpToEvent = procedure(Sender: TObject; const AJmpAddr: Int64;
     AJmpState: TJmpState; var Handled: Boolean) of object;
 
@@ -502,7 +502,8 @@ type
     FJmpInitList: TList<Int64>;
     FJmpData: TObjectDictionary<Int64, TList<Int64>>;
     FPages: TVirtualPages;
-    FPreviosJmp: TStack<Int64>;
+    FPreviosJmp: TList<Int64>;
+    FPreviosJmpIdx: Integer;
     FJmpToEvent: TJmpToEvent;
     function GetColorMap: TMapViewColors;
     procedure SetColorMap(const Value: TMapViewColors);
@@ -519,6 +520,8 @@ type
     function GetRawDataClass: TRawDataClass; override;
     procedure InitPainters; override;
     function InternalGetRowPainter(ARowIndex: Int64): TAbstractPrimaryRowPainter; override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
+      X, Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     procedure UpdateCursor(const HitTest: TMouseHitInfo); override;
@@ -2833,7 +2836,7 @@ begin
   inherited;
   FDataMap := TDataMap.Create(Self);
   FPages := TVirtualPages.Create(Self);
-  FPreviosJmp := TStack<Int64>.Create;
+  FPreviosJmp := TList<Int64>.Create;
   FJmpInitList := TList<Int64>.Create;
   FJmpData := TObjectDictionary<Int64, TList<Int64>>.Create([doOwnsValues]);
 end;
@@ -2898,25 +2901,37 @@ begin
     FJmpToEvent(Self, JmpAddr, AJmpState, Handled);
   if Handled then Exit;
 
-  if AJmpState = jsPushToUndo then
-  begin
+  case AJmpState of
+    jsPushToUndo:
+    begin
+      // прыжки делются в два шага для восстановления
+      // состояния экрана на откате
 
-    // прыжки делются в два шага для восстановления
-    // состояния экрана на откате
+      // jumps are divided in two steps to restore the screen state on rollback
 
-    // jumps are divided in two steps to restore the screen state on rollback
-
-    FPreviosJmp.Push(ARowIndex);
-    FPreviosJmp.Push(CurrentVisibleRow);
-    FocusOnAddress(RawData[ARowIndex].JmpToAddr, ccmSelectRow);
-  end
-  else
-  begin
-    if FPreviosJmp.Count = 0 then Exit;
-    NewRowIndex := FPreviosJmp.Pop;
-    FocusOnAddress(RawData[NewRowIndex].Address, ccmNone);
-    NewRowIndex := FPreviosJmp.Pop;
-    FocusOnAddress(RawData[NewRowIndex].Address, ccmSelectRow);
+      FPreviosJmp.Count := FPreviosJmpIdx;
+      FPreviosJmp.Add(ARowIndex);
+      FPreviosJmp.Add(CurrentVisibleRow);
+      Inc(FPreviosJmpIdx, 2);
+      FocusOnAddress(RawData[ARowIndex].JmpToAddr, ccmSelectRow);
+    end;
+    jsPopFromUndo:
+    begin
+      if FPreviosJmpIdx = 0 then Exit;
+      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 1];
+      FocusOnAddress(RawData[NewRowIndex].Address, ccmNone);
+      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
+      Dec(FPreviosJmpIdx, 2);
+      FocusOnAddress(RawData[NewRowIndex].Address, ccmSelectRow);
+    end;
+    jsRestorePopFromUndo:
+    begin
+      if FPreviosJmpIdx >= FPreviosJmp.Count then Exit;
+      Inc(FPreviosJmpIdx, 2);
+      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
+      JmpAddr := RawData[NewRowIndex].JmpToAddr;
+      FocusOnAddress(JmpAddr, ccmSelectRow);
+    end;
   end;
 
   if Assigned(FJmpToEvent) then
@@ -2994,6 +3009,16 @@ begin
     rsMaskCheck, rsMaskRadio: Result := Painters[7];
   else
     Result := nil;
+  end;
+end;
+
+procedure TCustomMappedHexView.MouseDown(Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  inherited;
+  case Button of
+    mbExtra1: DoJmpTo(0, jsPopFromUndo);
+    mbExtra2: DoJmpTo(0, jsRestorePopFromUndo);
   end;
 end;
 
