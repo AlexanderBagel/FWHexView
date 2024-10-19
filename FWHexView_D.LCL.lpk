@@ -3,7 +3,7 @@
   <Package Version="5">
     <PathDelim Value="\"/>
     <Name Value="FWHexView_D.LCL"/>
-    <Type Value="DesignTime"/>
+    <Type Value="RunAndDesignTime"/>
     <Author Value="Alexander (Rouse_) Bagel"/>
     <CompilerOptions>
       <Version Value="11"/>

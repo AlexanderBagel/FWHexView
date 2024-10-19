@@ -53,6 +53,7 @@ uses
   LCLIntf, LCLType,
   {$ELSE}
   Windows,
+  Messages,
   UITypes,
   {$ENDIF}
   SysUtils,
@@ -526,6 +527,9 @@ type
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     procedure UpdateCursor(const HitTest: TMouseHitInfo); override;
     procedure UpdateDataMap; override;
+    {$IFNDEF FPC}
+    procedure WMXButtonDown(var Msg: TWMMouse); message WM_XBUTTONDOWN;
+    {$ENDIF}
   protected
     property CursorOnJmpMark: Boolean read FCursorOnJmpMark write FCursorOnJmpMark;
     property JmpData: TObjectDictionary<Int64, TList<Int64>> read FJmpData;
@@ -948,6 +952,7 @@ var
   Offset, LinesBetween: Int64;
 begin
   RawRowIndex := GetRawIndexByRowIndex(ARowIndex);
+  if RawRowIndex >= FRows.Count then Exit(Default(TRowData));
   if FRows.List[RawRowIndex].RowIndex = ARowIndex then
   begin
     Result := FRows.List[RawRowIndex];
@@ -3016,10 +3021,12 @@ procedure TCustomMappedHexView.MouseDown(Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
   inherited;
+  {$IFDEF FPC}
   case Button of
     mbExtra1: DoJmpTo(0, jsPopFromUndo);
     mbExtra2: DoJmpTo(0, jsRestorePopFromUndo);
   end;
+  {$ENDIF}
 end;
 
 procedure TCustomMappedHexView.MouseMove(Shift: TShiftState; X, Y: Integer);
@@ -3099,5 +3106,17 @@ begin
   end;
 end;
 
+{$IFNDEF FPC}
+procedure TCustomMappedHexView.WMXButtonDown(var Msg: TWMMouse);
+const
+  MK_XBUTTON1 = $20;
+  MK_XBUTTON2 = $40;
+begin
+  case Word(Msg.Keys) of
+    MK_XBUTTON1: DoJmpTo(0, jsPopFromUndo);
+    MK_XBUTTON2: DoJmpTo(0, jsRestorePopFromUndo);
+  end;
+end;
+{$ENDIF}
 
 end.

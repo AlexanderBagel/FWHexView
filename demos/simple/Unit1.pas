@@ -63,7 +63,8 @@ end;
 
 procedure TForm1.Button2Click(Sender: TObject);
 begin
-    Hex.FitColumnsToBestSize;
+  Caption := Hex.Canvas.Font.Name;
+  Hex.Font.Name := 'Monospace';
 end;
 
 procedure TForm1.CheckBox1Click(Sender: TObject);

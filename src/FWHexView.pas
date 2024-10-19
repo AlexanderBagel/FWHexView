@@ -4906,7 +4906,7 @@ end;
 function TFWCustomHexView.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer;
   MousePos: TPoint): Boolean;
 begin
-  Result := inherited;
+  Result := True;
   try
     if ssCtrl in Shift then
     begin
@@ -5241,7 +5241,7 @@ end;
 function TFWCustomHexView.GetDefaultFontName: string;
 begin
   {$IFDEF UNIX}
-  Result := 'Monospace'; //'DejaVu Sans Mono';
+  Result := 'DejaVu Sans Mono'; // 'Monospace';
   {$ELSE}
   Result := 'Consolas'; //'Lucida Console';
   {$ENDIF}

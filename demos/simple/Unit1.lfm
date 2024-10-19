@@ -1,15 +1,14 @@
 object Form1: TForm1
-  Left = 1220
-  Height = 906
-  Top = 399
-  Width = 1650
+  Left = 820
+  Height = 604
+  Top = 327
+  Width = 1100
   Caption = 'Form1'
-  ClientHeight = 906
-  ClientWidth = 1650
+  ClientHeight = 604
+  ClientWidth = 1100
   Color = clBtnFace
-  DesignTimePPI = 144
   Font.Color = clWindowText
-  Font.Height = -18
+  Font.Height = -12
   Font.Name = 'Tahoma'
   Position = poScreenCenter
   LCLVersion = '4.99.0.0'
@@ -17,19 +16,19 @@ object Form1: TForm1
   OnDestroy = FormDestroy
   object Panel1: TPanel
     Left = 0
-    Height = 90
-    Top = 816
-    Width = 1650
+    Height = 60
+    Top = 544
+    Width = 1100
     Align = alBottom
-    ClientHeight = 90
-    ClientWidth = 1650
+    ClientHeight = 60
+    ClientWidth = 1100
     ParentBackground = False
     TabOrder = 0
     object CheckBox1: TCheckBox
-      Left = 24
-      Height = 26
-      Top = 12
-      Width = 182
+      Left = 16
+      Height = 21
+      Top = 8
+      Width = 144
       Caption = 'AddressMode 64 bit'
       Checked = True
       State = cbChecked
@@ -37,10 +36,10 @@ object Form1: TForm1
       OnClick = CheckBox1Click
     end
     object CheckBox2: TCheckBox
-      Left = 24
-      Height = 26
-      Top = 48
-      Width = 168
+      Left = 16
+      Height = 21
+      Top = 32
+      Width = 134
       Caption = 'Address View HEX'
       Checked = True
       State = cbChecked
@@ -48,10 +47,10 @@ object Form1: TForm1
       OnClick = CheckBox2Click
     end
     object CheckBox3: TCheckBox
-      Left = 264
-      Height = 26
-      Top = 12
-      Width = 80
+      Left = 176
+      Height = 21
+      Top = 8
+      Width = 69
       Caption = 'Header'
       Checked = True
       State = cbChecked
@@ -59,19 +58,19 @@ object Form1: TForm1
       OnClick = CheckBox3Click
     end
     object Button1: TButton
-      Left = 384
-      Height = 38
-      Top = 12
-      Width = 135
+      Left = 256
+      Height = 25
+      Top = 8
+      Width = 90
       Caption = 'Копировать'
       TabOrder = 3
       OnClick = Button1Click
     end
     object Button2: TButton
-      Left = 1500
-      Height = 38
-      Top = 12
-      Width = 112
+      Left = 1000
+      Height = 25
+      Top = 8
+      Width = 75
       Caption = 'Button2'
       TabOrder = 4
       OnClick = Button2Click
@@ -80,14 +79,10 @@ object Form1: TForm1
   object Hex: TMappedHexView
     Cursor = crDefault
     Left = 0
-    Height = 816
+    Height = 544
     Top = 0
-    Width = 1650
+    Width = 1100
     Align = alClient
-    Font.Color = clWindowText
-    Font.Height = -18
-    Font.Name = 'Lucida Console'
-    ParentFont = False
     TabOrder = 1
     TabStop = True
   end
