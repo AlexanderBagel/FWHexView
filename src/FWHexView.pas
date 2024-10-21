@@ -2051,7 +2051,8 @@ end;
 procedure THexViewColorMap.DoChange;
 begin
   FColorMode := cmCustom;
-  FOwner.DoChange(cmColorMap);
+  if Assigned(FOwner) then
+    FOwner.DoChange(cmColorMap);
 end;
 
 procedure THexViewColorMap.InitDarkMode;
