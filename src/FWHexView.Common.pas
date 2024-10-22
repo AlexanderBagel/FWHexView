@@ -627,7 +627,7 @@ begin
     end;
     if UnmappedCount > 0 then
     begin
-      FillChar(Buff, SizeOf(TExtended80Rec), 0);
+      FillChar(Buff{%H-}, SizeOf(TExtended80Support), 0);
       Move(Value[I], Buff, UnmappedCount);
       Builder.Append(ValueString(Buff));
     end;
