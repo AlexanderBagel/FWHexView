@@ -39,8 +39,11 @@ Licence:
 
 unit FWHexView.Common;
 
+{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
-  {$MODE Delphi}
+  {$I FWHexViewConfig.inc}
+{$ELSE}
+  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
 
 interface
@@ -73,6 +76,16 @@ const
     exUnderflow,
     exPrecision];
 {$ENDIF}
+
+type
+  TListEx<T> = class(TList<T>)
+  {$IFNDEF EXTENDED_RTL}
+  protected type
+    TArrayOfT = array of T;
+  public
+    property List: TArrayOfT read FItems;
+  {$ENDIF}
+  end;
 
 type
   ///<summary> TAddressMode - 8/16/32/64 bit address display mode. </summary>

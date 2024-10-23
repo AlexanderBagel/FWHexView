@@ -39,11 +39,11 @@ Licence:
 
 unit FWHexView.MappedView;
 
+{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
-  {$MODE Delphi}
-  {$WARN 5024 off : Parameter "$1" not used}
-  {$WARN 6058 off : Call to subroutine "$1" marked as inline is not inlined}
-  {$WARN 6060 off : Case statement does not handle all possible cases}
+  {$I FWHexViewConfig.inc}
+{$ELSE}
+  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
 
 interface
@@ -121,7 +121,7 @@ type
 
   TMappedRawData = class(TRawData)
   strict private
-    FRows: TList<TRowData>;
+    FRows: TListEx<TRowData>;
     FCount: Int64;
     procedure CheckDataMap;
     function GetRowAtIndex(ARowIndex: Int64): TMappedRawData;
@@ -198,13 +198,14 @@ type
   TDataMap = class
   strict private
     FOwner: TCustomMappedHexView;
-    FData: TList<TMapRow>;
+    FData: TListEx<TMapRow>;
     FRawIndex: TDictionary<Int64, Int64>;
     FMaskPresent: Boolean;
     FUpdateCount: Integer;
     FCurrentAddr, FSavedCurrentAddr: Int64;
     function AddMapLine(Value: TMapRow): Integer;
-    procedure DataChange(Sender: TObject; const {%H-}Item: TMapRow;
+    procedure DataChange(Sender: TObject;
+      {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} {%H-}Item: TMapRow;
       {%H-}Action: TCollectionNotification);
     procedure RebuildDataMap;
   protected
@@ -276,7 +277,7 @@ type
     procedure Assign({%H-}Value: TDataMap);
     procedure BeginUpdate;
     procedure EndUpdate;
-    property Data: TList<TMapRow> read FData;
+    property Data: TListEx<TMapRow> read FData;
 
     function GetCurrentAddr: Int64;
     procedure SaveCurrentAddr;
@@ -686,6 +687,7 @@ var
 begin
   if Count = 0 then Exit(-1);
   RawRowIndex := GetRawIndexByAddr(Value);
+
   if FRows.List[RawRowIndex].Address = Value then
   begin
 
@@ -765,7 +767,8 @@ var
   I: Integer;
   LastAddr, NextAddr: Int64;
   LastRowIndex: Integer;
-  Data: TList<TMapRow>;
+  Data: TListEx<TMapRow>;
+  ARow: TMapRow;
 begin
   if Owner.DataMap.Data.Count = 0 then Exit;
   LastAddr := 0;
@@ -775,14 +778,14 @@ begin
   Data.Sort;
   for I := 0 to Data.Count - 1 do
   begin
-    if (NextAddr <> 0) and (Data.List[I].Address < NextAddr) then
+    ARow := Data[I];
+    if (NextAddr <> 0) and (ARow.Address < NextAddr) then
       raise Exception.CreateFmt(
         'Data map address %x (%d) intersects with the block at %x (%d)',
-        [Data.List[I].Address, Data.List[I].Index,
-        LastAddr, LastRowIndex]);
-    LastAddr := Data.List[I].Address;
-    LastRowIndex := Data.List[I].Index;
-    NextAddr := LastAddr + Data.List[I].RawLength;
+        [ARow.Address, ARow.Index, LastAddr, LastRowIndex]);
+    LastAddr := ARow.Address;
+    LastRowIndex := ARow.Index;
+    NextAddr := LastAddr + ARow.RawLength;
   end;
 end;
 
@@ -815,7 +818,7 @@ end;
 constructor TMappedRawData.Create(AOwner: TFWCustomHexView);
 begin
   inherited Create(AOwner);
-  FRows := TList<TRowData>.Create;
+  FRows := TListEx<TRowData>.Create;
 end;
 
 function TMappedRawData.DataOffset: Int64;
@@ -955,12 +958,12 @@ begin
   if RawRowIndex >= FRows.Count then Exit(Default(TRowData));
   if FRows.List[RawRowIndex].RowIndex = ARowIndex then
   begin
-    Result := FRows.List[RawRowIndex];
+    Result := FRows[RawRowIndex];
     Result.RawLength := Min(Owner.BytesInRow, Result.RawLength);
   end
   else
   begin
-    Result := FRows.List[RawRowIndex];
+    Result := FRows[RawRowIndex];
     LinesBetween := RowIndex - Result.RowIndex;
     Offset := LinesBetween * Owner.BytesInRow;
     Inc(Result.RowIndex, LinesBetween);
@@ -1035,9 +1038,10 @@ var
   PageAddress: Int64;
   PageSize, PageOffset: Int64;
   BytesInRow: Integer;
-  Data: TList<TMapRow>;
+  Data: TListEx<TMapRow>;
   LastPageIsRaw: Boolean;
   LastMaskIndex: Int64;
+  AMapRow: TMapRow;
 
   procedure AddLine;
   begin
@@ -1092,6 +1096,14 @@ var
     end;
   end;
 
+  procedure UpdateLocalMapRow;
+  begin
+    if MapIndex < Data.Count then
+      AMapRow := Data[MapIndex]
+    else
+      AMapRow := Default(TMapRow);
+  end;
+
 begin
   FCount := 0;
   StreamOffset := 0;
@@ -1124,6 +1136,7 @@ begin
   Data := Owner.DataMap.Data;
   LastPageIsRaw := False;
   LastMaskIndex := -1;
+  AMapRow := Default(TMapRow);
   while PageIndex < Owner.Pages.Count do
   begin
 
@@ -1134,7 +1147,8 @@ begin
       Line.DataOffset := StreamOffset;
       if MapIndex < Data.Count then
       begin
-        Line.RawLength := Data.List[MapIndex].Address - Line.Address;
+        UpdateLocalMapRow;
+        Line.RawLength := AMapRow.Address - Line.Address;
         Line.RawLength := Min(PageSize - PageOffset, Line.RawLength);
       end
       else
@@ -1157,8 +1171,8 @@ begin
 
       if MapIndex < Data.Count then
       begin
-        if (Data.List[MapIndex].Address = Line.Address) or
-          (Data.List[MapIndex].Style in [rsMaskCheck..rsMaskSeparator]) then
+        if (AMapRow.Address = Line.Address) or
+          (AMapRow.Style in [rsMaskCheck..rsMaskSeparator]) then
         begin
 
           // rsUnbrokenLine - виртуальный флаг не представленый ввиде
@@ -1169,21 +1183,22 @@ begin
           // It is processed during drawing by HexView itself,
           // drawing a stroke between two lines
 
-          if Data.List[MapIndex].Style = rsUnbrokenLine then
+          if AMapRow.Style = rsUnbrokenLine then
           begin
             Inc(MapIndex);
+            UpdateLocalMapRow;
             if FRows.Count = 0 then
               Continue;
             FRows.List[FRows.Count - 1].DrawRowSmallSeparator := True;
             Continue;
           end;
 
-          RawLength := Min(Data.List[MapIndex].RawLength,
+          RawLength := Min(AMapRow.RawLength,
             PageSize - PageOffset);
-          Line.Description := Data.List[MapIndex].Description;
-          Line.Comment := Data.List[MapIndex].Comment;
-          Line.Style := Data.List[MapIndex].Style;
-          Line.Color := Data.List[MapIndex].Color;
+          Line.Description := AMapRow.Description;
+          Line.Comment := AMapRow.Comment;
+          Line.Style := AMapRow.Style;
+          Line.Color := AMapRow.Color;
 
           case Line.Style of
             rsSeparator, rsRaw, rsLineComment, rsBlockComment:
@@ -1191,15 +1206,15 @@ begin
             rsRawWithExDescription, rsAsm:
             begin
               LastMaskIndex := -1;
-              Line.JmpToAddr := Data.List[MapIndex].JmpToAddr;
-              Line.LinkStart := Data.List[MapIndex].LinkStart;
-              Line.LinkLength := Data.List[MapIndex].LinkLength;
+              Line.JmpToAddr := AMapRow.JmpToAddr;
+              Line.LinkStart := AMapRow.LinkStart;
+              Line.LinkLength := AMapRow.LinkLength;
               if Line.JmpToAddr > 0 then
                 Owner.JmpInitList.Add(FCount);
             end;
             rsMask:
             begin
-              Line.Expanded := Data.List[MapIndex].Expanded;
+              Line.Expanded := AMapRow.Expanded;
               Line.MapRowIndex := MapIndex;
               LastMaskIndex := FRows.Count;
             end;
@@ -1208,12 +1223,13 @@ begin
               if (LastMaskIndex < 0) or not FRows.List[LastMaskIndex].Expanded then
               begin
                 Inc(MapIndex);
+                UpdateLocalMapRow;
                 Continue;
               end;
               Line.MaskRowIndex := FRows.List[LastMaskIndex].RowIndex;
               Line.Address := FRows.List[LastMaskIndex].Address;
-              Line.CharIndex := Data.List[MapIndex].CharIndex;
-              Line.Checked := Data.List[MapIndex].Checked;
+              Line.CharIndex := AMapRow.CharIndex;
+              Line.Checked := AMapRow.Checked;
             end;
           end;
 
@@ -1236,8 +1252,8 @@ begin
           Line.RawLength := RawLength;
         end
         else
-          if Line.Address + Int64(Line.RawLength) > Data.List[MapIndex].Address then
-            Line.RawLength := Data.List[MapIndex].Address - Line.Address;
+          if Line.Address + Int64(Line.RawLength) > AMapRow.Address then
+            Line.RawLength := AMapRow.Address - Line.Address;
       end;
 
       AddLine;
@@ -1656,81 +1672,82 @@ begin
   end;
 end;
 
+function DefaultMapRowComparer({$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} A, B: TMapRow): Integer;
+var
+  LongResult: Int64;
+begin
+
+  // порядок строго по возрастанию адресов
+
+  // The order is strictly in ascending order of addresses
+
+  LongResult := A.Address - B.Address;
+
+  // все строки не содержащие данных ОБЯЗАТЕЛЬНО
+  // идут перед блоками с данными!!!
+
+  // all non-data lines MUST come before the data blocks!!!
+
+  if LongResult = 0 then
+    LongResult := A.RawLength - B.RawLength;
+
+  // отдельная обработка парных блоков коментариев
+
+  // separate processing of paired comment blocks
+
+  if LongResult = 0 then
+  begin
+    if A.Style = rsBlockComment then
+    begin
+      if A.Index = B.Index then
+        Exit(0);
+      if B.Style = rsBlockComment then
+        LongResult := Integer(A.BlockCommentStart) -
+          Integer(B.BlockCommentStart)
+      else
+        if A.BlockCommentStart then
+          LongResult := 1
+        else
+          LongResult := -1;
+    end
+    else
+      if B.Style = rsBlockComment then
+      begin
+        if A.Index = B.Index then
+          Exit(0);
+        if A.Style = rsBlockComment then
+          LongResult := Integer(A.BlockCommentStart) -
+            Integer(B.BlockCommentStart)
+        else
+          if B.BlockCommentStart then
+            LongResult := -1
+          else
+            LongResult := 1;
+      end
+  end;
+
+  if LongResult = 0 then
+    LongResult := A.Index - B.Index;
+
+  if LongResult < 0 then
+    Result := -1
+  else
+    if LongResult = 0 then
+      Result := 0
+    else
+      Result := 1;
+end;
+
 constructor TDataMap.Create(AOwner: TCustomMappedHexView);
 begin
   FOwner := AOwner;
-  FData := TList<TMapRow>.Create(TComparer<TMapRow>.Construct(
-    function (const A, B: TMapRow): Integer
-    var
-      LongResult: Int64;
-    begin
-
-      // порядок строго по возрастанию адресов
-
-      // The order is strictly in ascending order of addresses
-
-      LongResult := A.Address - B.Address;
-
-      // все строки не содержащие данных ОБЯЗАТЕЛЬНО
-      // идут перед блоками с данными!!!
-
-      // all non-data lines MUST come before the data blocks!!!
-
-      if LongResult = 0 then
-        LongResult := A.RawLength - B.RawLength;
-
-      // отдельная обработка парных блоков коментариев
-
-      // separate processing of paired comment blocks
-
-      if LongResult = 0 then
-      begin
-        if A.Style = rsBlockComment then
-        begin
-          if A.Index = B.Index then
-            Exit(0);
-          if B.Style = rsBlockComment then
-            LongResult := Integer(A.BlockCommentStart) -
-              Integer(B.BlockCommentStart)
-          else
-            if A.BlockCommentStart then
-              LongResult := 1
-            else
-              LongResult := -1;
-        end
-        else
-          if B.Style = rsBlockComment then
-          begin
-            if A.Index = B.Index then
-              Exit(0);
-            if A.Style = rsBlockComment then
-              LongResult := Integer(A.BlockCommentStart) -
-                Integer(B.BlockCommentStart)
-            else
-              if B.BlockCommentStart then
-                LongResult := -1
-              else
-                LongResult := 1;
-          end
-      end;
-
-      if LongResult = 0 then
-        LongResult := A.Index - B.Index;
-
-      if LongResult < 0 then
-        Result := -1
-      else
-        if LongResult = 0 then
-          Result := 0
-        else
-          Result := 1;
-    end)
-  );
+  FData := TListEx<TMapRow>.Create(TComparer<TMapRow>.Construct(DefaultMapRowComparer));
   FData.OnNotify := DataChange;
   FRawIndex := TDictionary<Int64, Int64>.Create;
 end;
 
-procedure TDataMap.DataChange(Sender: TObject; const Item: TMapRow;
+procedure TDataMap.DataChange(Sender: TObject;
+  {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} Item: TMapRow;
   Action: TCollectionNotification);
 begin
   RebuildDataMap;
@@ -2681,11 +2698,11 @@ begin
   if GetPageIndex(VirtualAddress, Index) = pirPagePresent then
     raise Exception.CreateFmt(
       'New Page region intersect with page at address 0x%x.',
-      [FPages.List[Index].VirtualAddress]);
+      [FPages[Index].VirtualAddress]);
   if GetPageIndex(VirtualAddress + Size, Index) = pirPagePresent then
     raise Exception.CreateFmt(
       'New Page region intersect with page at address 0x%x.',
-      [FPages.List[Index].VirtualAddress]);
+      [FPages[Index].VirtualAddress]);
 
   NewPage := TVirtualPage.Create;
   NewPage.Caption := Caption;
@@ -2719,7 +2736,7 @@ begin
 
     if Count > 0 then
     begin
-      StartAddr := FPages.List[Count - 1].VirtualAddress;
+      StartAddr := FPages[Count - 1].VirtualAddress;
       EndAddr := MaxAddrAware;
       Result := (StartAddr <= VirtualAddress) and (EndAddr > VirtualAddress);
     end;
@@ -2730,18 +2747,22 @@ begin
   Result := FPages.Count;
 end;
 
+function VirtualPagesComparer({$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} A, B: TVirtualPage): Integer;
+begin
+  if Int64(A.VirtualAddress) < Int64(B.VirtualAddress) then
+    Result := -1
+  else
+    if Int64(A.VirtualAddress) = Int64(B.VirtualAddress) then
+      Result := 0
+    else
+      Result := 1;
+end;
+
 constructor TVirtualPages.Create(AOwner: TCustomMappedHexView);
 begin
   FOwner := AOwner;
-  FPages := TObjectList<TVirtualPage>.Create(TComparer<TVirtualPage>.Construct(
-    function(const A, B: TVirtualPage): Integer
-    var
-      NoOverflowVariable: Int64;
-    begin
-      NoOverflowVariable := Int64(A.VirtualAddress) - Int64(B.VirtualAddress);
-      Result := NoOverflowVariable;
-    end)
-  );
+  FPages := TObjectList<TVirtualPage>.Create(
+    TComparer<TVirtualPage>.Construct(VirtualPagesComparer));
 end;
 
 procedure TVirtualPages.Delete(Index: Integer);
@@ -2763,13 +2784,14 @@ end;
 
 function TVirtualPages.GetItem(Index: Integer): TVirtualPage;
 begin
-  Result := FPages.List[Index];
+  Result := FPages[Index];
 end;
 
 function TVirtualPages.GetPageIndex(VirtualAddress: Int64;
   out Index: Integer): TPageIndexResult;
 var
   I: Integer;
+  APage: TVirtualPage;
 begin
   Index := -1;
   Result := pirOutOfBounds;
@@ -2777,13 +2799,16 @@ begin
     Exit;
   Result := pirNotPaged;
   for I := 0 to Count - 1 do
-    if (FPages.List[I].VirtualAddress <= VirtualAddress) and
-      (FPages.List[I].VirtualAddress + FPages.List[I].Size > VirtualAddress) then
+  begin
+    APage := FPages[I];
+    if (APage.VirtualAddress <= VirtualAddress) and
+      (APage.VirtualAddress + APage.Size > VirtualAddress) then
     begin
       Index := I;
       Result := pirPagePresent;
       Break;
     end;
+  end;
 end;
 
 function TVirtualPages.MaxAddrAware: Int64;
@@ -2794,10 +2819,10 @@ begin
     Result := FOwner.StartAddress + CheckNegative(FOwner.GetDataStreamSize)
   else
   begin
-    Result := FPages.List[0].VirtualAddress - FOwner.StartAddress;
+    Result := FPages[0].VirtualAddress - FOwner.StartAddress;
     for I := 0 to Count - 1 do
-      Inc(Result, FPages.List[I].Size);
-    Result := FOwner.StartAddress + FPages.List[Count - 1].VirtualAddress +
+      Inc(Result, FPages[I].Size);
+    Result := FOwner.StartAddress + FPages[Count - 1].VirtualAddress +
       CheckNegative(FOwner.GetDataStreamSize) - Result;
   end;
 end;

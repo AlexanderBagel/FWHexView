@@ -39,8 +39,11 @@ Licence:
 
 unit FWHexView.Actions;
 
+{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
-  {$MODE Delphi}
+  {$I FWHexViewConfig.inc}
+{$ELSE}
+  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
 
 interface

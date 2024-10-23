@@ -8,6 +8,7 @@
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
+        <IncludeFiles Value="src"/>
         <OtherUnitFiles Value="src"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
@@ -35,6 +36,10 @@
       <Item>
         <Filename Value="src\FWHexView.pas"/>
         <UnitName Value="FWHexView"/>
+      </Item>
+      <Item>
+        <Filename Value="src\FWHexViewConfig.inc"/>
+        <Type Value="Include"/>
       </Item>
     </Files>
     <RequiredPkgs>

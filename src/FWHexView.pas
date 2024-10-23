@@ -39,12 +39,13 @@ Licence:
 
 unit FWHexView;
 
+{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
-  {$MODE Delphi}
-  {$WARN 5024 off : Parameter "$1" not used}
-  {$WARN 5091 off : Local variable "$1" of a managed type does not seem to be initialized}
-  {$WARN 6060 off : Case statement does not handle all possible cases}
+  {$I FWHexViewConfig.inc}
+{$ELSE}
+  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
+
 interface
 
 //{$define show_dbg_lines}
@@ -182,17 +183,18 @@ type
   TSelections = class
   strict private
     FOwner: TFWCustomHexView;
-    FItems: TList<TSelection>;
+    FItems: TListEx<TSelection>;
     FVisibleIndex: TList<Integer>;
     FUpdateCount: Integer;
     FChange: TNotifyEvent;
     procedure DoChange;
     function GetItem(Index: Integer): TSelection;
-    procedure ListNotification(Sender: TObject; const Item: TSelection;
+    procedure ListNotification(Sender: TObject;
+      {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} Item: TSelection;
       Action: TCollectionNotification);
   protected
     procedure UpdateVisibleSelections;
-    property Items: TList<TSelection> read FItems;
+    property Items: TListEx<TSelection> read FItems;
     property VisibleIndex: TList<Integer> read FVisibleIndex;
     property OnChange: TNotifyEvent read FChange write FChange;
   public
@@ -1510,7 +1512,7 @@ end;
 constructor TSelections.Create(AOwner: TFWCustomHexView);
 begin
   FOwner := AOwner;
-  FItems := TList<TSelection>.Create;
+  FItems := TListEx<TSelection>.Create;
   FItems.OnNotify := ListNotification;
   FVisibleIndex := TList<Integer>.Create;
 end;
@@ -1554,7 +1556,8 @@ begin
   Result := FItems[Index];
 end;
 
-procedure TSelections.ListNotification(Sender: TObject; const Item: TSelection;
+procedure TSelections.ListNotification(Sender: TObject;
+  {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} Item: TSelection;
   Action: TCollectionNotification);
 begin
   if Action in [cnAdded, cnExtracted, cnRemoved] then

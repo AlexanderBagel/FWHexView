@@ -39,8 +39,11 @@ Licence:
 
 unit FWHexView.AsmTokenizer;
 
+{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
-  {$MODE Delphi}
+  {$I FWHexViewConfig.inc}
+{$ELSE}
+  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
 
 interface
