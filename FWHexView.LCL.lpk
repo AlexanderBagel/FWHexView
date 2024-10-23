@@ -12,6 +12,11 @@
         <OtherUnitFiles Value="src"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
+      <Other>
+        <CompilerMessages>
+          <IgnoredMessages idx5071="True" idx5062="True" idx4046="True"/>
+        </CompilerMessages>
+      </Other>
     </CompilerOptions>
     <Description Value="Cross-platform HEX editor"/>
     <License Value="GPL v3"/>
