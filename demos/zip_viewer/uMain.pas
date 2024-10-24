@@ -10,15 +10,12 @@ uses
 {$IFnDEF FPC}
   Windows,
 {$ELSE}
-  LCLIntf, LCLType, LMessages, bufstream,
+  LCLIntf, LCLType, bufstream, Types,
 {$ENDIF}
-  Messages, SysUtils, Classes, Graphics, Dialogs,
+  SysUtils, Classes, Graphics, Dialogs,
   Controls, Forms, ComCtrls, Menus, ExtCtrls, Generics.Collections,
 
-  FWZipConsts,
-  FWZipZLib,
-  FWZipUtils,
-
+  ZipSupport,
   FWHexView,
   FWHexView.Common,
   FWHexView.MappedView;
@@ -78,11 +75,11 @@ const
 function CompressionMethodToStr(Value: Integer): string;
 begin
   case Value of
-    Z_NO_COMPRESSION: Result := 'NO_COMPRESSION';
-    Z_DEFLATED: Result := 'DEFLATE';
+    0: Result := 'NO_COMPRESSION';
     1: Result := 'Shrunk';
     2..5: Result := 'Reduced with compression factor ' + IntToStr(Value - 1);
     6: Result := 'Imploding';
+    8: Result := 'DEFLATE';
     9: Result := 'DEFLATE64';
     10: Result := 'PKWARE Imploding';
     11, 13, 15..17: Result := 'Reserved by PKWARE';
@@ -307,7 +304,7 @@ begin
     Data.GeneralPurposeBitFlag and PBF_UTF8 <> 0);
 
   Node := tvZip.Items.AddChild(GetCFDNode, 'CENTRAL_FILE_HEADER_' + IntToHex(AddrVA, 8));
-  Node.Data := Pointer(FTreeAddrList.Add(AddrVA));
+  Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
   HexView.DataMap.AddSeparator(AddrVA, 'CENTRAL_FILE_HEADER');
   HexView.DataMap.AddExDescription(4, Format('Signature = 0x%x', [Data.CentralFileHeaderSignature]));
   HexView.DataMap.AddExDescription(2, Format('VersionMadeBy = %d', [Data.VersionMadeBy]));
@@ -326,7 +323,6 @@ begin
   HexView.DataMap.AddMaskCheck(0, 'PBF_STRONG_CRYPT', '0x40', PBF_STRONG_CRYPT and Data.GeneralPurposeBitFlag = PBF_STRONG_CRYPT);
   HexView.DataMap.AddMaskSeparator;
   HexView.DataMap.AddExDescription(2, Format('CompressionMethod = 0x%x', [Data.CompressionMethod]), CompressionMethodToStr(Data.CompressionMethod));
-  {$message 'вывести в текстовом формате'}
   HexView.DataMap.AddExDescription(2, Format('LastModFileTimeTime = 0x%x', [Data.LastModFileTimeTime]));
   HexView.DataMap.AddExDescription(2, Format('LastModFileTimeDate = 0x%x', [Data.LastModFileTimeDate]));
   HexView.DataMap.AddExDescription(4, Format('Crc32 = 0x%x', [Data.Crc32]));
@@ -387,7 +383,7 @@ begin
     HexView.DataMap.AddExDescription(4, Format('CompressedSize = %d', [Data.CompressedSize]));
     HexView.DataMap.AddExDescription(4, Format('UncompressedSize = %d', [Data.UncompressedSize]));
   end;
-  Node.Data := Pointer(FTreeAddrList.Add(AddrVA));
+  Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
 end;
 
 procedure TdlgMain.ShowEndOfCentralDir(Stream: TStream);
@@ -399,7 +395,7 @@ var
 begin
   AddrVA := Stream.Position;
   Node := tvZip.Items.AddChild(nil, 'END_OF_CENTRAL_DIR_' + IntToHex(AddrVA, 8));
-  Node.Data := Pointer(FTreeAddrList.Add(AddrVA));
+  Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
   HexView.DataMap.AddSeparator(AddrVA, 'END_OF_CENTRAL_DIR');
   Stream.ReadBuffer(Data, SizeOf(TEndOfCentralDir));
   LoadStringValue(Stream, Comment, Data.ZipfileCommentLength, False);
@@ -448,7 +444,7 @@ begin
     begin
       Node := tvZip.Items.AddChild(Root, '');
       AddrVA := StartPos + BuffCount - Size;
-      Node.Data := Pointer(FTreeAddrList.Add(AddrVA));
+      Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
       HeaderID := PWord(GetOffset(Size))^;
       Dec(Size, 2);
       BlockSize := PWord(GetOffset(Size))^;
@@ -605,7 +601,7 @@ begin
   LoadStringValue(Stream, FileName, Data.FilenameLength,
     Data.GeneralPurposeBitFlag and PBF_UTF8 <> 0);
   Node := tvZip.Items.AddChild(nil, 'LOCAL_FILE_HEADER_' + IntToHex(AddrVA, 8));
-  Node.Data := Pointer(FTreeAddrList.Add(AddrVA));
+  Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
   HexView.DataMap.AddSeparator(AddrVA, 'LOCAL_FILE_HEADER');
   HexView.DataMap.AddExDescription(4, Format('Signature = 0x%x', [Data.LocalFileHeaderSignature]));
   HexView.DataMap.AddExDescription(2, Format('VersionNeededToExtract = %d', [Data.VersionNeededToExtract]));
@@ -623,7 +619,6 @@ begin
   HexView.DataMap.AddMaskCheck(0, 'PBF_STRONG_CRYPT', '0x40', PBF_STRONG_CRYPT and Data.GeneralPurposeBitFlag = PBF_STRONG_CRYPT);
   HexView.DataMap.AddMaskSeparator;
   HexView.DataMap.AddExDescription(2, Format('CompressionMethod = 0x%x', [Data.CompressionMethod]), CompressionMethodToStr(Data.CompressionMethod));
-  {$message 'вывести в текстовом формате'}
   HexView.DataMap.AddExDescription(2, Format('LastModFileTimeTime = 0x%x', [Data.LastModFileTimeTime]));
   HexView.DataMap.AddExDescription(2, Format('LastModFileTimeDate = 0x%x', [Data.LastModFileTimeDate]));
   HexView.DataMap.AddExDescription(4, Format('Crc32 = 0x%x', [Data.Crc32]));
@@ -655,7 +650,7 @@ begin
     Exit;
   end;
   Node := tvZip.Items.AddChild(nil, 'ZIP64_END_OF_CENTRAL_DIR_' + IntToHex(AddrVA, 8));
-  Node.Data := Pointer(FTreeAddrList.Add(AddrVA));
+  Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
   HexView.DataMap.AddSeparator(AddrVA, 'ZIP64_END_OF_CENTRAL_DIR');
   HexView.DataMap.AddExDescription(4, Format('Signature = 0x%x', [Data.Zip64EndOfCentralDirSignature]));
   HexView.DataMap.AddExDescription(8, Format('SizeOfZip64EOFCentralDirectoryRecord = %d', [Data.SizeOfZip64EOFCentralDirectoryRecord]));
@@ -680,7 +675,7 @@ var
 begin
   AddrVA := Stream.Position;
   Node := tvZip.Items.AddChild(nil, 'ZIP64_END_OF_CENTRAL_DIR_LOCATOR_' + IntToHex(AddrVA, 8));
-  Node.Data := Pointer(FTreeAddrList.Add(AddrVA));
+  Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
   HexView.DataMap.AddSeparator(AddrVA, 'ZIP64_END_OF_CENTRAL_DIR_LOCATOR');
   Stream.ReadBuffer(Data, SizeOf(TZip64EOFCentralDirectoryLocator));
   HexView.DataMap.AddExDescription(4, Format('Signature = 0x%x', [Data.Signature]));
@@ -698,7 +693,7 @@ var
 begin
   if Assigned(Node) and (Node <> FCentralFileDirNode) then
   begin
-    AddrVA := FTreeAddrList[Integer(Node.Data)];
+    AddrVA := FTreeAddrList[PtrToUInt(Node.Data)];
     RowIndex := HexView.AddressToRowIndex(AddrVA);
     HexView.FocusOnAddress(AddrVA, ccmNone);
     HexView.FocusOnRow(RowIndex + 1, ccmSelectRow);

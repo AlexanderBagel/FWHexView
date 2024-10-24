@@ -10,9 +10,9 @@ uses
 {$IFnDEF FPC}
   Windows,
 {$ELSE}
-  LCLIntf, LCLType, LMessages,
+  LCLIntf, LCLType,
 {$ENDIF}
-  Messages, SysUtils, Classes, Graphics, Controls, Forms,
+  SysUtils, Classes, Graphics, Controls, Forms,
   ComCtrls, Generics.Collections, Math,
 
   FWHexView,
@@ -47,7 +47,7 @@ type
     FFilePath: string;
     FStream: TStream;
     FOrigBuffer, FBuffer: TBufferedStream;
-    FStack: TList<TUndoRec>;
+    FStack: TListEx<TUndoRec>;
     FHighlightBuff: array of Boolean;
     FHighlightBuffLen: Integer;
     FSavedIndex, FTopIndex: Integer;
@@ -136,7 +136,7 @@ end;
 constructor TPageFrame.Create(AOwner: TComponent);
 begin
   inherited;
-  FStack := TList<TUndoRec>.Create;
+  FStack := TListEx<TUndoRec>.Create;
   SetLength(FHighlightBuff, HexView.BytesInRow);
 end;
 

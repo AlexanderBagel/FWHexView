@@ -12,9 +12,9 @@ object dlgMain: TdlgMain
   Font.Height = -11
   Font.Name = 'Tahoma'
   Menu = MainMenu
-  LCLVersion = '3.99.0.0'
   OnCreate = FormCreate
   OnDestroy = FormDestroy
+  LCLVersion = '3.4.0.0'
   object Splitter: TSplitter
     Left = 233
     Height = 572
@@ -42,14 +42,6 @@ object dlgMain: TdlgMain
     Top = 0
     Width = 1152
     Align = alClient
-    ColorMap.ArrowDownColor = 16760220
-    ColorMap.ArrowDownSelectedColor = 16744760
-    ColorMap.ArrowUpColor = 12897535
-    ColorMap.ArrowUpSelectedColor = 4345087
-    ColorMap.JmpMarkTextColor = 12087625
-    ColorMap.SeparatorBackgroundColor = clBtnFace
-    ColorMap.SeparatorBorderColor = clGrayText
-    ColorMap.SeparatorTextColor = clWindowText
     Header.Columns = [ctJmpLine, ctAddress, ctOpcode, ctDescription, ctComment]
     ParentFont = False
     TabOrder = 1

@@ -26,7 +26,9 @@ begin
   Application.Scaled:=True;
   {$ENDIF}
   Application.Initialize;
+  {$IFNDEF FPC}
   Application.MainFormOnTaskbar := True;
+  {$ENDIF}
   Application.CreateForm(TdlgHexEditor, dlgHexEditor);
   Application.Run;
 end.

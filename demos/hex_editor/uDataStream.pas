@@ -119,7 +119,7 @@ begin
   Invalidate;
 end;
 
-function TBufferedStream.Write(const Buffer; Count: Longint): Longint;
+function TBufferedStream.{%H-}Write(const Buffer; Count: Longint): Longint;
 begin
   raise EStreamError.Create('Stream is read-only');
 end;

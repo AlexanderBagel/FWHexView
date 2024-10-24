@@ -2070,7 +2070,7 @@ begin
   FSelectInactiveColor := $414141;
   FInfoBackgroundColor := clGray;
   FInfoBorderColor := clWindowFrame;
-  FInfoTextColor := clWindow;
+  FInfoTextColor := clWhite;
   FHeaderBorder := clGrayText;
   FHeaderBackgroundColor := $212121;
   FHeaderColumnSeparatorColor := $8C8C8C;
@@ -2107,7 +2107,7 @@ begin
   FSelectInactiveColor := RGB(220, 220, 220);
   FInfoBackgroundColor := clGray;
   FInfoBorderColor := clWindowFrame;
-  FInfoTextColor := clWindowText;
+  FInfoTextColor := clWhite;
   FHeaderBorder := clGrayText;
   FHeaderBackgroundColor := clWindow;
   FHeaderColumnSeparatorColor := RGB(140, 140, 140);

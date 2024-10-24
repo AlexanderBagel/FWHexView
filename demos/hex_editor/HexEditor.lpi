@@ -120,6 +120,9 @@
       </Options>
     </Linking>
     <Other>
+      <CompilerMessages>
+        <IgnoredMessages idx6058="True" idx5091="True" idx5071="True" idx5062="True" idx5024="True" idx5023="True" idx4046="True"/>
+      </CompilerMessages>
       <CustomOptions Value="-dBorland -dVer150 -dDelphi7 -dCompiler6_Up -dPUREPASCAL"/>
     </Other>
   </CompilerOptions>

@@ -16,7 +16,7 @@ object PageFrame: TPageFrame
     Width = 1328
     Align = alClient
     Header.Columns = [ctAddress, ctOpcode, ctDescription]
-    NoDataText = 'Open file using the menu or drag and drop it from Explorer'
+    NoDataText = 'Open file using the menu'
     TabOrder = 0
     OnDrawColumnBackground = HexViewDrawColumnBackground
     OnDrawToken = HexViewDrawToken

@@ -540,9 +540,7 @@ end;
 function TdlgHexEditor.CreateNewFrame: TPageFrame;
 var
   NewPage: TTabSheet;
-  Buff: array of Byte;
 begin
-  SetLength(Buff, 10);
   NewPage := TTabSheet.Create(Self);
   NewPage.Caption := NoData;
   NewPage.PageControl := PageControl;
