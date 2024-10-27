@@ -2204,6 +2204,7 @@ begin
   begin
     FColorMode := Value;
     case Value of
+      cmAuto: InitDefault;
       cmLight: InitLightMode;
       cmDark: InitDarkMode;
     end;
@@ -5469,7 +5470,7 @@ end;
 
 procedure TFWCustomHexView.InitDefault;
 begin
-  ColorMap.InitDefault;
+  ColorMap.ColorMode := cmAuto;
   FHeader.Columns := [ctAddress..ctDescription];
   FHeader.ColumnWidth[ctWorkSpace] := ToDpi(34);
   FHeader.ColumnWidth[ctJmpLine] := ToDpi(90);
@@ -6020,7 +6021,7 @@ begin
   // Оба бага пофикшены в Delphi 11.0
 
   // csFreeNotification:
-  //   VCL will not skate a control if it has this flag, do it yourself
+  //   VCL will not skale a control if it has this flag, do it yourself
   // csDesigning:
   //   If GetParentCurrentDpi is called, we will get to the main
   //   IDE form and take its DPI, not the designer's DPI (they are different).
