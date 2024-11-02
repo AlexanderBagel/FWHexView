@@ -6564,7 +6564,9 @@ begin
     ScrollInfo.nPos := -FScrollOffset.X;
     ScrollInfo.nPage := ClientWidth;
     ScrollInfo.nMax := FTextBoundary.X;
+    {$IFNDEF FPC}
     ShowScrollBar(Handle, SB_HORZ, True);
+    {$ENDIF}
     SetScrollInfo(Handle, SB_HORZ, ScrollInfo, True);
   end
   else
@@ -6691,7 +6693,9 @@ begin
   ScrollInfo.nPos := -Scroll64To32(FScrollOffset.Y);
   ScrollInfo.nPage := Scroll64To32(ClientHeight);
   ScrollInfo.nMax := Scroll64To32(FTextBoundary.Y);
+  {$IFNDEF FPC}
   ShowScrollBar(Handle, SB_VERT, True);
+  {$ENDIF}
   SetScrollInfo(Handle, SB_VERT, ScrollInfo, True);
 
   Invalidate;
