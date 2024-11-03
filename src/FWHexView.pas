@@ -404,6 +404,7 @@ type
     FTextColor: TColor;
     FTextCommentColor: TColor;
     FWorkSpaceTextColor: TColor;
+    procedure InternalDoChange;
     procedure SetBackgroundColor(const Value: TColor);
     procedure SetBookmarkBackgroundColor(const Value: TColor);
     procedure SetBookmarkBorderColor(const Value: TColor);
@@ -711,7 +712,7 @@ type
       var Offset: TPoint); override;
   end;
 
-  THexViewHeader = class(TPersistent)
+  TCustomHexViewHeader = class(TPersistent)
   strict private
     FOwner: TFWCustomHexView;
     FVisible: Boolean;
@@ -732,6 +733,7 @@ type
     procedure SetVisible(const Value: Boolean);
     procedure UpdateWidth;
   protected
+    procedure InitDefault; virtual;
     procedure Paint(ACanvas: TCanvas; AScrollXOffset: Integer);
   public
     constructor Create(AOwner: TFWCustomHexView);
@@ -744,7 +746,14 @@ type
     property Visible: Boolean read FVisible write SetVisible default True;
   end;
 
-  THeaderClass = class of THexViewHeader;
+  THeaderClass = class of TCustomHexViewHeader;
+
+  THexViewHeader = class(TCustomHexViewHeader)
+  published
+    property Columns;
+    property DrawColumnSeparator;
+    property Visible;
+  end;
 
   TQueryStringEvent = procedure(Sender: TObject; AddrVA: UInt64; AColumn: TColumnType; var AComment: string) of object;
   TDrawColumnBackgroundEvent = procedure(Sender: TObject; ACanvas: TCanvas;
@@ -785,7 +794,7 @@ type
     FDataStream: TStream;
     FDefaultPainter: TAbstractPrimaryRowPainter;
     FEncoder: TCharEncoder;
-    FHeader: THexViewHeader;
+    FHeader: TCustomHexViewHeader;
     FHideSelection: Boolean;
     FRowHeight: Integer;
     FLastDiapasone: TVisibleRowDiapason;
@@ -847,7 +856,7 @@ type
     procedure SetCtlBorderStyle(const Value: TBorderStyle);
     procedure SetDefaultPainter(const Value: TAbstractPrimaryRowPainter);
     procedure SetEncoder(const Value: TCharEncoder);
-    procedure SetHeader(const Value: THexViewHeader);
+    procedure SetHeader(const Value: TCustomHexViewHeader);
     procedure SetHideSelection(const Value: Boolean);
     procedure SetNoDataText(const Value: string);
     procedure SetReadOnly(const Value: Boolean);
@@ -997,6 +1006,7 @@ type
     // utilitarian methods for childs and painters
 
     function GetHitInfo(XPos, YPos: Int64): TMouseHitInfo;
+    function IsColorMapStored: Boolean; virtual;
     procedure RebuildData;
     procedure RegisterTextMetric(Value: TAbstractTextMetric);
 
@@ -1134,16 +1144,18 @@ type
     property BytesInGroup: Integer read FBytesInGroup write SetBytesInGroup default 8;
     property BytesInRow: Integer read FBytesInRow write SetBytesInRow default 16;
     property ByteViewMode: TByteViewMode read FByteViewMode write SetByteViewMode default bvmHex8;
-    property ColorMap: THexViewColorMap read FColorMap write SetColorMap;
+    property ColorMap: THexViewColorMap read FColorMap write SetColorMap stored IsColorMapStored;
     property Encoder: TCharEncoder read FEncoder write SetEncoder;
     property Font stored IsFontStored;
-    property Header: THexViewHeader read FHeader write SetHeader;
+    property Header: TCustomHexViewHeader read FHeader write SetHeader;
     property HideSelection: Boolean read FHideSelection write SetHideSelection default False;
     property NoDataText: string read FNoDataText write SetNoDataText;
+    property ParentFont default False;
     property ReadOnly: Boolean read FReadOnly write SetReadOnly default True;
     property ScrollBars: TScrollStyle read FScrollBars write SetScrollBars default TScrollStyle.ssBoth;
     property SelectOnMouseDown: Boolean read FSelectOnMouseDown write FSelectOnMouseDown default True;
     property SeparateGroupByColor: Boolean read FSeparateGroupByColor write SetSeparateGroupByColor default True;
+    property TabStop default True;
     property WheelMultiplyer: Integer read FWheelMultiplyer write FWheelMultiplyer default 3;
     property OnCaretPosChange: TNotifyEvent read FOnCaretPosChange write FOnCaretPosChange;
     property OnDrawColumnBackground: TDrawColumnBackgroundEvent read FOnDrawColBack write FOnDrawColBack;
@@ -1183,7 +1195,7 @@ type
     property Header;
     property HideSelection;
     property NoDataText;
-    property ParentFont default False;
+    property ParentFont;
     property ParentShowHint;
     property PopupMenu;
     property ReadOnly;
@@ -1192,7 +1204,7 @@ type
     property SeparateGroupByColor;
     property ShowHint;
     property TabOrder;
-    property TabStop default True;
+    property TabStop;
     property Visible;
     property WheelMultiplyer;
     property OnCaretPosChange;
@@ -2054,8 +2066,7 @@ end;
 procedure THexViewColorMap.DoChange;
 begin
   FColorMode := cmCustom;
-  if Assigned(FOwner) then
-    FOwner.DoChange(cmColorMap);
+  InternalDoChange;
 end;
 
 procedure THexViewColorMap.InitDarkMode;
@@ -2117,6 +2128,12 @@ begin
   FTextColor := clWindowText;
   FTextCommentColor := clGrayText;
   FWorkSpaceTextColor := clDkGray;
+end;
+
+procedure THexViewColorMap.InternalDoChange;
+begin
+  if Assigned(FOwner) then
+    FOwner.DoChange(cmColorMap);
 end;
 
 function THexViewColorMap.IsColorStored: Boolean;
@@ -2208,6 +2225,7 @@ begin
       cmLight: InitLightMode;
       cmDark: InitDarkMode;
     end;
+    InternalDoChange;
   end;
 end;
 
@@ -3988,26 +4006,20 @@ begin
     end;
 end;
 
-{ THexViewHeader }
+{ TCustomHexViewHeader }
 
-constructor THexViewHeader.Create(AOwner: TFWCustomHexView);
+constructor TCustomHexViewHeader.Create(AOwner: TFWCustomHexView);
 begin
   FOwner := AOwner;
-  FDrawColumnSeparator := True;
-  FVisible := True;
-  FColumns := [ctAddress, ctOpcode, ctDescription];
-  FColumnCaption[ctJmpLine] := 'Jumps';
-  FColumnCaption[ctAddress] := 'Address';
-  FColumnCaption[ctDescription] := 'Description';
-  FColumnCaption[ctComment] := 'Comment';
+  InitDefault;
 end;
 
-procedure THexViewHeader.DoChange;
+procedure TCustomHexViewHeader.DoChange;
 begin
   FOwner.DoChange(cmHeader);
 end;
 
-procedure THexViewHeader.DrawHeaderColumn(ACanvas: TCanvas;
+procedure TCustomHexViewHeader.DrawHeaderColumn(ACanvas: TCanvas;
   AColumn: TColumnType; var ARect: TRect);
 var
   Painter: TAbstractPrimaryRowPainter;
@@ -4040,17 +4052,28 @@ begin
   Painter.DefaultDrawHeaderColumn(ACanvas, ARect, ColumnCaption[AColumn], Flags);
 end;
 
-function THexViewHeader.GetColCaption(Value: TColumnType): string;
+function TCustomHexViewHeader.GetColCaption(Value: TColumnType): string;
 begin
   Result := FColumnCaption[Value];
 end;
 
-function THexViewHeader.GetColWidth(Value: TColumnType): Integer;
+function TCustomHexViewHeader.GetColWidth(Value: TColumnType): Integer;
 begin
   Result := FColumnWidth[Value];
 end;
 
-procedure THexViewHeader.Paint(ACanvas: TCanvas; AScrollXOffset: Integer);
+procedure TCustomHexViewHeader.InitDefault;
+begin
+  FDrawColumnSeparator := True;
+  FVisible := True;
+  FColumns := [ctAddress, ctOpcode, ctDescription];
+  FColumnCaption[ctJmpLine] := 'Jumps';
+  FColumnCaption[ctAddress] := 'Address';
+  FColumnCaption[ctDescription] := 'Description';
+  FColumnCaption[ctComment] := 'Comment';
+end;
+
+procedure TCustomHexViewHeader.Paint(ACanvas: TCanvas; AScrollXOffset: Integer);
 var
   LeftOffset: Integer;
   I: TColumnType;
@@ -4068,7 +4091,7 @@ begin
     end;
 end;
 
-procedure THexViewHeader.SetColCaption(Value: TColumnType;
+procedure TCustomHexViewHeader.SetColCaption(Value: TColumnType;
   const NewCaption: string);
 begin
   if ColumnCaption[Value] <> NewCaption then
@@ -4078,7 +4101,7 @@ begin
   end;
 end;
 
-procedure THexViewHeader.SetColumns(const Value: TFWHexViewColumnTypes);
+procedure TCustomHexViewHeader.SetColumns(const Value: TFWHexViewColumnTypes);
 begin
   if Columns <> Value then
   begin
@@ -4087,7 +4110,7 @@ begin
   end;
 end;
 
-procedure THexViewHeader.SetColWidth(Value: TColumnType; AWidth: Integer);
+procedure TCustomHexViewHeader.SetColWidth(Value: TColumnType; AWidth: Integer);
 begin
   if AWidth < FOwner.MinColumnWidth then
     AWidth := FOwner.MinColumnWidth;
@@ -4100,7 +4123,7 @@ begin
   end;
 end;
 
-procedure THexViewHeader.SetDrawColumnSeparator(const Value: Boolean);
+procedure TCustomHexViewHeader.SetDrawColumnSeparator(const Value: Boolean);
 begin
   if DrawColumnSeparator <> Value then
   begin
@@ -4109,7 +4132,7 @@ begin
   end;
 end;
 
-procedure THexViewHeader.SetVisible(const Value: Boolean);
+procedure TCustomHexViewHeader.SetVisible(const Value: Boolean);
 begin
   if Visible <> Value then
   begin
@@ -4118,7 +4141,7 @@ begin
   end;
 end;
 
-procedure THexViewHeader.UpdateWidth;
+procedure TCustomHexViewHeader.UpdateWidth;
 var
   I: TColumnType;
 begin
@@ -5471,7 +5494,7 @@ end;
 procedure TFWCustomHexView.InitDefault;
 begin
   ColorMap.ColorMode := cmAuto;
-  FHeader.Columns := [ctAddress..ctDescription];
+  FHeader.InitDefault;
   FHeader.ColumnWidth[ctWorkSpace] := ToDpi(34);
   FHeader.ColumnWidth[ctJmpLine] := ToDpi(90);
   FHeader.ColumnWidth[ctAddress] := ToDpi(130);
@@ -5573,6 +5596,11 @@ end;
 function TFWCustomHexView.IsAddrVisible(AAddrVA: Int64): Boolean;
 begin
   Result := IsRowVisible(RawData.AddressToRowIndex(AAddrVA));
+end;
+
+function TFWCustomHexView.IsColorMapStored: Boolean;
+begin
+  Result := FColorMap.IsColorStored;
 end;
 
 function TFWCustomHexView.IsFontStored: Boolean;
@@ -6275,7 +6303,7 @@ procedure TFWCustomHexView.SetEncoder(const Value: TCharEncoder);
 begin
 end;
 
-procedure TFWCustomHexView.SetHeader(const Value: THexViewHeader);
+procedure TFWCustomHexView.SetHeader(const Value: TCustomHexViewHeader);
 begin
 end;
 
