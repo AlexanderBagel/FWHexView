@@ -19,10 +19,6 @@
     <Version Major="2" Release="15"/>
     <Files>
       <Item>
-        <Filename Value="dsgn\FWHexView.lrs"/>
-        <Type Value="LRS"/>
-      </Item>
-      <Item>
         <Filename Value="dsgn\FWHexView.Reg.pas"/>
         <HasRegisterProc Value="True"/>
         <UnitName Value="FWHexView.Reg"/>
