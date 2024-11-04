@@ -55,6 +55,7 @@ uses
   Windows,
   Messages,
   UITypes,
+  Actions,
   {$ENDIF}
   SysUtils,
   Classes,
@@ -307,6 +308,7 @@ type
     procedure SetSeparatorBorderColor(const Value: TColor);
     procedure SetSeparatorTextColor(const Value: TColor);
   protected
+    procedure AssignTo(Dest: TPersistent); override;
     procedure InitLightMode; override;
     procedure InitDarkMode; override;
   published
@@ -1851,6 +1853,23 @@ end;
 
 { TMapViewColors }
 
+procedure TMapViewColors.AssignTo(Dest: TPersistent);
+begin
+  inherited;
+  if Dest is TMapViewColors then
+  begin
+    TMapViewColors(Dest).FArrowDownColor := FArrowDownColor;
+    TMapViewColors(Dest).FArrowDownSelectedColor := FArrowDownSelectedColor;
+    TMapViewColors(Dest).FArrowUpColor := FArrowUpColor;
+    TMapViewColors(Dest).FArrowUpSelectedColor := FArrowUpSelectedColor;
+    TMapViewColors(Dest).FJmpMarkColor := FJmpMarkColor;
+    TMapViewColors(Dest).FJmpMarkTextColor := FJmpMarkTextColor;
+    TMapViewColors(Dest).FSeparatorBackgroundColor := FSeparatorBackgroundColor;
+    TMapViewColors(Dest).FSeparatorBorderColor := FSeparatorBorderColor;
+    TMapViewColors(Dest).FSeparatorTextColor := FSeparatorTextColor;
+  end;
+end;
+
 procedure TMapViewColors.InitDarkMode;
 begin
   inherited;
@@ -2964,7 +2983,7 @@ end;
 
 constructor TViewShortCuts.Create;
 begin
-  FJmpBack := TViewShortCut.Create(VK_ESCAPE);
+  FJmpBack := TViewShortCut.Create(VK_BACK);
   FJmpTo := TViewShortCut.Create(VK_RETURN);
 end;
 
@@ -3256,7 +3275,7 @@ end;
 
 procedure TCustomMappedHexView.SetColorMap(const Value: TMapViewColors);
 begin
-  // do nothing...
+  ColorMap.Assign(Value);
 end;
 
 procedure TCustomMappedHexView.SetDrawIncomingJmp(const Value: Boolean);

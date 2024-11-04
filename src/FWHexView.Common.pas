@@ -224,6 +224,7 @@ const
   function RawBufToCPPArray(Value: PByte; nSize: Integer): string;
   function RawBufToPasArray(Value: PByte; nSize: Integer): string;
   procedure PatBlt(ACanvas: TCanvas; ALeft, ATop, AWidth, AHeight, ARop: Integer);{$IFNDEF FPC}inline;{$ENDIF}
+  function IsColorRefDark(Value: LongInt): Boolean;
 
 type
   TScrollDirection = (sdLeft, sdRight, sdUp, sdDown);
@@ -802,6 +803,14 @@ begin
   Windows.PatBlt(ACanvas.Handle, ALeft, ATop, AWidth, AHeight, ARop);
 end;
 {$ENDIF}
+
+function IsColorRefDark(Value: LongInt): Boolean;
+begin
+  Result := (
+    GetRValue(Value) * 30 +
+    GetGValue(Value) * 59 +
+    GetBValue(Value) * 11)  div 100 <= 130;
+end;
 
 procedure DrawArrow(ACanvas: TCanvas; Direction: TScrollDirection;
   Location: TPoint; Size: Integer);

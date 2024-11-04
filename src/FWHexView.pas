@@ -401,6 +401,8 @@ type
     FRowSeparatorColor: TColor;
     FSelectColor: TColor;
     FSelectInactiveColor: TColor;
+    FSelectTextContrastDarkColor: TColor;
+    FSelectTextContrastLightColor: TColor;
     FTextColor: TColor;
     FTextCommentColor: TColor;
     FWorkSpaceTextColor: TColor;
@@ -423,10 +425,13 @@ type
     procedure SetRowSeparatorColor(const Value: TColor);
     procedure SetSelectColor(const Value: TColor);
     procedure SetSelectInactiveColor(const Value: TColor);
+    procedure SetSelectTextContrastDarkColor(const Value: TColor);
+    procedure SetSelectTextContrastLightColor(const Value: TColor);
     procedure SetTextColor(const Value: TColor);
     procedure SetTextCommentColor(const Value: TColor);
     procedure SetWorkSpaceTextColor(const Value: TColor);
   protected
+    procedure AssignTo(Dest: TPersistent); override;
     procedure DoChange;
     procedure InitDarkMode; virtual;
     procedure InitDefault;
@@ -454,6 +459,8 @@ type
     property RowSeparatorColor: TColor read FRowSeparatorColor write SetRowSeparatorColor stored IsColorStored;
     property SelectColor: TColor read FSelectColor write SetSelectColor stored IsColorStored;
     property SelectInactiveColor: TColor read FSelectInactiveColor write SetSelectInactiveColor stored IsColorStored;
+    property SelectTextContrastDarkColor: TColor read FSelectTextContrastDarkColor write SetSelectTextContrastDarkColor stored IsColorStored;
+    property SelectTextContrastLightColor: TColor read FSelectTextContrastLightColor write SetSelectTextContrastLightColor stored IsColorStored;
     property TextColor: TColor read FTextColor write SetTextColor stored IsColorStored;
     property TextCommentColor: TColor read FTextCommentColor write SetTextCommentColor stored IsColorStored;
     property WorkSpaceTextColor: TColor read FWorkSpaceTextColor write SetWorkSpaceTextColor stored IsColorStored;
@@ -566,6 +573,8 @@ type
     ///  Formats the current string to be copied to the buffer
     /// </summary>
     procedure CopyRowAsString(Builder: TSimplyStringBuilder); virtual;
+    procedure DoDrawToken(ACanvas: TCanvas; ATokenParam: TDrawParam;
+      const ARect: TRect; AToken: PChar; var ATokenLen: Integer); virtual;
     procedure DrawAddress(ACanvas: TCanvas; var ARect: TRect); virtual;
     procedure DrawAlignedTextPart(ACanvas: TCanvas; AColumn: TColumnType;
       const Text: string; const ARect: TRect);
@@ -621,10 +630,18 @@ type
     function ValueMetric: TValueMetric; override;
   end;
 
+  TColorMixMode = (cmmNone, cmmLight, cmmDark, cmmMix);
+  TColorMixFontMode = (cmfmNone, cmfmLight, cmfmDark);
+
   TRowHexPainter = class(TAbstractPrimaryRowPainter)
   private
+    FCanvasChanged: Boolean;
+    FCanvasFontChange: TNotifyEvent;
     FColorMix: array of Longint;
     FColorMixColumn: TColumnType;
+    FColorMixMode: TColorMixMode;
+    FColorMixFontMode: TColorMixFontMode;
+    procedure DoCanvasFontChange(Sender: TObject);
   protected
     procedure InitColorMix(AColumn: TColumnType);
     procedure AddToColorMix(SelStart, SelEnd: Integer; AColor: TColor; Primary: Boolean);
@@ -637,6 +654,9 @@ type
      out EditChar: TNativeChar): Boolean; override;
     function CalcLeftNCWidth: Integer; override;
     function ColumnsDrawSupport: TFWHexViewColumnTypes; override;
+    procedure CorrectCanvasFont({%H-}ACanvas: TCanvas; {%H-}AColumn: TColumnType); override;
+    procedure DoDrawToken(ACanvas: TCanvas; ATokenParam: TDrawParam;
+      const ARect: TRect; AToken: PChar; var ATokenLen: Integer); override;
     procedure DrawColorGroup(ACanvas: TCanvas; var ARect: TRect); virtual;
     procedure DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
       var ARect: TRect); override;
@@ -792,6 +812,7 @@ type
     FCharWidth: Integer;
     FColorMap: THexViewColorMap;
     FDataStream: TStream;
+    FDefaultFontColorIsDark: Boolean;
     FDefaultPainter: TAbstractPrimaryRowPainter;
     FEncoder: TCharEncoder;
     FHeader: TCustomHexViewHeader;
@@ -867,6 +888,7 @@ type
     function Scroll32To64(Value: Integer): Int64;
     function Scroll64To32(Value: Int64): Integer;
     procedure OnSelectionsChange(Sender: TObject);
+    procedure UpdateTextDarknessColor;
     procedure UpdateTextExtent;
     procedure UpdateTextMetrics;
   protected
@@ -1110,6 +1132,7 @@ type
     // свойства для пейнтеров и наследников
 
     // properties for painters and childs
+    property DefaultFontColorIsDark: Boolean read FDefaultFontColorIsDark;
     property DefaultPainter: TAbstractPrimaryRowPainter read FDefaultPainter write SetDefaultPainter;
     property MousePressedHitInfo: TMouseHitInfo read FMousePressedHitInfo;
     property Painters: TObjectList<TAbstractPrimaryRowPainter> read FPainters;
@@ -2057,6 +2080,38 @@ end;
 
 { THexViewColorMap }
 
+procedure THexViewColorMap.AssignTo(Dest: TPersistent);
+begin
+  if Dest is THexViewColorMap then
+  begin
+    THexViewColorMap(Dest).FColorMode := FColorMode;
+    THexViewColorMap(Dest).FBackgroundColor := FBackgroundColor;
+    THexViewColorMap(Dest).FBookmarkBackgroundColor := FBookmarkBackgroundColor;
+    THexViewColorMap(Dest).FBookmarkBorderColor := FBookmarkBorderColor;
+    THexViewColorMap(Dest).FBookmarkTextColor := FBookmarkTextColor;
+    THexViewColorMap(Dest).FCaretColor := FCaretColor;
+    THexViewColorMap(Dest).FCaretTextColor := FCaretTextColor;
+    THexViewColorMap(Dest).FGroupColor := FGroupColor;
+    THexViewColorMap(Dest).FHeaderBackgroundColor := FHeaderBackgroundColor;
+    THexViewColorMap(Dest).FHeaderBorder := FHeaderBorder;
+    THexViewColorMap(Dest).FHeaderColumnSeparatorColor := FHeaderColumnSeparatorColor;
+    THexViewColorMap(Dest).FHeaderTextColor := FHeaderTextColor;
+    THexViewColorMap(Dest).FInfoBackgroundColor := FInfoBackgroundColor;
+    THexViewColorMap(Dest).FInfoBorderColor := FInfoBorderColor;
+    THexViewColorMap(Dest).FInfoTextColor := FInfoTextColor;
+    THexViewColorMap(Dest).FRowSeparatorColor := FRowSeparatorColor;
+    THexViewColorMap(Dest).FSelectColor := FSelectColor;
+    THexViewColorMap(Dest).FSelectInactiveColor := FSelectInactiveColor;
+    THexViewColorMap(Dest).FSelectTextContrastDarkColor := FSelectTextContrastDarkColor;
+    THexViewColorMap(Dest).FSelectTextContrastLightColor := FSelectTextContrastLightColor;
+    THexViewColorMap(Dest).FTextColor := FTextColor;
+    THexViewColorMap(Dest).FTextCommentColor := FTextCommentColor;
+    THexViewColorMap(Dest).FWorkSpaceTextColor := FWorkSpaceTextColor;
+  end
+  else
+    inherited;
+end;
+
 constructor THexViewColorMap.Create(AOwner: TFWCustomHexView);
 begin
   FOwner := AOwner;
@@ -2088,6 +2143,8 @@ begin
   FHeaderTextColor := $E0E0E0;
   FRowSeparatorColor := clGray;
   FSelectColor := $505050;
+  FSelectTextContrastDarkColor := clBlack;
+  FSelectTextContrastLightColor := clWhite;
   FTextColor := $E0E0E0;
   FTextCommentColor := $A0A0A0;
   FWorkSpaceTextColor := clWhite;
@@ -2125,6 +2182,8 @@ begin
   FHeaderTextColor := clWindowText;
   FRowSeparatorColor := clGray;
   FSelectColor := RGB(224, 224, 255);
+  FSelectTextContrastDarkColor := clBlack;
+  FSelectTextContrastLightColor := clWhite;
   FTextColor := clWindowText;
   FTextCommentColor := clGrayText;
   FWorkSpaceTextColor := clDkGray;
@@ -2142,15 +2201,6 @@ begin
 end;
 
 function THexViewColorMap.IsDarkMode: Boolean;
-
-  function IsColorRefDark(Value: LongInt): Boolean;
-  begin
-    Result := (
-      GetRValue(Value) * 30 +
-      GetGValue(Value) * 59 +
-      GetBValue(Value) * 11)  div 100 <= 130;
-  end;
-
 begin
   case ColorMode of
     cmAuto: Result := IsColorRefDark(ColorToRGB(clWindow));
@@ -2324,6 +2374,24 @@ begin
   if FSelectInactiveColor <> Value then
   begin
     FSelectInactiveColor := Value;
+    DoChange;
+  end;
+end;
+
+procedure THexViewColorMap.SetSelectTextContrastDarkColor(const Value: TColor);
+begin
+  if SelectTextContrastDarkColor <> Value then
+  begin
+    FSelectTextContrastDarkColor := Value;
+    DoChange;
+  end;
+end;
+
+procedure THexViewColorMap.SetSelectTextContrastLightColor(const Value: TColor);
+begin
+  if SelectTextContrastLightColor <> Value then
+  begin
+    FSelectTextContrastLightColor := Value;
     DoChange;
   end;
 end;
@@ -2807,6 +2875,13 @@ begin
   // do nothing...
 end;
 
+procedure TAbstractPrimaryRowPainter.DoDrawToken(ACanvas: TCanvas;
+  ATokenParam: TDrawParam; const ARect: TRect; AToken: PChar;
+  var ATokenLen: Integer);
+begin
+  Owner.DoDrawToken(ACanvas, ATokenParam, ARect, AToken, ATokenLen);
+end;
+
 procedure TAbstractPrimaryRowPainter.DrawAddress(ACanvas: TCanvas; var ARect: TRect);
 begin
   ACanvas.Font.Color := ColorMap.TextColor;
@@ -2990,7 +3065,7 @@ begin
     begin
       nTokenLength := nLength;
       R.Left := ARect.Left + XOffset;
-      Owner.DoDrawToken(ACanvas, ATokenParam, R, pData, nTokenLength);
+      DoDrawToken(ACanvas, ATokenParam, R, pData, nTokenLength);
       if nTokenLength > nLength then
         nTokenLength := nLength;
       CorrectCanvasFont(ACanvas, AColumn);
@@ -3382,6 +3457,69 @@ begin
   Result := [ctOpcode];
 end;
 
+procedure TRowHexPainter.CorrectCanvasFont(ACanvas: TCanvas;
+  AColumn: TColumnType);
+begin
+  case FColorMixFontMode of
+    cmfmNone: ; // stay the same!!!
+    cmfmLight: ACanvas.Font.Color := ColorMap.SelectTextContrastLightColor;
+    cmfmDark: ACanvas.Font.Color := ColorMap.SelectTextContrastDarkColor;
+  end;
+end;
+
+procedure TRowHexPainter.DoCanvasFontChange(Sender: TObject);
+begin
+  FCanvasChanged := True;
+  FCanvasFontChange(Sender);
+end;
+
+procedure TRowHexPainter.DoDrawToken(ACanvas: TCanvas; ATokenParam: TDrawParam;
+  const ARect: TRect; AToken: PChar; var ATokenLen: Integer);
+var
+  InitialTokenLen, Index, Len: Integer;
+  CurrentColor: LongInt;
+  IsDarkBackground: Boolean;
+begin
+  FColorMixFontMode := cmfmNone;
+  if FColorMixMode = cmmNone then
+  begin
+    inherited;
+    Exit;
+  end;
+  FCanvasFontChange := ACanvas.OnChange;
+  ACanvas.OnChange := DoCanvasFontChange;
+  try
+    FCanvasChanged := False;
+    InitialTokenLen := ATokenLen;
+    inherited;
+    if (InitialTokenLen = ATokenLen) and not FCanvasChanged then
+    begin
+      if Owner.DefaultFontColorIsDark and (FColorMixMode = cmmLight) then Exit;
+      if (FColorMixMode = cmmDark) and not Owner.DefaultFontColorIsDark then Exit;
+      CurrentColor := FColorMix[ATokenParam.ValueOffset];
+      Index := ATokenParam.ValueOffset;
+      Len := 0;
+      while CurrentColor = FColorMix[Index] do
+      begin
+        Inc(Len);
+        Inc(Index);
+        if Len >= ATokenLen then
+          Break;
+      end;
+      ATokenLen := TextMetric.CharCount(ATokenParam.Column, Len);
+      if CurrentColor = 0 then Exit;
+      IsDarkBackground := IsColorRefDark(CurrentColor);
+      if IsDarkBackground <> Owner.DefaultFontColorIsDark then Exit;
+      if IsDarkBackground then
+        FColorMixFontMode := cmfmLight
+      else
+        FColorMixFontMode := cmfmDark;
+    end;
+  finally
+    ACanvas.OnChange := FCanvasFontChange;
+  end;
+end;
+
 procedure TRowHexPainter.DrawColorGroup(ACanvas: TCanvas; var ARect: TRect);
 var
   I: Integer;
@@ -3404,6 +3542,7 @@ var
   R: TRect;
   I, SelStart: Integer;
   AColor: Longint;
+  LightColorPresent, DarkColorPresent: Byte;
 
   function DrawBack: Boolean;
   var
@@ -3412,7 +3551,7 @@ var
     Result := True;
     if R.Right > ARect.Width then
       R.Width := ARect.Width - R.Left;
-    if R.Width <= 0 then Exit(False);
+    if R.Width < 0 then Exit(False);
     if AColor <> 0 then
     begin
       ACanvas.Brush.Color := AColor;
@@ -3422,9 +3561,21 @@ var
     R.Left := R.Right;
   end;
 
+  procedure SetMixColor(ANewColor: Longint);
+  begin
+    AColor := ANewColor;
+    if ANewColor = 0 then Exit;    
+    if IsColorRefDark(ANewColor) then
+      DarkColorPresent := 2
+    else
+      LightColorPresent := 1;
+  end;
+
 begin
+  LightColorPresent := 0;
+  DarkColorPresent := 0;
   SelStart := 0;
-  AColor := FColorMix[0];
+  SetMixColor(FColorMix[0]);
   R.Left := 0;
   ACanvas.Brush.Style := bsSolid;
   for I := 1 to Length(FColorMix) - 1 do
@@ -3434,16 +3585,19 @@ begin
       R.Right := R.Left + TextMetric.SelectionLength(FColorMixColumn, SelStart, I - 1);
       SelStart := I;
       if not DrawBack then Exit;
-      AColor := FColorMix[I];
+      SetMixColor(FColorMix[I]);
     end;
   end;
   R.Right := R.Left + TextMetric.SelectionLength(FColorMixColumn, SelStart, Length(FColorMix) - 1);
   DrawBack;
+  FColorMixMode := TColorMixMode(LightColorPresent + DarkColorPresent);
 end;
 
 procedure TRowHexPainter.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
   var ARect: TRect);
 begin
+  FColorMixMode := cmmNone;
+  FColorMixFontMode := cmfmNone;
   case AColumn of
     ctWorkSpace:
       DrawWorkSpace(ACanvas, ARect);
@@ -4834,7 +4988,12 @@ begin
         FitColumnToBestSize(ctAddress);
         Invalidate;
       end;
-      cmBookmark, cmColorMap, cmEncoding:
+      cmColorMap:
+      begin
+        UpdateTextDarknessColor;
+        Invalidate;
+      end;
+      cmBookmark, cmEncoding:
         Invalidate;
       cmByteViewMode:
         UpdateView;
@@ -5494,6 +5653,7 @@ end;
 procedure TFWCustomHexView.InitDefault;
 begin
   ColorMap.ColorMode := cmAuto;
+  UpdateTextDarknessColor;
   FHeader.InitDefault;
   FHeader.ColumnWidth[ctWorkSpace] := ToDpi(34);
   FHeader.ColumnWidth[ctJmpLine] := ToDpi(90);
@@ -6254,6 +6414,7 @@ end;
 
 procedure TFWCustomHexView.SetColorMap(const Value: THexViewColorMap);
 begin
+  ColorMap.Assign(Value);
 end;
 
 procedure TFWCustomHexView.SetCtlBorderStyle(const Value: TBorderStyle);
@@ -6668,6 +6829,11 @@ begin
     ClientHeight mod FRowHeight;
   if not Header.Visible then
     Dec(FTextBoundary.Y, FRowHeight);
+end;
+
+procedure TFWCustomHexView.UpdateTextDarknessColor;
+begin
+  FDefaultFontColorIsDark := IsColorRefDark(ColorToRGB(ColorMap.TextColor));
 end;
 
 procedure TFWCustomHexView.UpdateTextExtent;
