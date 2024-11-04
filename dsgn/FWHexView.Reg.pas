@@ -85,7 +85,9 @@ end;
 
 initialization
 
-  {$I FWHexView.lrs}
+//  {$I FWHexView.lrs}
+  {$R fwhexview.res}
+
 
 {$ELSE}
 
