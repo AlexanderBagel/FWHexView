@@ -68,6 +68,9 @@ uses
   Types,
   ActnList,
   Menus,
+  {$IFDEF USE_PROFILER}
+  uni_profiler,
+  {$ENDIF}
   FWHexView,
   FWHexView.Common;
 
@@ -2299,6 +2302,7 @@ var
   ADescription: string;
 begin
   if AColumn <> ctNone then Exit;
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('TRowComment.DrawColumn');{$ENDIF}
   ACanvas.Brush.Style := bsSolid;
   ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
   Inc(ARect.Left, GetLeftNCWidth);
@@ -2312,6 +2316,7 @@ begin
   DrawText(ACanvas.Handle, PChar(ADescription),
     Length(ADescription), ARect, DT_LEFT);
   ACanvas.Font.Style := [];
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 end;
 
 { TRowCheckRadioMask }

@@ -41,13 +41,15 @@ unit FWHexView.Reg;
 
 interface
 
-{TODO: подцепить картинки}
-//{$R .\img.res}
+{$IFDEF FPC}
+  {$R fwhexview_fpc.res}
+{$ELSE}
+  {$R fwhexview.res}
+{$ENDIF}
 
 uses
   {$IFDEF FPC}
   ActnList,
-  LResources,
   {$ELSE}
   Actions,
   DesignIntf,
@@ -81,11 +83,11 @@ begin
   RegisterComponents('FWControls', [TFWHexView, TMappedHexView]);
 end;
 
-{$IFDEF FPC} 
+{$IFDEF FPC}
+
 initialization
-  {$R fwhexview_fpc.res}
+
 {$ELSE}
-  {$R fwhexview.res}
 
 { TFWHexViewActionsSelectionEditor }
 

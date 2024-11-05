@@ -9,7 +9,7 @@
       <PathDelim Value="\"/>
       <SearchPaths>
         <IncludeFiles Value="src"/>
-        <OtherUnitFiles Value="src"/>
+        <OtherUnitFiles Value="src;profiler"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
       <Other>
@@ -45,6 +45,10 @@
       <Item>
         <Filename Value="src\FWHexViewConfig.inc"/>
         <Type Value="Include"/>
+      </Item>
+      <Item>
+        <Filename Value="profiler\uni_profiler.pas"/>
+        <UnitName Value="uni_profiler"/>
       </Item>
     </Files>
     <RequiredPkgs>

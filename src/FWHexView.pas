@@ -80,6 +80,9 @@ uses
   {$endif}
   Generics.Collections,
   Generics.Defaults,
+  {$IFDEF USE_PROFILER}
+  uni_profiler,
+  {$ENDIF}
   FWHexView.Common,
   FWHexView.Actions;
 
@@ -1265,6 +1268,11 @@ type
   function CheckNegative(Value: Int64): Int64; inline;
   function UTF8ByteCount(p: PChar; CharCount: Integer): Integer; inline;
   function UTF8StringLength(const Value: string): Integer; inline;
+
+{$IFDEF USE_PROFILER}
+var
+  NeedProfile: Boolean;
+{$ENDIF}
 
 implementation
 
@@ -3022,7 +3030,9 @@ begin
       if I in Columns then
       begin
         ARect := MakeDrawRect(Offset.X, Offset.Y, ColumnWidth[I]);
+        {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('TAbstractPrimaryRowPainter.DrawRow');{$ENDIF}
         DrawColumn(ACanvas, I, ARect);
+        {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
         Inc(Offset.X, ColumnWidth[I]);
       end;
   finally
@@ -3596,21 +3606,44 @@ end;
 procedure TRowHexPainter.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
   var ARect: TRect);
 begin
+  {$IFDEF USE_PROFILER}NeedProfile := Owner.ClassName = 'TAsmView';{$ENDIF}
   FColorMixMode := cmmNone;
   FColorMixFontMode := cmfmNone;
   case AColumn of
     ctWorkSpace:
+    begin
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('ctWorkSpace');{$ENDIF}
       DrawWorkSpace(ACanvas, ARect);
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
+    end;
     ctAddress:
+    begin
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('ctAddress');{$ENDIF}
       DrawAddress(ACanvas, ARect);
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
+    end;
     ctOpcode:
+    begin
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('ctOpcode');{$ENDIF}
       DrawHexPart(ACanvas, ARect);
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
+    end;
     ctDescription:
+    begin
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('ctDescription');{$ENDIF}
       DrawDataPart(ACanvas, ARect);
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
+    end;
     ctComment:
+    begin
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('ctComment');{$ENDIF}
       DrawComment(ACanvas, ARect);
+      {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
+    end
   else
+    {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('DrawRowColumnBackground');{$ENDIF}
     DrawRowColumnBackground(ACanvas, AColumn, ARect);
+    {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
   end;
 end;
 
@@ -5999,6 +6032,11 @@ begin
   Stopwatch := TStopwatch.StartNew;
   {$endif}
 
+  {$IFDEF USE_PROFILER}
+  NeedProfile := ClassName = 'TAsmView';
+  if NeedProfile then uprof.Start('Paint full');
+  {$ENDIF}
+
   Canvas.Font.PixelsPerInch := Font.PixelsPerInch;
   Canvas.Font := Font;
 
@@ -6042,24 +6080,31 @@ begin
   if Diapason.EndRow < FRawData.Count - 1 then
     Inc(Diapason.EndRow);
 
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('DoBeforePaint');{$ENDIF}
   DoBeforePaint(Diapason);
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 
   // бэкграунд
 
   // background
 
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('DrawBackground');{$ENDIF}
   DefaultPainter.DrawBackground(Canvas, FMousePressed, FMousePressedHitInfo);
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 
   // сами данные
 
   // data itself
 
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('DrawRows');{$ENDIF}
   DrawRows(Diapason.StartRow, Diapason.EndRow, Offset);
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 
   // обработка постпайнтеров
 
   // postpainter handling
 
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('postpainter handling');{$ENDIF}
   Offset.X := FScrollOffset.X;
   SavedTopOffset := PostPaintDiapason.StartRow * FRowHeight + FScrollOffset.Y;
   if Header.Visible then
@@ -6070,6 +6115,7 @@ begin
     FPostPainters[I].PostPaint(Canvas,
       PostPaintDiapason.StartRow, PostPaintDiapason.EndRow, Offset);
   end;
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 
   // верхняя строка может быть не до конца выровнена, если скрол внизу
   // поэтому заголовок рисуем последним, он затрет лишнее в шапке
@@ -6098,6 +6144,8 @@ begin
   Stopwatch.Stop;
   OutputDebugString(PChar(IntToStr(Stopwatch.ElapsedMilliseconds)));
   {$endif}
+
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 end;
 
 function TFWCustomHexView.ReadDataAtSelStart(var pBuffer;
