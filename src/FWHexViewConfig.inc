@@ -1,4 +1,4 @@
-{$IFDEF FPC}
+﻿{$IFDEF FPC}
   {$MODE Delphi}
   {$WARN 5024 off : Parameter "$1" not used}
   {$WARN 5091 off : Local variable "$1" of a managed type does not seem to be initialized}
