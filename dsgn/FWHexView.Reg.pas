@@ -81,15 +81,11 @@ begin
   RegisterComponents('FWControls', [TFWHexView, TMappedHexView]);
 end;
 
-{$IFDEF FPC}
-
+{$IFDEF FPC} 
 initialization
-
-//  {$I FWHexView.lrs}
-  {$R fwhexview.res}
-
-
+  {$R fwhexview_fpc.res}
 {$ELSE}
+  {$R fwhexview.res}
 
 { TFWHexViewActionsSelectionEditor }
 
