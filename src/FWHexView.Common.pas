@@ -53,14 +53,19 @@ uses
   LCLType,
   LCLIntf,
   {$ELSE}
-  Windows,
   Classes,
   UITypes,
+  {$ENDIF}
+  {$IFDEF MSWINDOWS}
+  Windows,
   {$ENDIF}
   Types,
   Graphics,
   SysUtils,
   Math,
+  {$IFDEF USE_CAIRO}
+  FWHexView.Cairo,
+  {$ENDIF}
   Generics.Collections;
 
 {$IFDEF FPC}
@@ -280,6 +285,11 @@ const
 
   function ExtractExtended80Fmt(const Value: TExtended80Support): string;
 
+  function DrawText(ACanvas: TCanvas; Str: string; Count: Integer;
+    var ARect: TRect; Flags: Cardinal): Integer; inline;
+  function ExtTextOut(ACanvas: TCanvas; X, Y: Integer; Options: Longint;
+    ARect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean; inline;
+
 implementation
 
 function ExtractExtended80Fmt(const Value: TExtended80Support): string;
@@ -298,6 +308,36 @@ begin
     Result := FloatToStr(PExtended(@Value)^);
     {$ENDIF}
   end;
+end;
+
+function DrawText(ACanvas: TCanvas; Str: string; Count: Integer;
+  var ARect: TRect; Flags: Cardinal): Integer;
+begin
+  {$IFDEF MSWINDOWS}
+  Result := Windows.DrawText(ACanvas.Handle, PChar(Str), Count, ARect, Flags);
+  {$ENDIF}
+  {$IFDEF LINUX}
+    {$IFDEF USE_CAIRO}
+    Result := CairoDrawText(ACanvas, PChar(Str), ARect, Flags);
+    {$ELSE}
+    Result := LCLIntf.DrawText(ACanvas.Handle, PChar(Str), Count, ARect, Flags);
+    {$ENDIF}
+  {$ENDIF}
+end;
+
+function ExtTextOut(ACanvas: TCanvas; X, Y: Integer; Options: Longint;
+  ARect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
+begin
+  {$IFDEF MSWINDOWS}
+  Result := Windows.ExtTextOut(ACanvas.Handle,  X, Y, Options, ARect, Str, Count, Dx);
+  {$ENDIF}
+  {$IFDEF LINUX}
+    {$IFDEF USE_CAIRO}
+    Result := CairoExtTextOut(ACanvas,  X, Y, Options, ARect, Str, Count, Dx);
+    {$ELSE}
+    Result := LCLIntf.ExtTextOut(ACanvas.Handle,  X, Y, Options, ARect, Str, Count, Dx);
+    {$ENDIF}
+  {$ENDIF}
 end;
 
 function Extended80Mantissa(const Value: TExtended80Support): UInt64;

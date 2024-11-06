@@ -7,7 +7,7 @@
 //  *           : Supported operating systems: Windows/Linux.
 //  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1
+//  * Version   : 1.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -94,7 +94,7 @@ type
     /// <summary>Reset all counter values.</summary>
     procedure Reset;
     /// <summary>The method collects complete statistics on accumulated counter values and save it in a formatted form.</summary>
-    procedure SaveToFile(const AFilePath: string);
+    procedure SaveToFile(const AFilePath: string; SkipIfEmpty: Boolean = True);
     /// <summary>The function sets a new observation point.</summary>
     /// <return>The function returns a THash which desribe a new observation point.</return>
     function Start(const ASectionName: string): THash;
@@ -143,14 +143,15 @@ begin
   {$ENDIF}
   {$IFDEF LINUX}
   FIsHighResolution := (clock_getres(CLOCK_MONOTONIC, @Measure) = 0) and (Measure.tv_nsec <> 0);
-  if (Measure.tv_nsec <> 0) then
-     FFrequency := TicksPerSecond div Measure.tv_nsec * 100; // 100 nanosecond
+  Measure.tv_nsec := Max(Measure.tv_nsec, 1);
+  FFrequency := (TicksPerSecond div Measure.tv_nsec) * 100; // 100 nanosecond
   {$ENDIF}
   FLock := TCriticalSection.Create;
   FValues := TDictionary<THash, TProfileValue>.Create;
   FValueDescriptions := TDictionary<THash, string>.Create;
   FThreads := TObjectDictionary<Cardinal, TStack<TStackParam>>.Create([doOwnsValues]);
   FSaveOnSutdown := True;
+  FMaxNameLen := 4;
 end;
 
 destructor TUniversalProfiler.Destroy;
@@ -222,7 +223,9 @@ type
 
 function ProfilerCompare(const A, B: TSortRec): Integer;
 begin
-  Result := B.Value.Total - A.Value.Total;
+  // descending order
+  Result := IfThen(A.Value.Total < B.Value.Total, 1,
+    IfThen(A.Value.Total = B.Value.Total, 0, -1));
 end;
 
 function TUniversalProfiler.GetResult: TStringList;
@@ -280,12 +283,14 @@ begin
   end;
 end;
 
-procedure TUniversalProfiler.SaveToFile(const AFilePath: string);
+procedure TUniversalProfiler.SaveToFile(const AFilePath: string;
+  SkipIfEmpty: Boolean);
 var
   ResultList: TStringList;
 begin
   ResultList := GetResult;
   try
+    if SkipIfEmpty and (ResultList.Count = 1) then Exit;
     ResultList.SaveToFile(AFilePath);
   finally
     ResultList.Free;

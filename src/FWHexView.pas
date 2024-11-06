@@ -2527,7 +2527,7 @@ procedure TBasePainter.DefaultDrawHeaderColumn(ACanvas: TCanvas;
   var ARect: TRect; const ACaption: string; Flags: DWORD);
 begin
   ACanvas.Font.Color := FOwner.ColorMap.HeaderTextColor;
-  DrawText(ACanvas.Handle, PChar(ACaption), -1, ARect, Flags);
+  DrawText(ACanvas, PChar(ACaption), -1, ARect, Flags);
   ACanvas.Pen.Color := ColorMap.HeaderBorderColor;
   InflateRect(ARect, FOwner.TextMargin, 0);
   ACanvas.MoveTo(ARect.Right, ARect.Top);
@@ -2899,7 +2899,7 @@ begin
     ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
   end;
   CorrectCanvasFont(ACanvas, ctAddress);
-  DrawText(ACanvas.Handle, PChar(ColumnAsString(ctAddress)), -1, ARect, DT_RIGHT);
+  DrawText(ACanvas, PChar(ColumnAsString(ctAddress)), -1, ARect, DT_RIGHT);
 end;
 
 procedure TAbstractPrimaryRowPainter.DrawAlignedTextPart(ACanvas: TCanvas;
@@ -2945,7 +2945,7 @@ begin
       ACanvas.Rectangle(ARect);
       InflateRect(ARect, 0, ToDpi(-6));
       ACanvas.Font.Color := ColorMap.InfoTextColor;
-      DrawText(ACanvas.Handle, PChar(NoDataText), -1, ARect, DT_CENTER);
+      DrawText(ACanvas, PChar(NoDataText), -1, ARect, DT_CENTER);
     end;
 end;
 
@@ -3002,10 +3002,10 @@ begin
   begin
     case AColumn of
       ctOpcode, ctDescription:
-        ExtTextOut(ACanvas.Handle, ARect.Left, ARect.Top, ETO_CLIPPED, @ARect,
+        ExtTextOut(ACanvas, ARect.Left, ARect.Top, ETO_CLIPPED, @ARect,
           @DataString[1], Length(DataString), TextMetric.CharPointer(AColumn, 0));
     else
-      DrawText(ACanvas.Handle, PChar(DataString), -1, ARect, DT_CENTER);
+      DrawText(ACanvas, PChar(DataString), -1, ARect, DT_CENTER);
     end;
   end;
   ACanvas.Pen.Color := ColorMap.HeaderBorderColor;
@@ -3080,7 +3080,7 @@ begin
         nTokenLength := nLength;
       CorrectCanvasFont(ACanvas, AColumn);
       nTokenSize := UTF8ByteCount(pData, nTokenLength);
-      ExtTextOut(ACanvas.Handle, R.Left , R.Top, ETO_CLIPPED, @R, pData, nTokenSize, Dx);
+      ExtTextOut(ACanvas, R.Left , R.Top, ETO_CLIPPED, @R, pData, nTokenSize, Dx);
       Inc(pData, nTokenSize);
       Dec(nSize, nTokenSize);
       Dec(nLength, nTokenLength);
@@ -3112,7 +3112,7 @@ begin
   ACanvas.Font.Color := ColorMap.WorkSpaceTextColor;
   CorrectCanvasFont(ACanvas, ctWorkSpace);
   Dec(ARect.Left, TextMargin);
-  DrawText(ACanvas.Handle, PChar(ColumnAsString(ctWorkSpace)), -1, ARect, 0);
+  DrawText(ACanvas, PChar(ColumnAsString(ctWorkSpace)), -1, ARect, 0);
 end;
 
 function TAbstractPrimaryRowPainter.FormatRowColumn(AColumn: TColumnType;
@@ -4189,7 +4189,7 @@ begin
       ACanvas.Brush.Style := bsClear;
       ACanvas.Font.Color := ColorMap.BookmarkTextColor;
       OffsetRect(R, (R.Width - CharWidth) div 2, -1 + (R.Height - RowHeight) div 2);
-      DrawText(ACanvas.Handle, PChar(IntToStr(I)), 1, R, 0);
+      DrawText(ACanvas, PChar(IntToStr(I)), 1, R, 0);
     end;
 end;
 
@@ -5173,7 +5173,7 @@ begin
   R := Rect(Offset.X, Offset.Y,
     Offset.X + FCharWidth, Offset.Y + RowHeight);
   {$IFDEF FPC}
-  DrawText(Canvas.Handle, @DataChar[1], Length(DataChar), R, 0);
+  DrawText(Canvas, DataChar[1], Length(DataChar), R, 0);
   {$ELSE}
   DrawText(Canvas.Handle, @DataChar, 1, R, 0);
   {$ENDIF}
@@ -6178,6 +6178,10 @@ begin
 end;
 
 procedure TFWCustomHexView.ResetCanvas;
+{$IFDEF LINUX}
+begin
+end;
+{$ELSE}
 var
   R: TRect;
 begin
@@ -6193,8 +6197,9 @@ begin
   Canvas.Font.Color := ColorMap.TextColor;
   Canvas.Font.Style := [];
   Canvas.Brush.Color := ColorMap.BackgroundColor;
-  DrawText(Canvas.Handle, nil, 0, R, 0);
+  DrawText(Canvas, '', 0, R, 0);
 end;
+{$ENDIF}
 
 procedure TFWCustomHexView.ResetPainters;
 begin

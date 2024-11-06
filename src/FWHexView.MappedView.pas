@@ -2267,7 +2267,7 @@ begin
   ACanvas.Font.Style := [];
   ACanvas.Font.Color := TMapViewColors(ColorMap).SeparatorTextColor;
   CorrectCanvasFont(ACanvas, AColumn);
-  DrawText(ACanvas.Handle, PChar(RawData[RowIndex].Description),
+  DrawText(ACanvas, PChar(RawData[RowIndex].Description),
     -1, ARect, DT_CENTER);
 end;
 
@@ -2309,11 +2309,11 @@ begin
   ACanvas.Font.Style := [];
   ACanvas.Font.Color := TMapViewColors(ColorMap).TextCommentColor;
   ADescription := RawData[RowIndex].Description;
-  DrawText(ACanvas.Handle, PChar(ADescription),
+  DrawText(ACanvas, PChar(ADescription),
     Length(ADescription), ARect, DT_CALCRECT);
   ACanvas.FillRect(ARect);
   CorrectCanvasFont(ACanvas, AColumn);
-  DrawText(ACanvas.Handle, PChar(ADescription),
+  DrawText(ACanvas, PChar(ADescription),
     Length(ADescription), ARect, DT_LEFT);
   ACanvas.Font.Style := [];
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
@@ -2379,7 +2379,7 @@ begin
   R := ARect;
   R.Left := CheckRect.Right + ToDpi(4);
   CorrectCanvasFont(ACanvas, ctDescription);
-  DrawText(ACanvas.Handle, PChar(RawData[RowIndex].Description), -1, R, 0);
+  DrawText(ACanvas, PChar(RawData[RowIndex].Description), -1, R, 0);
 end;
 
 procedure TRowCheckRadioMask.DrawColumn(ACanvas: TCanvas;
@@ -2445,7 +2445,7 @@ begin
   R := ARect;
   R.Left := CheckRect.Right + ToDpi(4);
   CorrectCanvasFont(ACanvas, ctDescription);
-  DrawText(ACanvas.Handle, PChar(RawData[RowIndex].Description), -1, R, 0);
+  DrawText(ACanvas, PChar(RawData[RowIndex].Description), -1, R, 0);
 end;
 
 function TRowCheckRadioMask.GetTextMetricClass: TAbstractTextMetricClass;

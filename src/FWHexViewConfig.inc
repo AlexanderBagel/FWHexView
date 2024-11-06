@@ -10,4 +10,7 @@
 	  {$ENDIF}
   {$MACRO OFF}
   {$DEFINE USE_PROFILER}
+  {$IFDEF LCLGtk2}
+    {$DEFINE USE_CAIRO}
+  {$ENDIF}
 {$ENDIF}   
