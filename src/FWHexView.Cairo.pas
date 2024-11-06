@@ -29,7 +29,7 @@ uses
   Graphics;
 
   function CairoDrawText(ACanvas: TCanvas; Str: string;
-    const ARect: TRect; Flags: Cardinal): Integer;
+    var ARect: TRect; Flags: Cardinal): Integer;
   function CairoExtTextOut(ACanvas: TCanvas; X, Y: Integer; Options: Longint;
     ARect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
 
@@ -124,17 +124,15 @@ begin
 end;
 
 function CairoDrawText(ACanvas: TCanvas; Str: string;
-  const ARect: TRect; Flags: Cardinal): Integer;
+  var ARect: TRect; Flags: Cardinal): Integer;
 var
   ct: pcairo_t;
   sfont: Pcairo_scaled_font_t;
   fextents: cairo_font_extents_t;
   textents: cairo_text_extents_t;
-  x, y: Integer;
+  x, y, awidth: Integer;
 begin
   Result := 0;
-  if ACanvas.Brush.Style = bsSolid then
-    ACanvas.FillRect(ARect);
   ct := cairo_create_context(ACanvas.Handle);
   try
     cairo_set_font(ct, ACanvas.Font);
@@ -149,15 +147,17 @@ begin
       cairo_rectangle(ct, ARect.Left, ARect.Top, ARect.Width + 1, ARect.Height);
       cairo_clip(ct);
     end;
+    cairo_text_extents(ct, PChar(Str), @textents);
+    awidth := Ceil(textents.width);
     if Flags and DT_CENTER <> 0 then
-    begin
-      cairo_text_extents(ct, PChar(Str), @textents);
-      x := ARect.Left + (ARect.Width - Ceil(textents.width)) div 2;
-    end;
+      x := ARect.Left + (ARect.Width - awidth) div 2;
     if Flags and DT_RIGHT <> 0 then
+      x := ARect.Right - awidth;
+    if ACanvas.Brush.Style = bsSolid then
     begin
-      cairo_text_extents(ct, PChar(Str), @textents);
-      x := ARect.Right - Ceil(textents.width);
+      ARect.Left := X;
+      ARect.Width := awidth + 1;
+      ACanvas.FillRect(ARect);
     end;
     cairo_move_to(ct, x, y);
     cairo_show_text(ct, PChar(Str));
@@ -201,6 +201,11 @@ begin
       end;
     if (ARect <> nil) and (Options and ETO_CLIPPED <> 0) then
     begin
+      if ACanvas.Brush.Style = bsSolid then
+      begin
+        ARect^.Right := X;
+        ACanvas.FillRect(ARect^);
+      end;
       cairo_rectangle(ct, ARect^.Left, ARect^.Top, ARect^.Width + 1, ARect^.Height);
       cairo_clip(ct);
     end;
