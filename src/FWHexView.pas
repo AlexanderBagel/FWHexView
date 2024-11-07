@@ -5175,7 +5175,7 @@ begin
   {$IFDEF FPC}
   DrawText(Canvas, DataChar[1], Length(DataChar), R, 0);
   {$ELSE}
-  DrawText(Canvas.Handle, @DataChar, 1, R, 0);
+  DrawText(Canvas, DataChar, 1, R, 0);
   {$ENDIF}
 end;
 
