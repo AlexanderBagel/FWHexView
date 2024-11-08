@@ -181,7 +181,6 @@ begin
   ct := cairo_create_context(ACanvas.Handle);
   try
     cairo_set_font(ct, ACanvas.Font);
-    cairo_set_source_color(ct, cairo_get_color(ACanvas.Font.Color));
     AFont := cairo_get_scaled_font(ct);
     num_glyphs := 0;
     num_clusters := 0;
@@ -190,25 +189,30 @@ begin
     Result := cairo_scaled_font_text_to_glyphs(AFont, X, Y + cairo_font_baseline(AFont),
       Str, Count, @glyphs, @num_glyphs, @clusters, @num_clusters, @cluster_flags) = CAIRO_STATUS_SUCCESS;
     if not Result then Exit;
-    glyph := glyphs;
-    for I := 0 to num_clusters - 1 do
-      for A := 0 to clusters^[I].num_glyphs - 1 do
-      begin
-        glyph^.x := X;
-        Inc(X, Dx^);
-        Inc(glyph);
-        Inc(Dx);
-      end;
-    if (ARect <> nil) and (Options and ETO_CLIPPED <> 0) then
+    if Dx <> nil then
     begin
+      glyph := glyphs;
+      for I := 0 to num_clusters - 1 do
+        for A := 0 to clusters^[I].num_glyphs - 1 do
+        begin
+          glyph^.x := X;
+          Inc(X, Dx^);
+          Inc(glyph);
+          Inc(Dx);
+        end;
+    end;
+    if ARect <> nil then
+    begin
+      cairo_rectangle(ct, ARect^.Left, ARect^.Top, ARect^.Width + 1, ARect^.Height);
       if ACanvas.Brush.Style = bsSolid then
       begin
-        ARect^.Right := X;
+        ARect^.Right := X + 2;
         ACanvas.FillRect(ARect^);
       end;
-      cairo_rectangle(ct, ARect^.Left, ARect^.Top, ARect^.Width + 1, ARect^.Height);
-      cairo_clip(ct);
+      if Options and ETO_CLIPPED <> 0 then
+        cairo_clip(ct);
     end;
+    cairo_set_source_color(ct, cairo_get_color(ACanvas.Font.Color));
     cairo_glyph_path(ct, glyphs, num_glyphs);
     cairo_fill_preserve(ct);
     cairo_glyph_free(glyphs);

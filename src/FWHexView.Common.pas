@@ -329,13 +329,18 @@ function ExtTextOut(ACanvas: TCanvas; X, Y: Integer; Options: Longint;
   ARect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
 begin
   {$IFDEF MSWINDOWS}
-  Result := Windows.ExtTextOut(ACanvas.Handle,  X, Y, Options, ARect, Str, Count, Dx);
+    {$IFDEF FPC}
+    Result := Windows.ExtTextOutW(ACanvas.Handle, X, Y, Options, ARect,
+      PWideChar(UnicodeString(Str)), Count, Dx);
+    {$ELSE}
+    Result := Windows.ExtTextOut(ACanvas.Handle, X, Y, Options, ARect, Str, Count, Dx);
+    {$ENDIF}
   {$ENDIF}
   {$IFDEF LINUX}
     {$IFDEF USE_CAIRO}
-    Result := CairoExtTextOut(ACanvas,  X, Y, Options, ARect, Str, Count, Dx);
+    Result := CairoExtTextOut(ACanvas, X, Y, Options, ARect, Str, Count, Dx);
     {$ELSE}
-    Result := LCLIntf.ExtTextOut(ACanvas.Handle,  X, Y, Options, ARect, Str, Count, Dx);
+    Result := LCLIntf.ExtTextOut(ACanvas.Handle, X, Y, Options, ARect, Str, Count, Dx);
     {$ENDIF}
   {$ENDIF}
 end;

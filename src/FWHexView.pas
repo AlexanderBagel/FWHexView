@@ -546,7 +546,7 @@ type
     function AcceptEdit(AColumn: TColumnType): Boolean; virtual;
     function AcceptSelection: Boolean; virtual;
     function CalcEditParam(ACaretPosData: TCaretPosData; var Offset: TPoint;
-      out EditChar: TNativeChar): Boolean; virtual;
+      out EditChar: string): Boolean; virtual;
     function CalcLeftNCWidth: Integer; virtual;
     /// <summary>
     ///  Количество символов в колонке при копировании в буффер обмена
@@ -654,7 +654,7 @@ type
     function AcceptEdit(AColumn: TColumnType): Boolean; override;
     function AcceptSelection: Boolean; override;
     function CalcEditParam(ACaretPosData: TCaretPosData; var Offset: TPoint;
-     out EditChar: TNativeChar): Boolean; override;
+     out EditChar: string): Boolean; override;
     function CalcLeftNCWidth: Integer; override;
     function ColumnsDrawSupport: TFWHexViewColumnTypes; override;
     procedure CorrectCanvasFont({%H-}ACanvas: TCanvas; {%H-}AColumn: TColumnType); override;
@@ -1267,6 +1267,7 @@ type
   function DblSizeDec(Value: Integer): Integer; inline;
   function CheckNegative(Value: Int64): Int64; inline;
   function UTF8ByteCount(p: PChar; CharCount: Integer): Integer; inline;
+  function UTF8Copy(const s: string; StartCharIndex, CharCount: Integer): string; inline;
   function UTF8StringLength(const Value: string): Integer; inline;
 
 {$IFDEF USE_PROFILER}
@@ -1323,6 +1324,15 @@ begin
   Result := CharCount
 end;
 {$ENDIF}
+
+function UTF8Copy(const s: string; StartCharIndex, CharCount: Integer): string;
+begin
+  {$IFDEF FPC}
+  Result := LazUTF8.UTF8Copy(s, StartCharIndex, CharCount);
+  {$ELSE}
+  Result := Copy(s, StartCharIndex, CharCount);
+  {$ENDIF}
+end;
 
 function UTF8StringLength(const Value: string): Integer;
 begin
@@ -2748,7 +2758,7 @@ begin
 end;
 
 function TAbstractPrimaryRowPainter.CalcEditParam(ACaretPosData: TCaretPosData;
-  var Offset: TPoint; out EditChar: TNativeChar): Boolean;
+  var Offset: TPoint; out EditChar: string): Boolean;
 begin
   Result := False;
   EditChar := #0;
@@ -3003,7 +3013,7 @@ begin
     case AColumn of
       ctOpcode, ctDescription:
         ExtTextOut(ACanvas, ARect.Left, ARect.Top, ETO_CLIPPED, @ARect,
-          @DataString[1], Length(DataString), TextMetric.CharPointer(AColumn, 0));
+          @DataString[1], UTF8StringLength(DataString), TextMetric.CharPointer(AColumn, 0));
     else
       DrawText(ACanvas, PChar(DataString), -1, ARect, DT_CENTER);
     end;
@@ -3080,7 +3090,8 @@ begin
         nTokenLength := nLength;
       CorrectCanvasFont(ACanvas, AColumn);
       nTokenSize := UTF8ByteCount(pData, nTokenLength);
-      ExtTextOut(ACanvas, R.Left , R.Top, ETO_CLIPPED, @R, pData, nTokenSize, Dx);
+      ExtTextOut(ACanvas, R.Left, R.Top, ETO_CLIPPED, @R, pData,
+        {$IFDEF LINUX}nTokenSize{$ELSE}nTokenLength{$ENDIF}, Dx);
       Inc(pData, nTokenSize);
       Dec(nSize, nTokenSize);
       Dec(nLength, nTokenLength);
@@ -3387,11 +3398,11 @@ begin
 end;
 
 function TRowHexPainter.CalcEditParam(ACaretPosData: TCaretPosData;
-  var Offset: TPoint; out EditChar: TNativeChar): Boolean;
+  var Offset: TPoint; out EditChar: string): Boolean;
 
-  function GetEditChar: TNativeChar;
+  function GetEditChar: string;
   var
-    DataString: UnicodeString;
+    DataString: string;
   begin
     Result := #0;
     if ACaretPosData.Column = ctOpcode then
@@ -3401,7 +3412,7 @@ function TRowHexPainter.CalcEditParam(ACaretPosData: TCaretPosData;
 
     if DataString <> '' then
       if ACaretPosData.CharIndex < Length(DataString) then
-         Result := DataString{%H-}[ACaretPosData.CharIndex + 1];
+         Result := UTF8Copy(DataString, ACaretPosData.CharIndex + 1, 1);
   end;
 
 var
@@ -5157,7 +5168,8 @@ end;
 
 procedure TFWCustomHexView.DrawEditMark(var Offset: TPoint);
 var
-  DataChar: TNativeChar;
+  DataChar: string;
+  pData: PChar;
   R: TRect;
   Painter: TAbstractPrimaryRowPainter;
 begin
@@ -5172,11 +5184,9 @@ begin
   Canvas.Font.Color := ColorMap.CaretTextColor;
   R := Rect(Offset.X, Offset.Y,
     Offset.X + FCharWidth, Offset.Y + RowHeight);
-  {$IFDEF FPC}
-  DrawText(Canvas, DataChar[1], Length(DataChar), R, 0);
-  {$ELSE}
-  DrawText(Canvas, DataChar, 1, R, 0);
-  {$ENDIF}
+  pData := @DataChar[1];
+  ExtTextOut(Canvas, R.Left, R.Top, ETO_CLIPPED, @R, pData,
+    UTF8ByteCount(pData, 1), nil);
 end;
 
 procedure TFWCustomHexView.DrawRows(StartRow, EndRow: Int64;
