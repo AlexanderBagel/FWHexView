@@ -79,6 +79,7 @@ type
     FValues: TDictionary<THash, TProfileValue>;
     FValueDescriptions: TDictionary<THash, string>;
     FThreads: TObjectDictionary<Cardinal, TStack<TStackParam>>;
+    FFilePath: string;
     function GetCallHash: THash;
     function GetNow: Int64;
   public
