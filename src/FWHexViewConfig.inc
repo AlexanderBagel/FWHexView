@@ -9,7 +9,7 @@
 	    {$WARN 6060 off : Case statement does not handle all possible cases}
 	  {$ENDIF}
   {$MACRO OFF}
-  {$DEFINE USE_PROFILER}
+  {-$DEFINE USE_PROFILER}
   {$IFDEF LCLGtk2}
     {$DEFINE USE_CAIRO}
   {$ENDIF}

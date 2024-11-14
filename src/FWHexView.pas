@@ -3617,7 +3617,6 @@ end;
 procedure TRowHexPainter.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
   var ARect: TRect);
 begin
-  {$IFDEF USE_PROFILER}NeedProfile := Owner.ClassName = 'TAsmView';{$ENDIF}
   FColorMixMode := cmmNone;
   FColorMixFontMode := cmfmNone;
   case AColumn of

@@ -7,7 +7,7 @@
 //  *           : Supported operating systems: Windows/Linux.
 //  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.2
+//  * Version   : 1.3
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -106,6 +106,8 @@ type
     property MiltiThread: Boolean read FMiltiThread write FMiltiThread;
     /// <summary>The property enables automatic saving of accumulated counter values at the end of the process.</summary>
     property SaveOnSutdown: Boolean read FSaveOnSutdown write FSaveOnSutdown;
+    /// <summary>Default path for autosave on process termination..</summary>
+    property SaveOnSutdownDirectory: string read FFilePath write FFilePath;
   end;
 
   /// <summary>Single point of entry for accessing the profiler instance.</summary>
@@ -155,9 +157,21 @@ begin
 end;
 
 destructor TUniversalProfiler.Destroy;
+var
+  Path: string;
 begin
   if SaveOnSutdown then
-    SaveToFile(ExtractFilePath(ParamStr(0)) + 'profiler.txt');
+  begin
+    if SaveOnSutdownDirectory <> '' then
+    begin
+      Path := IncludeTrailingPathDelimiter(SaveOnSutdownDirectory);
+      if not DirectoryExists(Path) then
+        ForceDirectories(Path);
+    end
+    else
+      Path := ExtractFilePath(ParamStr(0));
+    SaveToFile(Path + 'profiler.txt');
+  end;
   FLock.Free;
   FValues.Free;
   FValueDescriptions.Free;
