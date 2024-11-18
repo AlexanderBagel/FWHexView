@@ -494,12 +494,12 @@ type
   TViewShortCut = class(TPersistent)
   private
     FDefault: TShortCut;
-    FSecondaryShortCut: TShortCutList;
+    FSecondaryShortCuts: TShortCutList;
     FShortCut: TShortCut;
     function IsSecondaryStored: Boolean;
     function IsShortSutStored: Boolean;
-    procedure SetSecondaryShortCut(const Value: TShortCutList);
-    function GetSecondaryShortCut: TShortCutList;
+    procedure SetSecondaryShortCuts(const Value: TShortCutList);
+    function GetSecondaryShortCuts: TShortCutList;
   protected
     procedure AssignTo(Dest: TPersistent); override;
     function IsCustomViewShortCutStored: Boolean;
@@ -509,7 +509,7 @@ type
     function IsShortCut(Key: Word; Shift: TShiftState): Boolean;
   published
     property ShortCut: TShortCut read FShortCut write FShortCut stored IsShortSutStored;
-    property SecondaryShortCut: TShortCutList read GetSecondaryShortCut write SetSecondaryShortCut stored IsSecondaryStored;
+    property SecondaryShortCuts: TShortCutList read GetSecondaryShortCuts write SetSecondaryShortCuts stored IsSecondaryStored;
   end;
 
   TViewShortCuts = class(TPersistent)
@@ -2907,12 +2907,12 @@ procedure TViewShortCut.AssignTo(Dest: TPersistent);
 begin
   if Dest is TViewShortCut then
   begin
-    if Assigned(TViewShortCut(Dest).SecondaryShortCut) then
+    if Assigned(TViewShortCut(Dest).SecondaryShortCuts) then
     begin
-      if Assigned(FSecondaryShortCut) then
-        TViewShortCut(Dest).SecondaryShortCut := SecondaryShortCut
+      if Assigned(FSecondaryShortCuts) then
+        TViewShortCut(Dest).SecondaryShortCuts := SecondaryShortCuts
       else
-        TViewShortCut(Dest).SecondaryShortCut.Clear;
+        TViewShortCut(Dest).SecondaryShortCuts.Clear;
     end;
     TViewShortCut(Dest).FShortCut := FShortCut;
   end
@@ -2928,15 +2928,15 @@ end;
 
 destructor TViewShortCut.Destroy;
 begin
-  FSecondaryShortCut.Free;
+  FSecondaryShortCuts.Free;
   inherited;
 end;
 
-function TViewShortCut.GetSecondaryShortCut: TShortCutList;
+function TViewShortCut.GetSecondaryShortCuts: TShortCutList;
 begin
-  if FSecondaryShortCut = nil then
-    FSecondaryShortCut := TShortCutList.Create;
-  Result := FSecondaryShortCut;
+  if FSecondaryShortCuts = nil then
+    FSecondaryShortCuts := TShortCutList.Create;
+  Result := FSecondaryShortCuts;
 end;
 
 function TViewShortCut.IsCustomViewShortCutStored: Boolean;
@@ -2946,7 +2946,7 @@ end;
 
 function TViewShortCut.IsSecondaryStored: Boolean;
 begin
-  Result := Assigned(FSecondaryShortCut) and (FSecondaryShortCut.Count > 0);
+  Result := Assigned(FSecondaryShortCuts) and (FSecondaryShortCuts.Count > 0);
 end;
 
 function TViewShortCut.IsShortCut(Key: Word; Shift: TShiftState): Boolean;
@@ -2957,9 +2957,9 @@ begin
   Result := False;
   AShortCut := Menus.ShortCut(Key, Shift);
   if ShortCut = AShortCut then Exit(True);
-  if FSecondaryShortCut = nil then Exit;
-  for I := 0 to FSecondaryShortCut.Count - 1 do
-    if FSecondaryShortCut.ShortCuts[I] = AShortCut then
+  if FSecondaryShortCuts = nil then Exit;
+  for I := 0 to FSecondaryShortCuts.Count - 1 do
+    if FSecondaryShortCuts.ShortCuts[I] = AShortCut then
       Exit(True);
 end;
 
@@ -2968,9 +2968,9 @@ begin
   Result := ShortCut <> FDefault;
 end;
 
-procedure TViewShortCut.SetSecondaryShortCut(const Value: TShortCutList);
+procedure TViewShortCut.SetSecondaryShortCuts(const Value: TShortCutList);
 begin
-  SecondaryShortCut.Assign(Value);
+  SecondaryShortCuts.Assign(Value);
 end;
 
 { TViewShortCuts }
