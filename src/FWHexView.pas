@@ -30,7 +30,7 @@ Licence:
     >5 developers = $199 + $25 per developer from the 6th onwards
     site licence = $499 (unlimited number of developers affiliated with the owner of the licence, i.e. employees, co-workers, interns and contractors)
 
-  Please send an e-mail to rouse79@yandex.ru to request an invoice before or after payment is made. Payment may be
+  Please send an e-mail to hexview_sale@rousehome.ru to request an invoice before or after payment is made. Payment may be
   made via bank transfer. Bank details will be provided on the invoice.
 
   Support (via e-mail) is available for users with a commercial licence. Enhancement requests submitted by users with a
@@ -499,6 +499,7 @@ type
     function Encoder: TCharEncoder; inline;
     function Focused: Boolean; inline;
     function GetLeftNCWidth: Integer; inline;
+    procedure GetRawBuff(ARowIndex: Int64; var Data: TBytes); inline;
     function GetRowOffset(ARowIndex: Int64): Int64; inline;
     function GetSelectData(ARowIndex: Int64): TSelectData; inline;
     function GetSelectDataWithSelection(ARowIndex: Int64; ASelStart, ASelEnd: TSelectPoint): TSelectData; inline;
@@ -2573,6 +2574,11 @@ end;
 function TBasePainter.GetLeftNCWidth: Integer;
 begin
   Result := FOwner.DefaultPainter.CalcLeftNCWidth;;
+end;
+
+procedure TBasePainter.GetRawBuff(ARowIndex: Int64; var Data: TBytes);
+begin
+  FOwner.GetRawBuff(ARowIndex, Data);
 end;
 
 function TBasePainter.GetRowOffset(ARowIndex: Int64): Int64;

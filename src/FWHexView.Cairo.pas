@@ -30,7 +30,7 @@ Licence:
     >5 developers = $199 + $25 per developer from the 6th onwards
     site licence = $499 (unlimited number of developers affiliated with the owner of the licence, i.e. employees, co-workers, interns and contractors)
 
-  Please send an e-mail to rouse79@yandex.ru to request an invoice before or after payment is made. Payment may be
+  Please send an e-mail to hexview_sale@rousehome.ru to request an invoice before or after payment is made. Payment may be
   made via bank transfer. Bank details will be provided on the invoice.
 
   Support (via e-mail) is available for users with a commercial licence. Enhancement requests submitted by users with a
