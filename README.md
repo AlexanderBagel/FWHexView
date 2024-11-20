@@ -62,7 +62,7 @@ The framework includes 4 demo applications:
 <tr><td>Site licence (unlimited number of developers affiliated with the owner of the licence, i.e. employees, co-workers, interns and contractors)</td><td>$499</td></tr>
 </table>  
 
-  Please send an e-mail to hexview_sale@rousehome.ru to request an invoice before or after payment is made. Payment may be
+  Please send an e-mail to hexview_sale(at)rousehome(dot)ru to request an invoice before or after payment is made. Payment may be
   made via bank transfer. Bank details will be provided on the invoice.
 
   Support (via e-mail) is available for users with a commercial licence. Enhancement requests submitted by users with a
@@ -85,7 +85,7 @@ The framework includes 4 demo applications:
 <tr><td>Site licence (неограниченное количество разработчиков, связанных с владельцем лицензии, т.е. сотрудников, коллег, стажеров и подрядчиков)</td><td>$499</td></tr>
 </table>    
 
-  Пожалуйста, отправьте письмо на hexview_sale@rousehome.ru, чтобы запросить счет до или после оплаты. Оплата может быть осуществлена 
+  Пожалуйста, отправьте письмо на ![42](https://github.com/AlexanderBagel/FWHexView/blob/master/img/mail.png?raw=true "mail"), чтобы запросить счет до или после оплаты. Оплата может быть осуществлена 
   через банковский перевод. Банковские реквизиты будут указаны в счете-фактуре.
 
   Поддержка (по электронной почте) доступна для пользователей с коммерческой лицензией. Запросы на усовершенствование, поданные пользователями с
