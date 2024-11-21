@@ -547,7 +547,6 @@ type
   TCustomMappedHexView = class(TFWCustomHexView)
   strict private
     FAddressToRowIndexMode: TAddressToRowIndexMode;
-    FCursorOnJmpMark: Boolean;
     FDataMap: TDataMap;
     FDrawIncomingJmp: Boolean;
     FJmpInitList: TList<Int64>;
@@ -567,7 +566,7 @@ type
     procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); override;
     procedure DoInvalidateRange(AStartRow, AEndRow: Int64); override;
     procedure DoJmpTo(ARowIndex: Int64; AJmpState: TJmpState);
-    function DoLButtonDown(Shift: TShiftState): Boolean; override;
+    function DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean; override;
     function GetColorMapClass: THexViewColorMapClass; override;
     function GetDefaultPainterClass: TPrimaryRowPainterClass; override;
     function GetRawDataClass: TRawDataClass; override;
@@ -577,15 +576,12 @@ type
     function IsShortCutsStored: Boolean;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer); override;
-    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
-    procedure UpdateCursor(const HitTest: TMouseHitInfo); override;
     procedure UpdateDataMap; override;
     {$IFNDEF FPC}
     procedure WMXButtonDown(var Msg: TWMMouse); message WM_XBUTTONDOWN;
     {$ENDIF}
   protected
-    property CursorOnJmpMark: Boolean read FCursorOnJmpMark write FCursorOnJmpMark;
     property JmpData: TObjectDictionary<Int64, TList<Int64>> read FJmpData;
     property JmpInitList: TList<Int64> read FJmpInitList;
   public
@@ -2121,8 +2117,9 @@ begin
       Inc(LeftOffset, RawData[AMouseHitInfo.SelectPoint.RowIndex].LinkStart * CharWidth);
       Inc(LeftOffset, TextMargin);
       if XPos >= LeftOffset then
-        TCustomMappedHexView(Owner).CursorOnJmpMark := XPos < (LeftOffset +
-          RawData[AMouseHitInfo.SelectPoint.RowIndex].LinkLength * CharWidth);
+        if XPos < (LeftOffset +
+          RawData[AMouseHitInfo.SelectPoint.RowIndex].LinkLength * CharWidth) then
+          AMouseHitInfo.Cursor := crHandPoint;
     end;
   end
   else
@@ -2204,8 +2201,8 @@ begin
     AWidth := ToDpi(3);
     LeftOffset := AMouseHitInfo.ColumnStart +
       TextMetric.SelectionLength(ctOpcode, 1, RawData[RowIndex].RawLength) + AWidth;
-    TCustomMappedHexView(Owner).CursorOnJmpMark :=
-      (XPos >= LeftOffset) and (XPos <= LeftOffset + RowHeight + AWidth)
+    if (XPos >= LeftOffset) and (XPos <= LeftOffset + RowHeight + AWidth) then
+      AMouseHitInfo.Cursor := crHandPoint;
   end
   else
     inherited;
@@ -3166,9 +3163,9 @@ begin
     FJmpToEvent(Self, JmpAddr, jsJmpDone, Handled);
 end;
 
-function TCustomMappedHexView.DoLButtonDown(Shift: TShiftState): Boolean;
+function TCustomMappedHexView.DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean;
 begin
-  Result := CursorOnJmpMark;
+  Result := AHitInfo.Cursor = crHandPoint;
   if Result then
     DoJmpTo(MousePressedHitInfo.SelectPoint.RowIndex, jsPushToUndo);
 end;
@@ -3262,12 +3259,6 @@ begin
   {$ENDIF}
 end;
 
-procedure TCustomMappedHexView.MouseMove(Shift: TShiftState; X, Y: Integer);
-begin
-  inherited;
-  CursorOnJmpMark := False;
-end;
-
 function TCustomMappedHexView.RawData: TMappedRawData;
 begin
   Result := TMappedRawData(inherited RawData);
@@ -3296,14 +3287,6 @@ end;
 procedure TCustomMappedHexView.SetShortCuts(const Value: TViewShortCuts);
 begin
   FShortCuts.Assign(Value);
-end;
-
-procedure TCustomMappedHexView.UpdateCursor(const HitTest: TMouseHitInfo);
-begin
-  if CursorOnJmpMark then
-    Cursor := crHandPoint
-  else
-    inherited;
 end;
 
 procedure TCustomMappedHexView.UpdateDataMap;

@@ -215,11 +215,13 @@ type
 
   TMouseHitInfo = record
     XPos, YPos: Integer;
+    Shift: TShiftState;
     SelectPoint: TSelectPoint;
     OnHeader: Boolean;
     OnSplitter: Boolean;
     ColumnStart: Integer;
     ColumnWidth: Integer;
+    Cursor: TCursor;
     procedure Erase; inline;
   end;
 
@@ -973,7 +975,7 @@ type
     procedure DoFontResize(Value: Integer);
     procedure DoQueryString(AddrVA: Int64; AColumn: TColumnType; var AComment: string);
     procedure DoSelectionChage(AStartAddr, AEndAddr: Int64); virtual;
-    function DoLButtonDown(Shift: TShiftState): Boolean; virtual;
+    function DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean; virtual;
 
     // функции получения текстовых данных для отрисовки и для копирования в буфер
 
@@ -1031,7 +1033,7 @@ type
 
     // utilitarian methods for childs and painters
 
-    function GetHitInfo(XPos, YPos: Int64): TMouseHitInfo;
+    function GetHitInfo(XPos, YPos: Int64; AShift: TShiftState): TMouseHitInfo;
     function IsColorMapStored: Boolean; virtual;
     procedure RebuildData;
     procedure RegisterTextMetric(Value: TAbstractTextMetric);
@@ -1040,7 +1042,6 @@ type
 
     // validators
 
-    procedure UpdateCursor(const HitTest: TMouseHitInfo); virtual;
     procedure UpdateDataMap; virtual;
     procedure UpdateTextBoundary;
     procedure UpdateScrollPos;
@@ -1644,9 +1645,11 @@ begin
   XPos := 0;
   YPos := 0;
   SelectPoint.Erase;
+  Shift := [];
   OnHeader := False;
   OnSplitter := False;
   ColumnWidth := 0;
+  Cursor := crDefault;
 end;
 
 { TAbstractTextMetric }
@@ -5134,9 +5137,9 @@ begin
   InvalidateRect(Handle, @R, False);
 end;
 
-function TFWCustomHexView.DoLButtonDown(Shift: TShiftState): Boolean;
+function TFWCustomHexView.DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean;
 begin
-  Result := ssDouble in Shift;
+  Result := ssDouble in AHitInfo.Shift;
 end;
 
 function TFWCustomHexView.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer;
@@ -5492,7 +5495,7 @@ begin
   Result := THexViewHeader;
 end;
 
-function TFWCustomHexView.GetHitInfo(XPos, YPos: Int64): TMouseHitInfo;
+function TFWCustomHexView.GetHitInfo(XPos, YPos: Int64; AShift: TShiftState): TMouseHitInfo;
 var
   I: TColumnType;
   LeftOffset: Integer;
@@ -5501,6 +5504,7 @@ begin
   Result.Erase;
   Result.XPos := XPos;
   Result.YPos := YPos;
+  Result.Shift := AShift;
 
   Dec(XPos, FScrollOffset.X);
 
@@ -5894,9 +5898,9 @@ begin
     if Button <> TMouseButton.mbLeft then Exit;
 
     FMousePressed := True;
-    FMousePressedHitInfo := GetHitInfo(X, Y);
+    FMousePressedHitInfo := GetHitInfo(X, Y, Shift);
 
-    if DoLButtonDown(Shift) then Exit;
+    if DoLButtonDown(FMousePressedHitInfo) then Exit;
 
     if FMousePressedHitInfo.OnSplitter  then
     begin
@@ -5939,11 +5943,13 @@ var
   Painter: TAbstractPrimaryRowPainter;
 begin
   try
-    HitTest := GetHitInfo(X, Y);
+    HitTest := GetHitInfo(X, Y, Shift);
 
     if not FMousePressed then
     begin
-      UpdateCursor(HitTest);
+      if HitTest.OnSplitter and (HitTest.Cursor = crDefault) then
+        HitTest.Cursor := crHSplit;
+      Cursor := HitTest.Cursor;
       Exit;
     end;
 
@@ -6766,14 +6772,6 @@ begin
       InvalidateCaretPosData(True);
     CreateCaretTimer;
   end;
-end;
-
-procedure TFWCustomHexView.UpdateCursor(const HitTest: TMouseHitInfo);
-begin
-  if HitTest.OnSplitter then
-    Cursor := crHSplit
-  else
-    Cursor := crDefault;
 end;
 
 procedure TFWCustomHexView.UpdateDataMap;
