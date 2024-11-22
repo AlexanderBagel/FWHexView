@@ -538,9 +538,6 @@ type
   end;
 
   TAddressToRowIndexMode = (armFindFirstRaw, armFindFirstAny);
-  TJmpState = (jsPushToUndo, jsPopFromUndo, jsRestorePopFromUndo, jsJmpDone);
-  TJmpToEvent = procedure(Sender: TObject; const AJmpAddr: Int64;
-    AJmpState: TJmpState; var Handled: Boolean) of object;
 
   { TCustomMappedHexView }
 
@@ -555,7 +552,6 @@ type
     FPreviosJmp: TList<Int64>;
     FPreviosJmpIdx: Integer;
     FShortCuts: TViewShortCuts;
-    FJmpToEvent: TJmpToEvent;
     function GetColorMap: TMapViewColors;
     procedure SetColorMap(const Value: TMapViewColors);
     procedure SetDrawIncomingJmp(const Value: Boolean);
@@ -565,7 +561,6 @@ type
     function CalculateJmpToRow(JmpFromRow: Int64): Int64; virtual;
     procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); override;
     procedure DoInvalidateRange(AStartRow, AEndRow: Int64); override;
-    procedure DoJmpTo(ARowIndex: Int64; AJmpState: TJmpState);
     function DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean; override;
     function GetColorMapClass: THexViewColorMapClass; override;
     function GetDefaultPainterClass: TPrimaryRowPainterClass; override;
@@ -576,6 +571,7 @@ type
     function IsShortCutsStored: Boolean;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer); override;
+    procedure ProcessJump(ARowIndex: Int64; AJmpState: TJmpState);
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     procedure UpdateDataMap; override;
     {$IFNDEF FPC}
@@ -597,7 +593,6 @@ type
     property ColorMap: TMapViewColors read GetColorMap write SetColorMap stored IsColorMapStored;
     property DrawIncomingJmp: Boolean read FDrawIncomingJmp write SetDrawIncomingJmp default False;
     property ShortCuts: TViewShortCuts read FShortCuts write SetShortCuts stored IsShortCutsStored;
-    property OnJmpTo: TJmpToEvent read FJmpToEvent write FJmpToEvent;
   end;
 
   TMappedHexView = class(TCustomMappedHexView)
@@ -3042,10 +3037,10 @@ begin
     RowIndex := SelectedRowIndex;
     if RowIndex < 0 then Exit;
     if RawData[RowIndex].JmpToAddr = 0 then Exit;
-    DoJmpTo(RowIndex, jsPushToUndo);
+    ProcessJump(RowIndex, jsPushToUndo);
   end;
   if ShortCuts.JmpBack.IsShortCut(Key, Shift) then
-    DoJmpTo(0, jsPopFromUndo);
+    ProcessJump(0, jsPopFromUndo);
 end;
 
 procedure TCustomMappedHexView.ClearDataMap;
@@ -3099,75 +3094,11 @@ begin
   inherited;
 end;
 
-procedure TCustomMappedHexView.DoJmpTo(ARowIndex: Int64; AJmpState: TJmpState);
-var
-  Handled: Boolean;
-  JmpAddr: Int64;
-  NewRowIndex: Int64;
-begin
-  Handled := False;
-
-  if RawData[ARowIndex].Style = rsMask then
-  begin
-    DataMap.Data.List[RawData.MapRowIndex].Expanded := not RawData.Expanded;
-    ClearSelection;
-    UpdateDataMap;
-    UpdateTextBoundary;
-    UpdateScrollPos;
-    Invalidate;
-    Exit;
-  end;
-
-  if AJmpState = jsPushToUndo then
-    JmpAddr := RawData[ARowIndex].JmpToAddr
-  else
-    JmpAddr := -1;
-  if Assigned(FJmpToEvent) then
-    FJmpToEvent(Self, JmpAddr, AJmpState, Handled);
-  if Handled then Exit;
-
-  case AJmpState of
-    jsPushToUndo:
-    begin
-      // прыжки делются в два шага для восстановления
-      // состояния экрана на откате
-
-      // jumps are divided in two steps to restore the screen state on rollback
-
-      FPreviosJmp.Count := FPreviosJmpIdx;
-      FPreviosJmp.Add(ARowIndex);
-      FPreviosJmp.Add(CurrentVisibleRow);
-      Inc(FPreviosJmpIdx, 2);
-      FocusOnAddress(RawData[ARowIndex].JmpToAddr, ccmSelectRow);
-    end;
-    jsPopFromUndo:
-    begin
-      if FPreviosJmpIdx = 0 then Exit;
-      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 1];
-      FocusOnAddress(RawData[NewRowIndex].Address, ccmNone);
-      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
-      Dec(FPreviosJmpIdx, 2);
-      FocusOnAddress(RawData[NewRowIndex].Address, ccmSelectRow);
-    end;
-    jsRestorePopFromUndo:
-    begin
-      if FPreviosJmpIdx >= FPreviosJmp.Count then Exit;
-      Inc(FPreviosJmpIdx, 2);
-      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
-      JmpAddr := RawData[NewRowIndex].JmpToAddr;
-      FocusOnAddress(JmpAddr, ccmSelectRow);
-    end;
-  end;
-
-  if Assigned(FJmpToEvent) then
-    FJmpToEvent(Self, JmpAddr, jsJmpDone, Handled);
-end;
-
 function TCustomMappedHexView.DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean;
 begin
   Result := AHitInfo.Cursor = crHandPoint;
   if Result then
-    DoJmpTo(MousePressedHitInfo.SelectPoint.RowIndex, jsPushToUndo);
+    ProcessJump(MousePressedHitInfo.SelectPoint.RowIndex, jsPushToUndo);
 end;
 
 procedure TCustomMappedHexView.FitColumnToBestSize(Value: TColumnType);
@@ -3253,10 +3184,71 @@ begin
   inherited;
   {$IFDEF FPC}
   case Button of
-    mbExtra1: DoJmpTo(0, jsPopFromUndo);
-    mbExtra2: DoJmpTo(0, jsRestorePopFromUndo);
+    mbExtra1: ProcessJump(0, jsPopFromUndo);
+    mbExtra2: ProcessJump(0, jsRestorePopFromUndo);
   end;
   {$ENDIF}
+end;
+
+procedure TCustomMappedHexView.ProcessJump(ARowIndex: Int64;
+  AJmpState: TJmpState);
+var
+  Handled: Boolean;
+  JmpAddr: Int64;
+  NewRowIndex: Int64;
+begin
+  Handled := False;
+
+  if RawData[ARowIndex].Style = rsMask then
+  begin
+    DataMap.Data.List[RawData.MapRowIndex].Expanded := not RawData.Expanded;
+    ClearSelection;
+    UpdateDataMap;
+    UpdateTextBoundary;
+    UpdateScrollPos;
+    Invalidate;
+    Exit;
+  end;
+
+  DoJmpTo(
+    IfThen(AJmpState = jsPushToUndo, RawData[ARowIndex].JmpToAddr, -1),
+    AJmpState, Handled);
+  if Handled then Exit;
+
+  case AJmpState of
+    jsPushToUndo:
+    begin
+      // прыжки делются в два шага для восстановления
+      // состояния экрана на откате
+
+      // jumps are divided in two steps to restore the screen state on rollback
+
+      FPreviosJmp.Count := FPreviosJmpIdx;
+      FPreviosJmp.Add(ARowIndex);
+      FPreviosJmp.Add(CurrentVisibleRow);
+      Inc(FPreviosJmpIdx, 2);
+      FocusOnAddress(RawData[ARowIndex].JmpToAddr, ccmSelectRow);
+    end;
+    jsPopFromUndo:
+    begin
+      if FPreviosJmpIdx = 0 then Exit;
+      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 1];
+      FocusOnAddress(RawData[NewRowIndex].Address, ccmNone);
+      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
+      Dec(FPreviosJmpIdx, 2);
+      FocusOnAddress(RawData[NewRowIndex].Address, ccmSelectRow);
+    end;
+    jsRestorePopFromUndo:
+    begin
+      if FPreviosJmpIdx >= FPreviosJmp.Count then Exit;
+      Inc(FPreviosJmpIdx, 2);
+      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
+      JmpAddr := RawData[NewRowIndex].JmpToAddr;
+      FocusOnAddress(JmpAddr, ccmSelectRow);
+    end;
+  end;
+
+  DoJmpTo(JmpAddr, jsJmpDone, Handled);
 end;
 
 function TCustomMappedHexView.RawData: TMappedRawData;
@@ -3334,8 +3326,8 @@ const
   MK_XBUTTON2 = $40;
 begin
   case Word(Msg.Keys) of
-    MK_XBUTTON1: DoJmpTo(0, jsPopFromUndo);
-    MK_XBUTTON2: DoJmpTo(0, jsRestorePopFromUndo);
+    MK_XBUTTON1: ProcessJump(0, jsPopFromUndo);
+    MK_XBUTTON2: ProcessJump(0, jsRestorePopFromUndo);
   end;
 end;
 {$ENDIF}

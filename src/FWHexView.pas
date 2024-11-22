@@ -796,6 +796,10 @@ type
   TEditEvent = procedure(Sender: TObject; ACursor: TDrawParam;
     AData: TEditParam; var Handled: Boolean) of object;
 
+  TJmpState = (jsPushToUndo, jsPopFromUndo, jsRestorePopFromUndo, jsJmpDone);
+  TJmpToEvent = procedure(Sender: TObject; const AJmpAddr: Int64;
+    AJmpState: TJmpState; var Handled: Boolean) of object;
+
   { TFWCustomHexView }
 
   TFWCustomHexView = class(TCustomControl, IHexViewCopyAction, IHexViewByteViewModeAction)
@@ -858,6 +862,7 @@ type
     FOnDrawColBack: TDrawColumnBackgroundEvent;
     FOnDrawToken: TDrawTokenEvent;
     FOnEdit: TEditEvent;
+    FJmpToEvent: TJmpToEvent;
     FOldOnFontChange: TNotifyEvent;
     FSelectionChange: TNotifyEvent;
     procedure DoChangeScale(BeforeScaleStep: Boolean);
@@ -894,6 +899,8 @@ type
     function Scroll32To64(Value: Integer): Int64;
     function Scroll64To32(Value: Int64): Integer;
     procedure OnSelectionsChange(Sender: TObject);
+    procedure UpdateCursor(var AHitInfo: TMouseHitInfo);
+    procedure UpdateSavedShift(Shift: TShiftState);
     procedure UpdateTextDarknessColor;
     procedure UpdateTextExtent;
     procedure UpdateTextMetrics;
@@ -950,11 +957,12 @@ type
     procedure DoCaretEdit(AKey: TNativeChar);
     procedure DoCaretEnd(Shift: TShiftState);
     procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); virtual;
+    procedure DoInvalidateRange(AStartRow, AEndRow: Int64); virtual;
+    procedure DoJmpTo(AAddrVA: UInt64; AJmpState: TJmpState; var Handled: Boolean);
     function GetCaretChangeMode(APainter: TAbstractPrimaryRowPainter;
       AColumn: TColumnType; Shift: TShiftState): TCaretChangeMode; virtual;
     function GetCaretNextRowIndex(FromIndex: Int64; AColumn: TColumnType = ctNone): Int64; virtual;
     function GetCaretPreviosRowIndex(FromIndex: Int64; AColumn: TColumnType = ctNone): Int64; virtual;
-    procedure DoInvalidateRange(AStartRow, AEndRow: Int64); virtual;
     procedure UpdateCaretColumn(AColumn: TColumnType);
     procedure UpdateCaretPosData(Value: TSelectPoint; AChangeMode: TCaretChangeMode);
     procedure UpdateCaretTimer;
@@ -1189,6 +1197,7 @@ type
     property OnDrawColumnBackground: TDrawColumnBackgroundEvent read FOnDrawColBack write FOnDrawColBack;
     property OnDrawToken: TDrawTokenEvent read FOnDrawToken write FOnDrawToken;
     property OnEdit: TEditEvent read FOnEdit write FOnEdit;
+    property OnJmpTo: TJmpToEvent read FJmpToEvent write FJmpToEvent;
     property OnQueryComment: TQueryStringEvent read FQueryStringEvent write FQueryStringEvent;
     property OnSelectionChange: TNotifyEvent read FSelectionChange write FSelectionChange;
   end;
@@ -5137,6 +5146,13 @@ begin
   InvalidateRect(Handle, @R, False);
 end;
 
+procedure TFWCustomHexView.DoJmpTo(AAddrVA: UInt64; AJmpState: TJmpState;
+  var Handled: Boolean);
+begin
+  if Assigned(FJmpToEvent) then
+    FJmpToEvent(Self, AAddrVA, AJmpState, Handled);
+end;
+
 function TFWCustomHexView.DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean;
 begin
   Result := ssDouble in AHitInfo.Shift;
@@ -5836,7 +5852,7 @@ procedure TFWCustomHexView.KeyDown(var Key: Word; Shift: TShiftState);
 begin
   inherited;
   UpdateCaretTimer;
-  FSavedShift := Shift;
+  UpdateSavedShift(Shift);
   DoCaretKeyDown(Key, Shift);
   case Key of
     VK_SHIFT: FShiftSelectionInit := True;
@@ -5867,6 +5883,7 @@ end;
 procedure TFWCustomHexView.KeyUp(var Key: Word; Shift: TShiftState);
 begin
   inherited;
+  UpdateSavedShift(Shift);
   if Key = VK_SHIFT then
     FShiftSelectionInit := False;
 end;
@@ -5947,9 +5964,7 @@ begin
 
     if not FMousePressed then
     begin
-      if HitTest.OnSplitter and (HitTest.Cursor = crDefault) then
-        HitTest.Cursor := crHSplit;
-      Cursor := HitTest.Cursor;
+      UpdateCursor(HitTest);
       Exit;
     end;
 
@@ -6774,6 +6789,13 @@ begin
   end;
 end;
 
+procedure TFWCustomHexView.UpdateCursor(var AHitInfo: TMouseHitInfo);
+begin
+  if AHitInfo.OnSplitter and (AHitInfo.Cursor = crDefault) then
+    AHitInfo.Cursor := crHSplit;
+  Cursor := AHitInfo.Cursor;
+end;
+
 procedure TFWCustomHexView.UpdateDataMap;
 {$ifdef profile_speed}
 var
@@ -6792,6 +6814,24 @@ begin
   Stopwatch.Stop;
   OutputDebugString(PChar(IntToStr(Stopwatch.ElapsedMilliseconds)));
   {$endif}
+end;
+
+procedure TFWCustomHexView.UpdateSavedShift(Shift: TShiftState);
+var
+  P: TPoint;
+  HitTest: TMouseHitInfo;
+begin
+  if FSavedShift <> Shift then
+  begin
+    FSavedShift := Shift;
+    if not FMousePressed then
+    begin
+      GetCursorPos(P{%H-});
+      P := ScreenToClient(P);
+      HitTest := GetHitInfo(P.X, P.Y, Shift);
+      UpdateCursor(HitTest);
+    end;
+  end;
 end;
 
 procedure TFWCustomHexView.UpdateScrollPos;
