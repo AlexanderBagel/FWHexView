@@ -347,8 +347,7 @@ type
     procedure DrawDataPart(ACanvas: TCanvas; var ARect: TRect); override;
     function FormatRowColumn(AColumn: TColumnType;
       const Value: string): string; override;
-    procedure GetHitInfo(var AMouseHitInfo: TMouseHitInfo;
-      XPos, YPos: Int64); override;
+    procedure GetHitInfo(var AHitInfo: TMouseHitInfo); override;
     function GetTextMetricClass: TAbstractTextMetricClass; override;
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     function TextMetric: TAbstractTextMetric; override;
@@ -361,8 +360,7 @@ type
   TRowMask = class(TRowWithExDescription)
   protected
     procedure DrawHexPart(ACanvas: TCanvas; var ARect: TRect); override;
-    procedure GetHitInfo(var AMouseHitInfo: TMouseHitInfo;
-      XPos, YPos: Int64); override;
+    procedure GetHitInfo(var AHitInfo: TMouseHitInfo); override;
   end;
 
   TRowAssembler = class(TRowWithExDescription)
@@ -2098,23 +2096,22 @@ begin
     Result := inherited;
 end;
 
-procedure TRowWithExDescription.GetHitInfo(var AMouseHitInfo: TMouseHitInfo;
-  XPos, YPos: Int64);
+procedure TRowWithExDescription.GetHitInfo(var AHitInfo: TMouseHitInfo);
 var
   LeftOffset: Integer;
 begin
-  if AMouseHitInfo.SelectPoint.Column = ctDescription then
+  if AHitInfo.SelectPoint.Column = ctDescription then
   begin
-    if RawData[AMouseHitInfo.SelectPoint.RowIndex].LinkLength > 0 then
+    if RawData[AHitInfo.SelectPoint.RowIndex].LinkLength > 0 then
     begin
-      LeftOffset := AMouseHitInfo.ColumnStart;
-      if XPos > LeftOffset + AMouseHitInfo.ColumnWidth - TextMargin then Exit;
-      Inc(LeftOffset, RawData[AMouseHitInfo.SelectPoint.RowIndex].LinkStart * CharWidth);
+      LeftOffset := AHitInfo.ColumnStart;
+      if AHitInfo.ScrolledCursorPos.X > LeftOffset + AHitInfo.ColumnWidth - TextMargin then Exit;
+      Inc(LeftOffset, RawData[AHitInfo.SelectPoint.RowIndex].LinkStart * CharWidth);
       Inc(LeftOffset, TextMargin);
-      if XPos >= LeftOffset then
-        if XPos < (LeftOffset +
-          RawData[AMouseHitInfo.SelectPoint.RowIndex].LinkLength * CharWidth) then
-          AMouseHitInfo.Cursor := crHandPoint;
+      if AHitInfo.ScrolledCursorPos.X >= LeftOffset then
+        if AHitInfo.ScrolledCursorPos.X < (LeftOffset +
+          RawData[AHitInfo.SelectPoint.RowIndex].LinkLength * CharWidth) then
+          AHitInfo.Cursor := crHandPoint;
     end;
   end
   else
@@ -2186,18 +2183,18 @@ begin
   end;
 end;
 
-procedure TRowMask.GetHitInfo(var AMouseHitInfo: TMouseHitInfo; XPos,
-  YPos: Int64);
+procedure TRowMask.GetHitInfo(var AHitInfo: TMouseHitInfo);
 var
   AWidth, LeftOffset: Integer;
 begin
-  if AMouseHitInfo.SelectPoint.Column = ctOpcode then
+  if AHitInfo.SelectPoint.Column = ctOpcode then
   begin
     AWidth := ToDpi(3);
-    LeftOffset := AMouseHitInfo.ColumnStart +
+    LeftOffset := AHitInfo.ColumnStart +
       TextMetric.SelectionLength(ctOpcode, 1, RawData[RowIndex].RawLength) + AWidth;
-    if (XPos >= LeftOffset) and (XPos <= LeftOffset + RowHeight + AWidth) then
-      AMouseHitInfo.Cursor := crHandPoint;
+    if (AHitInfo.ScrolledCursorPos.X >= LeftOffset) and
+      (AHitInfo.ScrolledCursorPos.X <= LeftOffset + RowHeight + AWidth) then
+      AHitInfo.Cursor := crHandPoint;
   end
   else
     inherited;
