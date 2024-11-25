@@ -5305,7 +5305,7 @@ begin
 
     {$ifdef show_dbg_lines}
     R := Bounds(0, Offset.Y - FRowHeight, FHeader.ColumnWidth[ctWorkSpace], 20);
-    DrawText(Canvas.Handle, PChar(IntToStr(I)), - 1, R, DT_CENTER);
+    DrawText(Canvas, IntToStr(I), -1, R, DT_CENTER);
     {$endif}
   end;
 end;
