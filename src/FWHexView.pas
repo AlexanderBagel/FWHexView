@@ -4802,7 +4802,11 @@ begin
       AddressViewOffsetBase := NewAddressViewOffsetBase;
     end;
   end;
-  inherited;
+  try
+    inherited;
+  finally
+    FMousePressed := False;
+  end;
 end;
 
 destructor TFWCustomHexView.Destroy;
