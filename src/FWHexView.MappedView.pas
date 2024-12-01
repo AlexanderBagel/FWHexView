@@ -55,7 +55,6 @@ uses
   Windows,
   Messages,
   UITypes,
-  Actions,
   {$ENDIF}
   SysUtils,
   Classes,
@@ -66,8 +65,6 @@ uses
   Generics.Collections,
   Themes,
   Types,
-  ActnList,
-  Menus,
   {$IFDEF USE_PROFILER}
   uni_profiler,
   {$ENDIF}
@@ -489,48 +486,6 @@ type
     property Items[Index: Integer]: TVirtualPage read GetItem; default;
   end;
 
-  TViewShortCut = class(TPersistent)
-  private
-    FDefault: TShortCut;
-    FSecondaryShortCuts: TShortCutList;
-    FShortCut: TShortCut;
-    function IsSecondaryStored: Boolean;
-    function IsShortSutStored: Boolean;
-    procedure SetSecondaryShortCuts(const Value: TShortCutList);
-    function GetSecondaryShortCuts: TShortCutList;
-  protected
-    procedure AssignTo(Dest: TPersistent); override;
-    function IsCustomViewShortCutStored: Boolean;
-  public
-    constructor Create(ADefault: TShortCut);
-    destructor Destroy; override;
-    function IsShortCut(Key: Word; Shift: TShiftState): Boolean;
-  published
-    property ShortCut: TShortCut read FShortCut write FShortCut stored IsShortSutStored;
-    property SecondaryShortCuts: TShortCutList read GetSecondaryShortCuts write SetSecondaryShortCuts stored IsSecondaryStored;
-  end;
-
-  TViewShortCuts = class(TPersistent)
-  private
-    FJmpBack: TViewShortCut;
-    FJmpTo: TViewShortCut;
-    procedure SetJmpBack(const Value: TViewShortCut);
-    procedure SetJmpTo(const Value: TViewShortCut);
-    function IsJmpBackStored: Boolean;
-    function IsJmpToStored: Boolean;
-  protected
-    procedure AssignTo(Dest: TPersistent); override;
-    function IsShortCutsStored: Boolean; virtual;
-  public
-    constructor Create;
-    destructor Destroy; override;
-  published
-    property JmpBack: TViewShortCut read FJmpBack write SetJmpBack stored IsJmpBackStored;
-    property JmpTo: TViewShortCut read FJmpTo write SetJmpTo stored IsJmpToStored;
-  end;
-
-  TViewShortCutsClass = class of TViewShortCuts;
-
   TJmpData = record
     JmpFrom, JmpTo: Int64;
   end;
@@ -547,13 +502,9 @@ type
     FJmpInitList: TList<Int64>;
     FJmpData: TObjectDictionary<Int64, TList<Int64>>;
     FPages: TVirtualPages;
-    FPreviosJmp: TList<Int64>;
-    FPreviosJmpIdx: Integer;
-    FShortCuts: TViewShortCuts;
     function GetColorMap: TMapViewColors;
     procedure SetColorMap(const Value: TMapViewColors);
     procedure SetDrawIncomingJmp(const Value: Boolean);
-    procedure SetShortCuts(const Value: TViewShortCuts);
     procedure UpdateJumpList;
   protected
     function CalculateJmpToRow(JmpFromRow: Int64): Int64; virtual;
@@ -563,18 +514,11 @@ type
     function GetColorMapClass: THexViewColorMapClass; override;
     function GetDefaultPainterClass: TPrimaryRowPainterClass; override;
     function GetRawDataClass: TRawDataClass; override;
-    function GetShortCutsClass: TViewShortCutsClass; virtual;
+    procedure HandleUserInputJump(ARowIndex: Int64);
     procedure InitPainters; override;
     function InternalGetRowPainter(ARowIndex: Int64): TAbstractPrimaryRowPainter; override;
-    function IsShortCutsStored: Boolean;
-    procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
-      X, Y: Integer); override;
-    procedure ProcessJump(ARowIndex: Int64; AJmpState: TJmpState);
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     procedure UpdateDataMap; override;
-    {$IFNDEF FPC}
-    procedure WMXButtonDown(var Msg: TWMMouse); message WM_XBUTTONDOWN;
-    {$ENDIF}
   protected
     property JmpData: TObjectDictionary<Int64, TList<Int64>> read FJmpData;
     property JmpInitList: TList<Int64> read FJmpInitList;
@@ -590,7 +534,6 @@ type
     property AddressToRowIndexMode: TAddressToRowIndexMode read FAddressToRowIndexMode write FAddressToRowIndexMode default armFindFirstRaw;
     property ColorMap: TMapViewColors read GetColorMap write SetColorMap stored IsColorMapStored;
     property DrawIncomingJmp: Boolean read FDrawIncomingJmp write SetDrawIncomingJmp default False;
-    property ShortCuts: TViewShortCuts read FShortCuts write SetShortCuts stored IsShortCutsStored;
   end;
 
   TMappedHexView = class(TCustomMappedHexView)
@@ -2890,129 +2833,6 @@ begin
   end;
 end;
 
-{ TViewShortCut }
-
-procedure TViewShortCut.AssignTo(Dest: TPersistent);
-begin
-  if Dest is TViewShortCut then
-  begin
-    if Assigned(TViewShortCut(Dest).SecondaryShortCuts) then
-    begin
-      if Assigned(FSecondaryShortCuts) then
-        TViewShortCut(Dest).SecondaryShortCuts := SecondaryShortCuts
-      else
-        TViewShortCut(Dest).SecondaryShortCuts.Clear;
-    end;
-    TViewShortCut(Dest).FShortCut := FShortCut;
-  end
-  else
-    inherited;
-end;
-
-constructor TViewShortCut.Create(ADefault: TShortCut);
-begin
-  FDefault := ADefault;
-  FShortCut := ADefault;
-end;
-
-destructor TViewShortCut.Destroy;
-begin
-  FSecondaryShortCuts.Free;
-  inherited;
-end;
-
-function TViewShortCut.GetSecondaryShortCuts: TShortCutList;
-begin
-  if FSecondaryShortCuts = nil then
-    FSecondaryShortCuts := TShortCutList.Create;
-  Result := FSecondaryShortCuts;
-end;
-
-function TViewShortCut.IsCustomViewShortCutStored: Boolean;
-begin
-  Result := IsSecondaryStored or IsShortSutStored;
-end;
-
-function TViewShortCut.IsSecondaryStored: Boolean;
-begin
-  Result := Assigned(FSecondaryShortCuts) and (FSecondaryShortCuts.Count > 0);
-end;
-
-function TViewShortCut.IsShortCut(Key: Word; Shift: TShiftState): Boolean;
-var
-  AShortCut: TShortCut;
-  I: Integer;
-begin
-  Result := False;
-  AShortCut := Menus.ShortCut(Key, Shift);
-  if ShortCut = AShortCut then Exit(True);
-  if FSecondaryShortCuts = nil then Exit;
-  for I := 0 to FSecondaryShortCuts.Count - 1 do
-    if FSecondaryShortCuts.ShortCuts[I] = AShortCut then
-      Exit(True);
-end;
-
-function TViewShortCut.IsShortSutStored: Boolean;
-begin
-  Result := ShortCut <> FDefault;
-end;
-
-procedure TViewShortCut.SetSecondaryShortCuts(const Value: TShortCutList);
-begin
-  SecondaryShortCuts.Assign(Value);
-end;
-
-{ TViewShortCuts }
-
-procedure TViewShortCuts.AssignTo(Dest: TPersistent);
-begin
-  if Dest is TViewShortCuts then
-  begin
-    TViewShortCuts(Dest).JmpBack := JmpBack;
-    TViewShortCuts(Dest).JmpTo := JmpTo;
-  end
-  else
-    inherited;
-end;
-
-constructor TViewShortCuts.Create;
-begin
-  FJmpBack := TViewShortCut.Create(VK_BACK);
-  FJmpTo := TViewShortCut.Create(VK_RETURN);
-end;
-
-destructor TViewShortCuts.Destroy;
-begin
-  FJmpBack.Free;
-  FJmpTo.Free;
-  inherited;
-end;
-
-function TViewShortCuts.IsJmpBackStored: Boolean;
-begin
-  Result := JmpBack.IsCustomViewShortCutStored
-end;
-
-function TViewShortCuts.IsJmpToStored: Boolean;
-begin
-  Result := JmpTo.IsCustomViewShortCutStored;
-end;
-
-function TViewShortCuts.IsShortCutsStored: Boolean;
-begin
-  Result := IsJmpBackStored or IsJmpToStored;
-end;
-
-procedure TViewShortCuts.SetJmpBack(const Value: TViewShortCut);
-begin
-  FJmpBack.Assign(Value);
-end;
-
-procedure TViewShortCuts.SetJmpTo(const Value: TViewShortCut);
-begin
-  FJmpTo.Assign(Value);
-end;
-
 { TCustomMappedHexView }
 
 function TCustomMappedHexView.CalculateJmpToRow(JmpFromRow: Int64): Int64;
@@ -3032,12 +2852,13 @@ begin
   if ShortCuts.JmpTo.IsShortCut(Key, Shift) then
   begin
     RowIndex := SelectedRowIndex;
-    if RowIndex < 0 then Exit;
-    if RawData[RowIndex].JmpToAddr = 0 then Exit;
-    ProcessJump(RowIndex, jsPushToUndo);
+    if (RowIndex >= 0) and (RawData[RowIndex].JmpToAddr > 0) then
+    begin
+      HandleUserInputJump(RowIndex);
+      Exit;
+    end;
   end;
-  if ShortCuts.JmpBack.IsShortCut(Key, Shift) then
-    ProcessJump(0, jsPopFromUndo);
+  inherited;
 end;
 
 procedure TCustomMappedHexView.ClearDataMap;
@@ -3051,18 +2872,14 @@ begin
   inherited;
   FDataMap := TDataMap.Create(Self);
   FPages := TVirtualPages.Create(Self);
-  FPreviosJmp := TList<Int64>.Create;
   FJmpInitList := TList<Int64>.Create;
   FJmpData := TObjectDictionary<Int64, TList<Int64>>.Create([doOwnsValues]);
-  FShortCuts := GetShortCutsClass.Create;
 end;
 
 destructor TCustomMappedHexView.Destroy;
 begin
-  FShortCuts.Free;
   FJmpData.Free;
   FJmpInitList.Free;
-  FPreviosJmp.Free;
   FPages.Free;
   FDataMap.Free;
   inherited;
@@ -3095,7 +2912,7 @@ function TCustomMappedHexView.DoLButtonDown(const AHitInfo: TMouseHitInfo): Bool
 begin
   Result := AHitInfo.Cursor = crHandPoint;
   if Result then
-    ProcessJump(MousePressedHitInfo.SelectPoint.RowIndex, jsPushToUndo);
+    HandleUserInputJump(MousePressedHitInfo.SelectPoint.RowIndex);
 end;
 
 procedure TCustomMappedHexView.FitColumnToBestSize(Value: TColumnType);
@@ -3131,9 +2948,19 @@ begin
   Result := TMappedRawData;
 end;
 
-function TCustomMappedHexView.GetShortCutsClass: TViewShortCutsClass;
+procedure TCustomMappedHexView.HandleUserInputJump(ARowIndex: Int64);
 begin
-  Result := TViewShortCuts;
+  if RawData[ARowIndex].Style = rsMask then
+  begin
+    DataMap.Data.List[RawData.MapRowIndex].Expanded := not RawData.Expanded;
+    ClearSelection;
+    UpdateDataMap;
+    UpdateTextBoundary;
+    UpdateScrollPos;
+    Invalidate;
+  end
+  else
+    JumpToAddress(RawData[ARowIndex].JmpToAddr);
 end;
 
 procedure TCustomMappedHexView.InitPainters;
@@ -3170,84 +2997,6 @@ begin
   end;
 end;
 
-function TCustomMappedHexView.IsShortCutsStored: Boolean;
-begin
-  Result := ShortCuts.IsShortCutsStored;
-end;
-
-procedure TCustomMappedHexView.MouseDown(Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
-begin
-  inherited;
-  {$IFDEF FPC}
-  case Button of
-    mbExtra1: ProcessJump(0, jsPopFromUndo);
-    mbExtra2: ProcessJump(0, jsRestorePopFromUndo);
-  end;
-  {$ENDIF}
-end;
-
-procedure TCustomMappedHexView.ProcessJump(ARowIndex: Int64;
-  AJmpState: TJmpState);
-var
-  Handled: Boolean;
-  JmpAddr: Int64;
-  NewRowIndex: Int64;
-begin
-  Handled := False;
-
-  if RawData[ARowIndex].Style = rsMask then
-  begin
-    DataMap.Data.List[RawData.MapRowIndex].Expanded := not RawData.Expanded;
-    ClearSelection;
-    UpdateDataMap;
-    UpdateTextBoundary;
-    UpdateScrollPos;
-    Invalidate;
-    Exit;
-  end;
-
-  DoJmpTo(
-    IfThen(AJmpState = jsPushToUndo, RawData[ARowIndex].JmpToAddr, -1),
-    AJmpState, Handled);
-  if Handled then Exit;
-
-  case AJmpState of
-    jsPushToUndo:
-    begin
-      // прыжки делются в два шага для восстановления
-      // состояния экрана на откате
-
-      // jumps are divided in two steps to restore the screen state on rollback
-
-      FPreviosJmp.Count := FPreviosJmpIdx;
-      FPreviosJmp.Add(ARowIndex);
-      FPreviosJmp.Add(CurrentVisibleRow);
-      Inc(FPreviosJmpIdx, 2);
-      FocusOnAddress(RawData[ARowIndex].JmpToAddr, ccmSelectRow);
-    end;
-    jsPopFromUndo:
-    begin
-      if FPreviosJmpIdx = 0 then Exit;
-      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 1];
-      FocusOnAddress(RawData[NewRowIndex].Address, ccmNone);
-      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
-      Dec(FPreviosJmpIdx, 2);
-      FocusOnAddress(RawData[NewRowIndex].Address, ccmSelectRow);
-    end;
-    jsRestorePopFromUndo:
-    begin
-      if FPreviosJmpIdx >= FPreviosJmp.Count then Exit;
-      Inc(FPreviosJmpIdx, 2);
-      NewRowIndex := FPreviosJmp[FPreviosJmpIdx - 2];
-      JmpAddr := RawData[NewRowIndex].JmpToAddr;
-      FocusOnAddress(JmpAddr, ccmSelectRow);
-    end;
-  end;
-
-  DoJmpTo(JmpAddr, jsJmpDone, Handled);
-end;
-
 function TCustomMappedHexView.RawData: TMappedRawData;
 begin
   Result := TMappedRawData(inherited RawData);
@@ -3271,11 +3020,6 @@ begin
     UpdateJumpList;
     Invalidate;
   end;
-end;
-
-procedure TCustomMappedHexView.SetShortCuts(const Value: TViewShortCuts);
-begin
-  FShortCuts.Assign(Value);
 end;
 
 procedure TCustomMappedHexView.UpdateDataMap;
@@ -3315,18 +3059,5 @@ begin
     end;
   end;
 end;
-
-{$IFNDEF FPC}
-procedure TCustomMappedHexView.WMXButtonDown(var Msg: TWMMouse);
-const
-  MK_XBUTTON1 = $20;
-  MK_XBUTTON2 = $40;
-begin
-  case Word(Msg.Keys) of
-    MK_XBUTTON1: ProcessJump(0, jsPopFromUndo);
-    MK_XBUTTON2: ProcessJump(0, jsRestorePopFromUndo);
-  end;
-end;
-{$ENDIF}
 
 end.

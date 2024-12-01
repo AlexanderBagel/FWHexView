@@ -64,6 +64,7 @@ uses
   Windows,
   UITypes,
   UxTheme,
+  Actions,
   {$ENDIF}
   Messages,
   Classes,
@@ -80,6 +81,8 @@ uses
   {$endif}
   Generics.Collections,
   Generics.Defaults,
+  ActnList,
+  Menus,
   {$IFDEF USE_PROFILER}
   uni_profiler,
   {$ENDIF}
@@ -781,7 +784,7 @@ type
     property Visible;
   end;
 
-  TQueryStringEvent = procedure(Sender: TObject; AddrVA: UInt64; AColumn: TColumnType; var AComment: string) of object;
+  TQueryStringEvent = procedure(Sender: TObject; AddrVA: Int64; AColumn: TColumnType; var AComment: string) of object;
   TDrawColumnBackgroundEvent = procedure(Sender: TObject; ACanvas: TCanvas;
     ARowParam: TDrawParam; const ARect: TRect; var Handled: Boolean) of object;
   TDrawTokenEvent = procedure(Sender: TObject; ACanvas: TCanvas;
@@ -796,12 +799,78 @@ type
   TEditEvent = procedure(Sender: TObject; ACursor: TDrawParam;
     AData: TEditParam; var Handled: Boolean) of object;
 
-  TJmpState = (jsPushToUndo, jsPopFromUndo, jsRestorePopFromUndo, jsJmpDone);
+  TViewShortCut = class(TPersistent)
+  private
+    FDefault: TShortCut;
+    FSecondaryShortCuts: TShortCutList;
+    FShortCut: TShortCut;
+    function IsSecondaryStored: Boolean;
+    function IsShortSutStored: Boolean;
+    procedure SetSecondaryShortCuts(const Value: TShortCutList);
+    function GetSecondaryShortCuts: TShortCutList;
+  protected
+    procedure AssignTo(Dest: TPersistent); override;
+    function IsCustomViewShortCutStored: Boolean;
+  public
+    constructor Create(ADefault: TShortCut);
+    destructor Destroy; override;
+    function IsShortCut(Key: Word; Shift: TShiftState): Boolean;
+  published
+    property ShortCut: TShortCut read FShortCut write FShortCut stored IsShortSutStored;
+    property SecondaryShortCuts: TShortCutList read GetSecondaryShortCuts write SetSecondaryShortCuts stored IsSecondaryStored;
+  end;
+
+  TViewShortCuts = class(TPersistent)
+  private
+    FJmpBack: TViewShortCut;
+    FJmpTo: TViewShortCut;
+    procedure SetJmpBack(const Value: TViewShortCut);
+    procedure SetJmpTo(const Value: TViewShortCut);
+    function IsJmpBackStored: Boolean;
+    function IsJmpToStored: Boolean;
+  protected
+    procedure AssignTo(Dest: TPersistent); override;
+    function IsShortCutsStored: Boolean; virtual;
+  public
+    constructor Create;
+    destructor Destroy; override;
+  published
+    property JmpBack: TViewShortCut read FJmpBack write SetJmpBack stored IsJmpBackStored;
+    property JmpTo: TViewShortCut read FJmpTo write SetJmpTo stored IsJmpToStored;
+  end;
+
+  TViewShortCutsClass = class of TViewShortCuts;
+
+  TJmpState = (jsQueryJump, jsJmpPushToStack, jsJmpUndo, jsJmpRedo, jsJmpDone);
   TJmpToEvent = procedure(Sender: TObject; const AJmpAddr: Int64;
     AJmpState: TJmpState; var Handled: Boolean) of object;
 
+  TJmpItem = record
+    JmpAddr: Int64;
+    JmpFrom: Int64;
+    SelStart, SelEnd: TSelectPoint;
+  end;
+
+  TJumpStack = class
+  strict private
+    FCurrent: TJmpItem;
+    FStack: TList<TJmpItem>;
+    FUndoIndex: Integer;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function Add(const AValue: TJmpItem): Integer;
+    function CanRedo: Boolean;
+    function CanUndo: Boolean;
+    procedure Clear;
+    function Redo: Boolean;
+    function Undo: Boolean;
+    property Current: TJmpItem read FCurrent;
+    property UndoIndex: Integer read FUndoIndex;
+  end;
+
   THintParam = record
-    AddrVA: UInt64;
+    AddrVA: Int64;
     HitInfo: TMouseHitInfo;
     CursorRect: TRect;
   end;
@@ -837,7 +906,9 @@ type
     FHeader: TCustomHexViewHeader;
     FHideSelection: Boolean;
     FHintShowPause: Integer;
+    FJumpStack: TJumpStack;
     FRowHeight: Integer;
+    FShortCuts: TViewShortCuts;
     FLastDiapasone: TVisibleRowDiapason;
     FMeasureCanvas: TBitmap;
     FMinColumnWidth: Integer;
@@ -886,6 +957,7 @@ type
     procedure InvalidateCaretPosData(NewState: Boolean);
     procedure InvalidateSelections;
     function IsFontStored: Boolean;
+    function IsShortCutsStored: Boolean;
     procedure ReleaseDataStream;
     procedure SetAddressMode(const Value: TAddressMode);
     procedure SetAddressView(const Value: TAddressView);
@@ -907,6 +979,7 @@ type
     procedure SetSelEnd(const Value: Int64);
     procedure SetSelStart(const Value: Int64);
     procedure SetSeparateGroupByColor(const Value: Boolean);
+    procedure SetShortCuts(const Value: TViewShortCuts);
     function Scroll32To64(Value: Integer): Int64;
     function Scroll64To32(Value: Int64): Integer;
     procedure OnSelectionsChange(Sender: TObject);
@@ -945,6 +1018,9 @@ type
     procedure WMSetFocus(var Msg: TWMSetFocus); message WM_SETFOCUS;
     procedure WMTimer(var Msg: TWMTimer); message WM_TIMER;
     procedure WMVScroll(var Msg: TWMVScroll); message WM_VSCROLL;
+    {$IFNDEF FPC}
+    procedure WMXButtonDown(var Msg: TWMMouse); message WM_XBUTTONDOWN;
+    {$ENDIF}
   protected
     // IHexViewCopyAction
     function CopyCommandEnabled(Value: TCopyStyle): Boolean; virtual;
@@ -994,7 +1070,7 @@ type
     procedure DoFontChange(Sender: TObject);
     procedure DoFontResize(Value: Integer);
     procedure DoGetHint(var AHintParam: THintParam; var AHint: string); virtual;
-    procedure DoJmpTo(AAddrVA: UInt64; AJmpState: TJmpState; var Handled: Boolean);
+    procedure DoJmpTo(AAddrVA: Int64; AJmpState: TJmpState; var Handled: Boolean);
     procedure DoQueryString(AddrVA: Int64; AColumn: TColumnType; var AComment: string);
     procedure DoSelectionChage(AStartAddr, AEndAddr: Int64); virtual;
     function DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean; virtual;
@@ -1033,6 +1109,7 @@ type
     function GetDefaultPainterClass: TPrimaryRowPainterClass; virtual;
     function GetHeaderClass: THeaderClass; virtual;
     function GetRawDataClass: TRawDataClass; virtual;
+    function GetShortCutsClass: TViewShortCutsClass; virtual;
     function GetOverloadPainterClass(Value: TPrimaryRowPainterClass): TPrimaryRowPainterClass; virtual;
 
     // непосредственно отрисовка
@@ -1110,6 +1187,13 @@ type
     ///  it will appear at the top. If it is lower, it will appear at the bottom.
     /// </summary>
     procedure FocusOnRow(ARowIndex: Int64; ACaretChangeMode: TCaretChangeMode);
+
+    procedure JumpClear;
+    function JumpToAddress(AJmpAddr: Int64): Boolean;
+    function JumpToBookmark(ABookmark: TBookMark): Boolean;
+    function JumpRedo: Boolean;
+    function JumpUndo: Boolean;
+
     /// <summary>
     ///  Общий метод чтения данных с начала выделения вьювера
     /// </summary>
@@ -1207,6 +1291,7 @@ type
     property ScrollBars: TScrollStyle read FScrollBars write SetScrollBars default TScrollStyle.ssBoth;
     property SelectOnMouseDown: Boolean read FSelectOnMouseDown write FSelectOnMouseDown default True;
     property SeparateGroupByColor: Boolean read FSeparateGroupByColor write SetSeparateGroupByColor default True;
+    property ShortCuts: TViewShortCuts read FShortCuts write SetShortCuts stored IsShortCutsStored;
     property TabStop default True;
     property WheelMultiplyer: Integer read FWheelMultiplyer write FWheelMultiplyer default 3;
     property OnCaretPosChange: TNotifyEvent read FOnCaretPosChange write FOnCaretPosChange;
@@ -1257,6 +1342,7 @@ type
     property ScrollBars;
     property SelectOnMouseDown;
     property SeparateGroupByColor;
+    property ShortCuts;
     property ShowHint;
     property TabOrder;
     property TabStop;
@@ -4396,6 +4482,188 @@ begin
     Inc(FWidth, ColumnWidth[I]);
 end;
 
+{ TViewShortCut }
+
+procedure TViewShortCut.AssignTo(Dest: TPersistent);
+begin
+  if Dest is TViewShortCut then
+  begin
+    if Assigned(TViewShortCut(Dest).SecondaryShortCuts) then
+    begin
+      if Assigned(FSecondaryShortCuts) then
+        TViewShortCut(Dest).SecondaryShortCuts := SecondaryShortCuts
+      else
+        TViewShortCut(Dest).SecondaryShortCuts.Clear;
+    end;
+    TViewShortCut(Dest).FShortCut := FShortCut;
+  end
+  else
+    inherited;
+end;
+
+constructor TViewShortCut.Create(ADefault: TShortCut);
+begin
+  FDefault := ADefault;
+  FShortCut := ADefault;
+end;
+
+destructor TViewShortCut.Destroy;
+begin
+  FSecondaryShortCuts.Free;
+  inherited;
+end;
+
+function TViewShortCut.GetSecondaryShortCuts: TShortCutList;
+begin
+  if FSecondaryShortCuts = nil then
+    FSecondaryShortCuts := TShortCutList.Create;
+  Result := FSecondaryShortCuts;
+end;
+
+function TViewShortCut.IsCustomViewShortCutStored: Boolean;
+begin
+  Result := IsSecondaryStored or IsShortSutStored;
+end;
+
+function TViewShortCut.IsSecondaryStored: Boolean;
+begin
+  Result := Assigned(FSecondaryShortCuts) and (FSecondaryShortCuts.Count > 0);
+end;
+
+function TViewShortCut.IsShortCut(Key: Word; Shift: TShiftState): Boolean;
+var
+  AShortCut: TShortCut;
+  I: Integer;
+begin
+  Result := False;
+  AShortCut := Menus.ShortCut(Key, Shift);
+  if ShortCut = AShortCut then Exit(True);
+  if FSecondaryShortCuts = nil then Exit;
+  for I := 0 to FSecondaryShortCuts.Count - 1 do
+    if FSecondaryShortCuts.ShortCuts[I] = AShortCut then
+      Exit(True);
+end;
+
+function TViewShortCut.IsShortSutStored: Boolean;
+begin
+  Result := ShortCut <> FDefault;
+end;
+
+procedure TViewShortCut.SetSecondaryShortCuts(const Value: TShortCutList);
+begin
+  SecondaryShortCuts.Assign(Value);
+end;
+
+{ TViewShortCuts }
+
+procedure TViewShortCuts.AssignTo(Dest: TPersistent);
+begin
+  if Dest is TViewShortCuts then
+  begin
+    TViewShortCuts(Dest).JmpBack := JmpBack;
+    TViewShortCuts(Dest).JmpTo := JmpTo;
+  end
+  else
+    inherited;
+end;
+
+constructor TViewShortCuts.Create;
+begin
+  FJmpBack := TViewShortCut.Create(VK_BACK);
+  FJmpTo := TViewShortCut.Create(VK_RETURN);
+end;
+
+destructor TViewShortCuts.Destroy;
+begin
+  FJmpBack.Free;
+  FJmpTo.Free;
+  inherited;
+end;
+
+function TViewShortCuts.IsJmpBackStored: Boolean;
+begin
+  Result := JmpBack.IsCustomViewShortCutStored
+end;
+
+function TViewShortCuts.IsJmpToStored: Boolean;
+begin
+  Result := JmpTo.IsCustomViewShortCutStored;
+end;
+
+function TViewShortCuts.IsShortCutsStored: Boolean;
+begin
+  Result := IsJmpBackStored or IsJmpToStored;
+end;
+
+procedure TViewShortCuts.SetJmpBack(const Value: TViewShortCut);
+begin
+  FJmpBack.Assign(Value);
+end;
+
+procedure TViewShortCuts.SetJmpTo(const Value: TViewShortCut);
+begin
+  FJmpTo.Assign(Value);
+end;
+
+{ TJumpStack }
+
+function TJumpStack.Add(const AValue: TJmpItem): Integer;
+begin
+  FStack.Count := FUndoIndex;
+  FStack.Add(AValue);
+  FUndoIndex := FStack.Count;
+  Result := FUndoIndex;
+  FCurrent := AValue;
+end;
+
+function TJumpStack.CanRedo: Boolean;
+begin
+  Result := FUndoIndex < FStack.Count;
+end;
+
+function TJumpStack.CanUndo: Boolean;
+begin
+  Result := FUndoIndex > 0;
+end;
+
+procedure TJumpStack.Clear;
+begin
+  FCurrent := Default(TJmpItem);
+  FStack.Clear;
+  FUndoIndex := 0;
+end;
+
+constructor TJumpStack.Create;
+begin
+  FStack := TList<TJmpItem>.Create;
+end;
+
+destructor TJumpStack.Destroy;
+begin
+  FStack.Free;
+  inherited;
+end;
+
+function TJumpStack.Redo: Boolean;
+begin
+  Result := CanRedo;
+  if Result then
+  begin
+    Inc(FUndoIndex);
+    FCurrent := FStack[FUndoIndex - 1];
+  end;
+end;
+
+function TJumpStack.Undo: Boolean;
+begin
+  Result := CanUndo;
+  if Result then
+  begin
+    FCurrent := FStack[FUndoIndex - 1];
+    Dec(FUndoIndex);
+  end;
+end;
+
 { TFWCustomHexView }
 
 function TFWCustomHexView.AddressToRowIndex(Value: Int64): Int64;
@@ -4711,11 +4979,13 @@ begin
   FBytesInRow := 16;
   FEncoder := TCharEncoder.Create(Self);
   FHintShowPause := 20;
+  FJumpStack := TJumpStack.Create;
   FScrollBars := TScrollStyle.ssBoth;
   FSeparateGroupByColor := True;
   FTextMargin := ToDpi(NoDpiTextMargin);
   FSelectOnMouseDown := True;
   FSplitMargin := ToDpi(NoDpiSplitMargin);
+  FShortCuts := GetShortCutsClass.Create;
   FMeasureCanvas := TBitmap.Create;
   FMeasureCanvas.SetSize(1, 1);
   FMinColumnWidth := FTextMargin shl 2;
@@ -4811,6 +5081,8 @@ end;
 
 destructor TFWCustomHexView.Destroy;
 begin
+  FShortCuts.Free;
+  FJumpStack.Free;
   FPostPainters.Free;
   FPainters.Free;
   FSelections.OnChange := nil;
@@ -5000,8 +5272,24 @@ begin
 end;
 
 procedure TFWCustomHexView.DoCaretKeyDown(var Key: Word; Shift: TShiftState);
+var
+  Handled: Boolean;
 begin
-  // Method for inheritors...
+  // Базовый редактор не знает как обрабатывать ShortCuts.JmpTo,
+  // эта задача должна быть решена в наследниках или во внешнем обработчике события.
+
+  // The base editor does not know how to handle ShortCuts.JmpTo,
+  // this task should be solved in the successors or in an external event handler.
+
+  if ShortCuts.JmpTo.IsShortCut(Key, Shift) then
+  begin
+    Handled := False;
+    DoJmpTo(Min(SelStart, SelEnd), jsQueryJump, Handled);
+    Exit;
+  end;
+
+  if ShortCuts.JmpBack.IsShortCut(Key, Shift) then
+    JumpUndo;
 end;
 
 procedure TFWCustomHexView.DoCaretHome(Shift: TShiftState);
@@ -5220,7 +5508,7 @@ begin
   InvalidateRect(Handle, @R, False);
 end;
 
-procedure TFWCustomHexView.DoJmpTo(AAddrVA: UInt64; AJmpState: TJmpState;
+procedure TFWCustomHexView.DoJmpTo(AAddrVA: Int64; AJmpState: TJmpState;
   var Handled: Boolean);
 begin
   if Assigned(FOnJmpTo) then
@@ -5428,6 +5716,11 @@ begin
     NewVerticalOffset := (ARowIndex - (Diapason.EndRow - Diapason.StartRow)) * FRowHeight;
   UpdateScrollY(-NewVerticalOffset);
   UpdateCaretPosData(SelectPoint(ARowIndex, 0, ctOpcode), ACaretChangeMode);
+end;
+
+procedure TFWCustomHexView.JumpClear;
+begin
+  FJumpStack.Clear;
 end;
 
 function TFWCustomHexView.GetBookMark(AIndex: TBookMark): Int64;
@@ -5788,6 +6081,11 @@ begin
   end;
 end;
 
+function TFWCustomHexView.GetShortCutsClass: TViewShortCutsClass;
+begin
+  Result := TViewShortCuts;
+end;
+
 function TFWCustomHexView.GetTextExtent: TSize;
 begin
   Result := MeasureCanvas.TextExtent(CHAR_STRING);
@@ -5923,6 +6221,78 @@ begin
   Result := (ARowIndex >= Diapason.StartRow) and (ARowIndex <= Diapason.EndRow);
 end;
 
+function TFWCustomHexView.IsShortCutsStored: Boolean;
+begin
+  Result := ShortCuts.IsShortCutsStored;
+end;
+
+function TFWCustomHexView.JumpRedo: Boolean;
+var
+  Handled: Boolean;
+begin
+  Result := FJumpStack.Redo;
+  Handled := False;
+  DoJmpTo(FJumpStack.Current.JmpAddr, jsJmpRedo, Handled);
+  if Handled then Exit(True);
+  if Result then
+  begin
+    FocusOnAddress(FJumpStack.Current.JmpAddr, ccmSelectRow);
+    DoJmpTo(FJumpStack.Current.JmpAddr, jsJmpDone, Result);
+  end;
+end;
+
+function TFWCustomHexView.JumpToAddress(AJmpAddr: Int64): Boolean;
+var
+  Handled: Boolean;
+  JmpItem: TJmpItem;
+begin
+  if RawData.Count = 0 then Exit(False);
+
+  //Вьювер снаружи может быть перестроен, поэтому сначала запоминаем его актуальное состояние.
+
+  // The viewer outside can be rebuilt, so we first memorize its current state.
+
+  JmpItem.JmpAddr := AJmpAddr;
+  JmpItem.JmpFrom := RawData[CurrentVisibleRow].Address;
+  JmpItem.SelStart := FSelStart;
+  JmpItem.SelEnd := FSelEnd;
+
+  Handled := False;
+  DoJmpTo(AJmpAddr, jsJmpPushToStack, Handled);
+  if Handled then Exit(True);
+  Result := FJumpStack.Add(JmpItem) >= 0;
+  FocusOnAddress(AJmpAddr, ccmSelectRow);
+  DoJmpTo(AJmpAddr, jsJmpDone, Handled);
+end;
+
+function TFWCustomHexView.JumpToBookmark(ABookmark: TBookMark): Boolean;
+begin
+  Result := JumpToAddress(Bookmark[ABookmark]);
+end;
+
+function TFWCustomHexView.JumpUndo: Boolean;
+var
+  Handled: Boolean;
+begin
+  Result := FJumpStack.Undo;
+  Handled := False;
+  DoJmpTo(FJumpStack.Current.JmpFrom, jsJmpUndo, Handled);
+  if Handled then Exit(True);
+  if Result then
+  begin
+    FocusOnAddress(FJumpStack.Current.JmpFrom, ccmNone);
+    UpdateSelection(FJumpStack.Current.SelStart, FJumpStack.Current.SelEnd);
+
+    // редактор уже восстановлен в то состояние, которое было перед прыжком,
+    // поэтому адрес для последующей коррекции извне не передается
+
+    // the editor is already restored to the state it was in before the jump,
+    // so the address for further external correction is not transmitted
+
+    DoJmpTo(-1, jsJmpDone, Handled);
+  end;
+end;
+
 procedure TFWCustomHexView.KeyDown(var Key: Word; Shift: TShiftState);
 begin
   inherited;
@@ -5987,6 +6357,14 @@ var
 begin
   try
     SetFocus;
+
+    {$IFDEF FPC}
+    case Button of
+      mbExtra1: JumpUndo;
+      mbExtra2: JumpRedo;
+    end;
+    {$ENDIF}
+
     if Button <> TMouseButton.mbLeft then Exit;
 
     FMousePressed := True;
@@ -6716,6 +7094,11 @@ begin
   end;
 end;
 
+procedure TFWCustomHexView.SetShortCuts(const Value: TViewShortCuts);
+begin
+  FShortCuts.Assign(Value);
+end;
+
 procedure TFWCustomHexView.SetTopRow(ARowIndex: Int64);
 begin
   if ARowIndex < 0 then
@@ -6787,6 +7170,19 @@ begin
   NewVerticalOffset := NewVerticalOffset - (NewVerticalOffset mod FRowHeight);
   UpdateScrollY(NewVerticalOffset);
 end;
+
+{$IFNDEF FPC}
+procedure TFWCustomHexView.WMXButtonDown(var Msg: TWMMouse);
+const
+  MK_XBUTTON1 = $20;
+  MK_XBUTTON2 = $40;
+begin
+  case Word(Msg.Keys) of
+    MK_XBUTTON1: JumpUndo;
+    MK_XBUTTON2: JumpRedo;
+  end;
+end;
+{$ENDIF}
 
 procedure TFWCustomHexView.UpdateCaretColumn(AColumn: TColumnType);
 begin
