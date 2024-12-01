@@ -43,7 +43,7 @@ type
     FCentralFileDirNode: TTreeNode;
     FTreeAddrList: TList<Int64>;
     function GetCFDNode: TTreeNode;
-    function FindSing(Stream: TStream): DWORD;
+    function FindSign(Stream: TStream): DWORD;
     procedure LoadStringValue(Stream: TStream; out Value: string;
       nSize: Cardinal; UTF: Boolean);
     procedure Open(const FilePath: string);
@@ -94,6 +94,40 @@ begin
   end;
 end;
 
+function VersionMadeByToStr(Value: Word): string;
+const
+  KnownCompat: array [0..19] of string = (
+    '0 - MS-DOS and OS/2 (FAT / VFAT / FAT32 file systems)',
+    '1 - Amiga',
+    '2 - OpenVMS',
+    '3 - UNIX',
+    '4 - VM/CMS',
+    '5 - Atari ST',
+    '6 - OS/2 H.P.F.S.',
+    '7 - Macintosh',
+    '8 - Z-System',
+    '9 - CP/M',
+    '10 - Windows NTFS',
+    '11 - MVS (OS/390 - Z/OS)',
+    '12 - VSE',
+    '13 - Acorn Risc',
+    '14 - VFAT',
+    '15 - alternate MVS',
+    '16 - BeOS',
+    '17 - Tandem',
+    '18 - OS/400',
+    '19 - OS X (Darwin)'
+  );
+var
+  FileAttrCompatible: string;
+begin
+  if Value shr 8 in [0..19] then
+    FileAttrCompatible := ', compatible: ' + KnownCompat[Value shr 8]
+  else
+    FileAttrCompatible := '';
+  Result := Format('%d.%d%s', [Byte(Value) div 10, Byte(Value) mod 10, FileAttrCompatible]);
+end;
+
 function GPBFToStr(Value: Word): string;
 
   procedure AddValue(const S: string);
@@ -133,7 +167,7 @@ begin
     AddValue('PBF_STRONG_CRYPT');
 end;
 
-function TdlgMain.FindSing(Stream: TStream): DWORD;
+function TdlgMain.FindSign(Stream: TStream): DWORD;
 const
   KnownSigns: array [0..5] of DWORD = (
     LOCAL_FILE_HEADER_SIGNATURE,
@@ -263,7 +297,7 @@ var
 begin
   AStream := TBufferedFileStream.Create(FilePath, fmOpenRead or fmShareDenyNone, 1024 * 64);
   HexView.SetDataStream(AStream, 0, soOwned);
-  Sign := FindSing(AStream);
+  Sign := FindSign(AStream);
   while Sign <> 0 do
   begin
     case Sign of
@@ -276,7 +310,7 @@ begin
     else
       AStream.Seek(BuffSize - SizeOf(Cardinal) + 1, soCurrent);
     end;
-    Sign := FindSing(AStream);
+    Sign := FindSign(AStream);
   end;
 end;
 
@@ -295,7 +329,7 @@ var
 begin
   AddrVA := Stream.Position;
   Stream.ReadBuffer(Data, SizeOf(TCentralDirectoryFileHeader));
-  if (Data.VersionMadeBy > 100) or (Data.VersionNeededToExtract > 100) or (Data.CompressionMethod > 100) then
+  if (Byte(Data.VersionMadeBy) > 100) or (Data.VersionNeededToExtract > 100) or (Data.CompressionMethod > 100) then
   begin
     Stream.Seek(1 - SizeOf(TCentralDirectoryFileHeader), soFromCurrent);
     Exit;
@@ -307,7 +341,7 @@ begin
   Node.Data := UIntToPtr(FTreeAddrList.Add(AddrVA));
   HexView.DataMap.AddSeparator(AddrVA, 'CENTRAL_FILE_HEADER');
   HexView.DataMap.AddExDescription(4, Format('Signature = 0x%x', [Data.CentralFileHeaderSignature]));
-  HexView.DataMap.AddExDescription(2, Format('VersionMadeBy = %d', [Data.VersionMadeBy]));
+  HexView.DataMap.AddExDescription(2, Format('VersionMadeBy = %d', [Data.VersionMadeBy]), VersionMadeByToStr(Data.VersionMadeBy));
   HexView.DataMap.AddExDescription(2, Format('VersionNeededToExtract = %d', [Data.VersionNeededToExtract]));
   HexView.DataMap.AddMask(2, Format('GeneralPurposeBitFlag = 0x%x', [Data.GeneralPurposeBitFlag]), GPBFToStr(Data.GeneralPurposeBitFlag), False);
   HexView.DataMap.AddMaskSeparator;
@@ -644,7 +678,7 @@ var
 begin
   AddrVA := Stream.Position;
   Stream.ReadBuffer(Data, SizeOf(TZip64EOFCentralDirectoryRecord));
-  if (Data.VersionMadeBy > 100) or (Data.VersionNeededToExtract > 100) then
+  if (Byte(Data.VersionMadeBy) > 100) or (Data.VersionNeededToExtract > 100) then
   begin
     Stream.Seek(1 - SizeOf(TZip64EOFCentralDirectoryRecord), soFromCurrent);
     Exit;
@@ -654,7 +688,7 @@ begin
   HexView.DataMap.AddSeparator(AddrVA, 'ZIP64_END_OF_CENTRAL_DIR');
   HexView.DataMap.AddExDescription(4, Format('Signature = 0x%x', [Data.Zip64EndOfCentralDirSignature]));
   HexView.DataMap.AddExDescription(8, Format('SizeOfZip64EOFCentralDirectoryRecord = %d', [Data.SizeOfZip64EOFCentralDirectoryRecord]));
-  HexView.DataMap.AddExDescription(2, Format('VersionMadeBy = %d', [Data.VersionMadeBy]));
+  HexView.DataMap.AddExDescription(2, Format('VersionMadeBy = %d', [Data.VersionMadeBy]), VersionMadeByToStr(Data.VersionMadeBy));
   HexView.DataMap.AddExDescription(2, Format('VersionNeededToExtract = %d', [Data.VersionNeededToExtract]));
   HexView.DataMap.AddExDescription(4, Format('NumberOfThisDisk = %d', [Data.NumberOfThisDisk]));
   HexView.DataMap.AddExDescription(4, Format('DiskNumberStart = %d', [Data.DiskNumberStart]));

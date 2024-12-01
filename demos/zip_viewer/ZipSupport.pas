@@ -1,9 +1,9 @@
-unit ZipSupport;
+﻿unit ZipSupport;
 
 interface
 
 uses
-{$IFDEF WINDOWS}
+{$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
 {$IFDEF LINUX}

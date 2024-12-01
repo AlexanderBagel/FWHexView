@@ -40,22 +40,13 @@ object dlgMain: TdlgMain
     Top = 0
     Width = 1154
     Height = 572
-    Cursor = crDefault
     Align = alClient
-    ColorMap.ArrowDownColor = 16760220
-    ColorMap.ArrowDownSelectedColor = 16744760
-    ColorMap.ArrowUpColor = 12897535
-    ColorMap.ArrowUpSelectedColor = 4345087
-    ColorMap.JmpMarkTextColor = 12087625
-    ColorMap.SeparatorBackgroundColor = clBtnFace
-    ColorMap.SeparatorBorderColor = clGrayText
-    ColorMap.SeparatorTextColor = clWindowText
     Header.Columns = [ctJmpLine, ctAddress, ctOpcode, ctDescription, ctComment]
     NoDataText = 'Open any ZIP'
-    ParentFont = False
     TabOrder = 1
-    TabStop = True
     OnJmpTo = HexViewJmpTo
+    ExplicitWidth = 68
+    ExplicitHeight = 201
   end
   object MainMenu: TMainMenu
     Left = 16
