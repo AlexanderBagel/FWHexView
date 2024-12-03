@@ -3258,7 +3258,7 @@ begin
   ACanvas.Brush.Style := bsClear;
   ACanvas.Font.Color := ColorMap.WorkSpaceTextColor;
   CorrectCanvasFont(ACanvas, ctWorkSpace);
-  Dec(ARect.Left, TextMargin);
+  Dec(ARect.Left, TextMargin - ToDpi(2));
   DrawText(ACanvas, PChar(ColumnAsString(ctWorkSpace)), -1, ARect, 0);
 end;
 
@@ -4718,7 +4718,7 @@ begin
     UpdateTextExtent;
     FTextMargin := ToDpi(NoDpiTextMargin);
     FSplitMargin := ToDpi(NoDpiSplitMargin);
-    FMinColumnWidth := FTextMargin shl 2;
+    FMinColumnWidth := FTextMargin shl 2 + FTextMargin;
     RestoreViewParam;
   end;
 end;
@@ -7261,28 +7261,10 @@ begin
 end;
 
 procedure TFWCustomHexView.UpdateCursor(var AHitInfo: TMouseHitInfo);
-var
-  CtrlAtCursor: TWinControl;
-  P: TPoint;
 begin
   if AHitInfo.OnSplitter and (AHitInfo.Cursor = crDefault) then
     AHitInfo.Cursor := crHSplit;
   Cursor := AHitInfo.Cursor;
-
-  // Временное решение специально для ситуации когда нажимается
-  // Ctrl в одном вьювере, а мышь расположена над другим.
-
-  // Temporary solution specifically for the situation when Ctrl is pressed in
-  // one viewer and the mouse is positioned above the other.
-
-  P := ClientToScreen(AHitInfo.CursorPos);
-  CtrlAtCursor := FindControl(WindowFromPoint(P));
-  if Assigned(CtrlAtCursor) and (CtrlAtCursor is TFWCustomHexView) and
-    (CtrlAtCursor <> Self) then
-  begin
-    P := CtrlAtCursor.ScreenToClient(P);
-    TFWCustomHexView(CtrlAtCursor).MouseMove(AHitInfo.Shift, P.X, P.Y);
-  end;
 end;
 
 procedure TFWCustomHexView.UpdateDataMap;
