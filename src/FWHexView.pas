@@ -234,6 +234,7 @@ type
     ccmSetNewSelection,
     ccmContinueSelection,
     ccmSelectRow,
+    ccmSelectPointer,
     ccmReset);
 
   TCaretPosData = record
@@ -847,6 +848,7 @@ type
 
   TJmpItem = record
     JmpAddr: Int64;
+    SelLength: Integer;
     JmpFrom: Int64;
     SelStart, SelEnd: TSelectPoint;
   end;
@@ -1055,6 +1057,7 @@ type
     procedure UpdateCaretPosData(Value: TSelectPoint; AChangeMode: TCaretChangeMode);
     procedure UpdateCaretTimer;
     procedure UpdateSelection(ANewStart, ANewEnd: TSelectPoint);
+    procedure UpdateSelectionAddr(ANewStart, ANewEnd: Int64);
 
     // внутренние события
 
@@ -1103,6 +1106,7 @@ type
 
     // redefinition of internal classes
 
+    function GetDefaultCaretChangeMode: TCaretChangeMode; virtual;
     function GetColorMapClass: THexViewColorMapClass; virtual;
     function GetDefaultFontName: string; virtual;
     function GetDefaultFontHeight: Integer; virtual;
@@ -1189,7 +1193,7 @@ type
     procedure FocusOnRow(ARowIndex: Int64; ACaretChangeMode: TCaretChangeMode);
 
     procedure JumpClear;
-    function JumpToAddress(AJmpAddr: Int64): Boolean;
+    function JumpToAddress(AJmpAddr: Int64; ASelLength: Integer = 0): Boolean;
     function JumpToBookmark(ABookmark: TBookMark): Boolean;
     function JumpRedo: Boolean;
     function JumpUndo: Boolean;
@@ -6236,12 +6240,19 @@ begin
   if Handled then Exit(True);
   if Result then
   begin
-    FocusOnAddress(FJumpStack.Current.JmpAddr, ccmSelectRow);
+    if FJumpStack.Current.SelLength > 0 then
+    begin
+      FocusOnAddress(FJumpStack.Current.JmpAddr, ccmSetNewSelection);
+      UpdateSelectionAddr(FJumpStack.Current.JmpAddr,
+        FJumpStack.Current.JmpAddr + FJumpStack.Current.SelLength - 1);
+    end
+    else
+      FocusOnAddress(FJumpStack.Current.JmpAddr, GetDefaultCaretChangeMode);
     DoJmpTo(FJumpStack.Current.JmpAddr, jsJmpDone, Result);
   end;
 end;
 
-function TFWCustomHexView.JumpToAddress(AJmpAddr: Int64): Boolean;
+function TFWCustomHexView.JumpToAddress(AJmpAddr: Int64; ASelLength: Integer): Boolean;
 var
   Handled: Boolean;
   JmpItem: TJmpItem;
@@ -6253,6 +6264,7 @@ begin
   // The viewer outside can be rebuilt, so we first memorize its current state.
 
   JmpItem.JmpAddr := AJmpAddr;
+  JmpItem.SelLength := ASelLength;
   JmpItem.JmpFrom := RawData[CurrentVisibleRow].Address;
   JmpItem.SelStart := FSelStart;
   JmpItem.SelEnd := FSelEnd;
@@ -6261,7 +6273,15 @@ begin
   DoJmpTo(AJmpAddr, jsJmpPushToStack, Handled);
   if Handled then Exit(True);
   Result := FJumpStack.Add(JmpItem) >= 0;
-  FocusOnAddress(AJmpAddr, ccmSelectRow);
+
+  if ASelLength > 0 then
+  begin
+    FocusOnAddress(AJmpAddr, ccmSetNewSelection);
+    UpdateSelectionAddr(AJmpAddr, AJmpAddr + ASelLength - 1);
+  end
+  else
+    FocusOnAddress(AJmpAddr, GetDefaultCaretChangeMode);
+
   DoJmpTo(AJmpAddr, jsJmpDone, Handled);
 end;
 
@@ -6822,6 +6842,11 @@ begin
   FPreviosCharWidth := FCharWidth;
 end;
 
+function TFWCustomHexView.GetDefaultCaretChangeMode: TCaretChangeMode;
+begin
+  Result := ccmSelectPointer;
+end;
+
 function TFWCustomHexView.Scroll32To64(Value: Integer): Int64;
 var
   Tmp: Double;
@@ -7193,6 +7218,7 @@ procedure TFWCustomHexView.UpdateCaretPosData(Value: TSelectPoint;
   AChangeMode: TCaretChangeMode);
 var
   Painter: TAbstractPrimaryRowPainter;
+  ASelStartAddrVA, APointerSize: Int64;
 begin
   DestroyCaretTimer;
 
@@ -7214,6 +7240,18 @@ begin
     ccmSelectRow:
       UpdateSelection(SelectPoint(Value.RowIndex, 0, Value.Column),
         SelectPoint(Value.RowIndex, -1, Value.Column));
+    ccmSelectPointer:
+    begin
+      ASelStartAddrVA := RawData.RowToAddress(Value.RowIndex, Max(0, Value.ValueOffset));
+      case AddressMode of
+        am8bit: APointerSize := 1;
+        am16bit: APointerSize := 2;
+        am32bit: APointerSize := 4;
+      else
+        APointerSize := 8;
+      end;
+      UpdateSelectionAddr(ASelStartAddrVA, ASelStartAddrVA + APointerSize - 1);
+    end;
     ccmReset:
     begin
       Value.Erase;
@@ -7386,6 +7424,11 @@ begin
     DoSelectionChage(FSelStartAddr, FSelEndAddr);
     InvalidateSelections;
   end;
+end;
+
+procedure TFWCustomHexView.UpdateSelectionAddr(ANewStart, ANewEnd: Int64);
+begin
+  UpdateSelection(AddressToSelectPoint(ANewStart), AddressToSelectPoint(ANewEnd));
 end;
 
 procedure TFWCustomHexView.DoBeforePaint(const ADiapason: TVisibleRowDiapason);
