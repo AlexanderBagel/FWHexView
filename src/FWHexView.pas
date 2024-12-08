@@ -846,6 +846,8 @@ type
   TJmpToEvent = procedure(Sender: TObject; const AJmpAddr: Int64;
     AJmpState: TJmpState; var Handled: Boolean) of object;
 
+  { TJmpItem }
+
   TJmpItem = record
     JmpAddr: Int64;
     SelLength: Integer;
@@ -6258,6 +6260,10 @@ var
   JmpItem: TJmpItem;
 begin
   if RawData.Count = 0 then Exit(False);
+
+  if (FJumpStack.Current.JmpAddr = AJmpAddr) and
+    (FJumpStack.Current.SelLength = ASelLength) then
+    Exit(False);
 
   //Вьювер снаружи может быть перестроен, поэтому сначала запоминаем его актуальное состояние.
 
