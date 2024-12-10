@@ -6261,24 +6261,33 @@ var
 begin
   if RawData.Count = 0 then Exit(False);
 
-  if (FJumpStack.Current.JmpAddr = AJmpAddr) and
-    (FJumpStack.Current.SelLength = ASelLength) then
-    Exit(False);
+  Result := (FJumpStack.Current.JmpAddr <> AJmpAddr) or
+    (FJumpStack.Current.SelLength <> ASelLength);
 
-  //Вьювер снаружи может быть перестроен, поэтому сначала запоминаем его актуальное состояние.
+  if Result then
+  begin
+    //Вьювер снаружи может быть перестроен, поэтому сначала запоминаем его актуальное состояние.
 
-  // The viewer outside can be rebuilt, so we first memorize its current state.
+    // The viewer outside can be rebuilt, so we first memorize its current state.
 
-  JmpItem.JmpAddr := AJmpAddr;
-  JmpItem.SelLength := ASelLength;
-  JmpItem.JmpFrom := RawData[CurrentVisibleRow].Address;
-  JmpItem.SelStart := FSelStart;
-  JmpItem.SelEnd := FSelEnd;
+    JmpItem.JmpAddr := AJmpAddr;
+    JmpItem.SelLength := ASelLength;
+    JmpItem.JmpFrom := RawData[CurrentVisibleRow].Address;
+    JmpItem.SelStart := FSelStart;
+    JmpItem.SelEnd := FSelEnd;
 
-  Handled := False;
-  DoJmpTo(AJmpAddr, jsJmpPushToStack, Handled);
-  if Handled then Exit(True);
-  Result := FJumpStack.Add(JmpItem) >= 0;
+    Handled := False;
+    DoJmpTo(AJmpAddr, jsJmpPushToStack, Handled);
+    if Handled then Exit;
+    FJumpStack.Add(JmpItem);
+  end
+  else
+  begin
+    Handled := False;
+    DoJmpTo(AJmpAddr, jsJmpPushToStack, Handled);
+    if Handled then Exit;
+    Result := FJumpStack.Redo;
+  end;
 
   if ASelLength > 0 then
   begin
