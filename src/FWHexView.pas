@@ -909,7 +909,7 @@ type
     FEncoder: TCharEncoder;
     FHeader: TCustomHexViewHeader;
     FHideSelection: Boolean;
-    FHintShowPause: Integer;
+    FHintHideTimeout, FHintShowPause: Integer;
     FJumpStack: TJumpStack;
     FRowHeight: Integer;
     FShortCuts: TViewShortCuts;
@@ -1290,6 +1290,7 @@ type
     property Font stored IsFontStored;
     property Header: TCustomHexViewHeader read FHeader write SetHeader;
     property HideSelection: Boolean read FHideSelection write SetHideSelection default False;
+    property HintHideTimeout: Integer read FHintHideTimeout write FHintHideTimeout default 7000;
     property HintShowPause: Integer read FHintShowPause write FHintShowPause default 20;
     property NoDataText: string read FNoDataText write SetNoDataText;
     property ParentFont default False;
@@ -4822,6 +4823,7 @@ begin
   if Header.Visible then
     Inc(Offset.Y, FRowHeight);
   HintParam.CursorRect := Painter.ColumnRect(Offset, HintParam.HitInfo.SelectPoint.Column);
+  Message.HintInfo.HideTimeout := HintHideTimeout;
   DoGetHint(HintParam, Message.HintInfo.HintStr);
   Message.HintInfo.CursorRect := HintParam.CursorRect;
 end;
@@ -4984,6 +4986,7 @@ begin
   FBytesInColorGroup := 4;
   FBytesInRow := 16;
   FEncoder := TCharEncoder.Create(Self);
+  FHintHideTimeout := 7000;
   FHintShowPause := 20;
   FJumpStack := TJumpStack.Create;
   FScrollBars := TScrollStyle.ssBoth;
