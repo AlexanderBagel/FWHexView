@@ -875,8 +875,8 @@ type
 
   THintParam = record
     AddrVA: Int64;
-    HitInfo: TMouseHitInfo;
-    CursorRect: TRect;
+    MouseHitInfo: TMouseHitInfo;
+    HintInfo: PHintInfo;
   end;
 
   TGetHintEvent = procedure(Sender: TObject; const Param: THintParam;
@@ -4811,21 +4811,21 @@ var
   Offset: TPoint;
 begin
   HintParam := Default(THintParam);
-  HintParam.HitInfo := GetHitInfo(
+  HintParam.MouseHitInfo := GetHitInfo(
     Message.HintInfo.CursorPos.X, Message.HintInfo.CursorPos.Y, SavedShift);
-  Painter := GetRowPainter(HintParam.HitInfo.SelectPoint.RowIndex);
+  Painter := GetRowPainter(HintParam.MouseHitInfo.SelectPoint.RowIndex);
   if Painter = nil then Exit;
   HintParam.AddrVA := Painter.RowToAddress(
-    HintParam.HitInfo.SelectPoint.RowIndex,
-    HintParam.HitInfo.SelectPoint.ValueOffset);
+    HintParam.MouseHitInfo.SelectPoint.RowIndex,
+    HintParam.MouseHitInfo.SelectPoint.ValueOffset);
   Offset.X := FScrollOffset.X;
   Offset.Y := Painter.RowIndex * FRowHeight + FScrollOffset.Y;
   if Header.Visible then
     Inc(Offset.Y, FRowHeight);
-  HintParam.CursorRect := Painter.ColumnRect(Offset, HintParam.HitInfo.SelectPoint.Column);
+  Message.HintInfo.CursorRect := Painter.ColumnRect(Offset, HintParam.MouseHitInfo.SelectPoint.Column);
   Message.HintInfo.HideTimeout := HintHideTimeout;
+  HintParam.HintInfo := Message.HintInfo;
   DoGetHint(HintParam, Message.HintInfo.HintStr);
-  Message.HintInfo.CursorRect := HintParam.CursorRect;
 end;
 
 procedure TFWCustomHexView.CMHintShowPause(var Message: TCMHintShowPause);

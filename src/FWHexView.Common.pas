@@ -92,7 +92,10 @@ type
   {$ENDIF}
   end;
 
-type
+  TBoundaries = record
+    LeftOffset, Width: Integer;
+  end;
+
   ///<summary> TAddressMode - 8/16/32/64 bit address display mode. </summary>
   TAddressMode = (am8bit, am16bit, am32bit, am64bit);
   ///<summary> TAddressView - HEX/Decimal address display mode. </summary>

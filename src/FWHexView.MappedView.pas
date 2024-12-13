@@ -345,6 +345,7 @@ type
     function FormatRowColumn(AColumn: TColumnType;
       const Value: string): string; override;
     procedure GetHitInfo(var AHitInfo: TMouseHitInfo); override;
+    function GetLinkBoundaries(out ABounds: TBoundaries): Boolean;
     function GetTextMetricClass: TAbstractTextMetricClass; override;
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     function TextMetric: TAbstractTextMetric; override;
@@ -502,6 +503,7 @@ type
     FJmpInitList: TList<Int64>;
     FJmpData: TObjectDictionary<Int64, TList<Int64>>;
     FPages: TVirtualPages;
+    FLastInvalidAddrRect: TRect;
     function GetColorMap: TMapViewColors;
     procedure SetColorMap(const Value: TMapViewColors);
     procedure SetDrawIncomingJmp(const Value: Boolean);
@@ -509,6 +511,7 @@ type
   protected
     function CalculateJmpToRow(JmpFromRow: Int64): Int64; virtual;
     procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); override;
+    procedure DoGetHint(var AHintParam: THintParam; var AHint: string); override;
     procedure DoInvalidateRange(AStartRow, AEndRow: Int64); override;
     function DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean; override;
     function GetColorMapClass: THexViewColorMapClass; override;
@@ -516,6 +519,7 @@ type
     function GetRawDataClass: TRawDataClass; override;
     procedure HandleUserInputJump(ARowIndex: Int64);
     procedure InitPainters; override;
+    function IsJumpValid(AJmpToAddr: Int64): Boolean; virtual;
     function InternalGetRowPainter(ARowIndex: Int64): TAbstractPrimaryRowPainter; override;
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     procedure UpdateDataMap; override;
@@ -603,6 +607,7 @@ type
     property OnEnter;
     property OnExit;
     property OnJmpTo;
+    property OnHint;
     property OnKeyDown;
     property OnKeyPress;
     property OnKeyUp;
@@ -2041,19 +2046,17 @@ end;
 
 procedure TRowWithExDescription.GetHitInfo(var AHitInfo: TMouseHitInfo);
 var
+  ABounds: TBoundaries;
   LeftOffset: Integer;
 begin
   if AHitInfo.SelectPoint.Column = ctDescription then
   begin
-    if RawData[AHitInfo.SelectPoint.RowIndex].LinkLength > 0 then
+    if GetLinkBoundaries(ABounds) then
     begin
       LeftOffset := AHitInfo.ColumnStart;
-      if AHitInfo.ScrolledCursorPos.X > LeftOffset + AHitInfo.ColumnWidth - TextMargin then Exit;
-      Inc(LeftOffset, RawData[AHitInfo.SelectPoint.RowIndex].LinkStart * CharWidth);
-      Inc(LeftOffset, TextMargin);
-      if AHitInfo.ScrolledCursorPos.X >= LeftOffset then
-        if AHitInfo.ScrolledCursorPos.X < (LeftOffset +
-          RawData[AHitInfo.SelectPoint.RowIndex].LinkLength * CharWidth) then
+      Inc(ABounds.LeftOffset, AHitInfo.ColumnStart + TextMargin);
+      if AHitInfo.ScrolledCursorPos.X >= ABounds.LeftOffset then
+        if AHitInfo.ScrolledCursorPos.X < (ABounds.LeftOffset + ABounds.Width) then
           AHitInfo.Cursor := crHandPoint;
     end;
   end
@@ -2063,13 +2066,21 @@ end;
 
 function TRowWithExDescription.GetLineJmpMarkRect(const ARect: TRect): TRect;
 var
-  LeftOffset, MarkWidth: Integer;
+  ABounds: TBoundaries;
 begin
-  LeftOffset := RawData[RowIndex].LinkStart * CharWidth;
-  MarkWidth := RawData[RowIndex].LinkLength * CharWidth;
-  if LeftOffset + MarkWidth + DblSize(TextMargin) > ColumnWidth[ctDescription] then
-    MarkWidth := ColumnWidth[ctDescription] - DblSize(TextMargin) - LeftOffset;
-  Result := MakeSelectRect(ARect.Left + LeftOffset, ARect.Top, MarkWidth);
+  if GetLinkBoundaries(ABounds) then
+    Result := MakeSelectRect(ARect.Left + ABounds.LeftOffset, ARect.Top, ABounds.Width)
+  else
+    Result := TRect.Empty;
+end;
+
+function TRowWithExDescription.GetLinkBoundaries(out ABounds: TBoundaries): Boolean;
+begin
+  ABounds.LeftOffset := RawData[RowIndex].LinkStart * CharWidth;
+  ABounds.Width := RawData[RowIndex].LinkLength * CharWidth;
+  if ABounds.LeftOffset + ABounds.Width + DblSize(TextMargin) > ColumnWidth[ctDescription] then
+    ABounds.Width := ColumnWidth[ctDescription] - DblSize(TextMargin) - ABounds.LeftOffset;
+  Result := ABounds.Width > 0;
 end;
 
 function TRowWithExDescription.GetTextMetricClass: TAbstractTextMetricClass;
@@ -2458,7 +2469,7 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
   procedure Process(DrawOnlySelectedArrow: Boolean;
     JmpData: TObjectDictionary<Int64, TList<Int64>>);
   var
-    I, JmpLine: Int64;
+    I, JmpLine, JmpToAddr: Int64;
     A: Integer;
     Param: TDrawLineParam;
     IncomingJmps: TList<Int64>;
@@ -2481,10 +2492,12 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
       if (I = EndRow) and not RowVisible(I) then Exit;
 
       if RawData[I].Style in [rsRawWithExDescription, rsAsm] then
-        if RawData[I].JmpToAddr <> 0 then
+      begin
+        JmpToAddr := RawData[I].JmpToAddr;
+        if JmpToAddr <> 0 then
         begin
           JmpLine := Owner.CalculateJmpToRow(I);
-          if JmpLine >= 0 then
+          if (JmpLine >= 0) or Owner.IsJumpValid(JmpToAddr) then
           begin
             Param.DirectionDown := JmpLine > I;
             Param.RowFrom := I;
@@ -2494,6 +2507,7 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
             Inc(PaintedLinesCount);
           end;
         end;
+      end;
 
       if not Owner.DrawIncomingJmp then
         Continue;
@@ -2861,6 +2875,37 @@ begin
   inherited;
 end;
 
+procedure TCustomMappedHexView.DoGetHint(var AHintParam: THintParam;
+  var AHint: string);
+var
+  AddrVA: Int64;
+  Painter: TAbstractPrimaryRowPainter;
+  ABounds: TBoundaries;
+begin
+  if AHintParam.MouseHitInfo.SelectPoint.Column <> ctDescription then Exit;
+  if PtInRect(FLastInvalidAddrRect, AHintParam.MouseHitInfo.CursorPos) then Exit;
+  AddrVA := RawData[AHintParam.MouseHitInfo.SelectPoint.RowIndex].JmpToAddr;
+  if AddrVA = 0 then
+  begin
+    FLastInvalidAddrRect := AHintParam.HintInfo.CursorRect;
+    Exit;
+  end;
+  Painter := GetRowPainter(AHintParam.MouseHitInfo.SelectPoint.RowIndex);
+  if Assigned(Painter) and (Painter is TRowWithExDescription) then
+  begin
+    AHintParam.AddrVA := AddrVA;
+    if TRowWithExDescription(Painter).GetLinkBoundaries(ABounds) then
+    begin
+      AHintParam.HintInfo.CursorRect.Left :=
+        AHintParam.MouseHitInfo.ColumnStart + TextMargin + ABounds.LeftOffset;
+      AHintParam.HintInfo.CursorRect.Width := ABounds.Width;
+      if not PtInRect(AHintParam.HintInfo.CursorRect, AHintParam.MouseHitInfo.CursorPos) then Exit;
+      FLastInvalidAddrRect := TRect.Empty;
+      inherited;
+    end;
+  end;
+end;
+
 procedure TCustomMappedHexView.ClearDataMap;
 begin
   SetDataStream(nil, 0);
@@ -2995,6 +3040,11 @@ begin
   else
     Result := nil;
   end;
+end;
+
+function TCustomMappedHexView.IsJumpValid(AJmpToAddr: Int64): Boolean;
+begin
+  Result := AddressToRowIndex(AJmpToAddr) >= 0;
 end;
 
 function TCustomMappedHexView.RawData: TMappedRawData;
