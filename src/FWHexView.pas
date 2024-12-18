@@ -1291,7 +1291,7 @@ type
     property Header: TCustomHexViewHeader read FHeader write SetHeader;
     property HideSelection: Boolean read FHideSelection write SetHideSelection default False;
     property HintHideTimeout: Integer read FHintHideTimeout write FHintHideTimeout default 7000;
-    property HintShowPause: Integer read FHintShowPause write FHintShowPause default 20;
+    property HintShowPause: Integer read FHintShowPause write FHintShowPause default 300;
     property NoDataText: string read FNoDataText write SetNoDataText;
     property ParentFont default False;
     property ReadOnly: Boolean read FReadOnly write SetReadOnly default True;
@@ -4831,9 +4831,9 @@ end;
 procedure TFWCustomHexView.CMHintShowPause(var Message: TCMHintShowPause);
 begin
   if Message.WasActive = 1 then
-    Message.Pause^ := HintShowPause
+    inherited
   else
-    Message.Pause^ := 0;
+    Message.Pause^ := HintShowPause;
 end;
 
 function TFWCustomHexView.ColumnAsString(ARowIndex: Int64; AColumn: TColumnType
@@ -4987,7 +4987,7 @@ begin
   FBytesInRow := 16;
   FEncoder := TCharEncoder.Create(Self);
   FHintHideTimeout := 7000;
-  FHintShowPause := 20;
+  FHintShowPause := 300;
   FJumpStack := TJumpStack.Create;
   FScrollBars := TScrollStyle.ssBoth;
   FSeparateGroupByColor := True;
