@@ -52,6 +52,7 @@ uses
   {$IFDEF FPC}
   LCLType,
   LCLIntf,
+  LazUTF8,
   {$ELSE}
   Classes,
   UITypes,
@@ -233,6 +234,9 @@ const
   function RawBufToPasArray(Value: PByte; nSize: Integer): string;
   procedure PatBlt(ACanvas: TCanvas; ALeft, ATop, AWidth, AHeight, ARop: Integer);{$IFNDEF FPC}inline;{$ENDIF}
   function IsColorRefDark(Value: LongInt): Boolean;
+  function UTF8ByteCount(p: PChar; CharCount: Integer): Integer; inline;
+  function UTF8Copy(const s: string; StartCharIndex, CharCount: Integer): string; inline;
+  function UTF8StringLength(const Value: string): Integer; inline;
 
 type
   TScrollDirection = (sdLeft, sdRight, sdUp, sdDown);
@@ -858,6 +862,43 @@ begin
     GetRValue(Value) * 30 +
     GetGValue(Value) * 59 +
     GetBValue(Value) * 11)  div 100 <= 130;
+end;
+
+function UTF8ByteCount(p: PChar; CharCount: Integer): Integer;
+{$IFDEF FPC}
+var
+  I, CharLen: LongInt;
+begin
+  Result := 0;
+  for I := 0 to CharCount - 1 do
+  begin
+    CharLen := UTF8CodepointSize(p);
+    Inc(p, CharLen);
+    Inc(Result, CharLen);
+  end;
+end;
+{$ELSE}
+begin
+  Result := CharCount
+end;
+{$ENDIF}
+
+function UTF8Copy(const s: string; StartCharIndex, CharCount: Integer): string;
+begin
+  {$IFDEF FPC}
+  Result := LazUTF8.UTF8Copy(s, StartCharIndex, CharCount);
+  {$ELSE}
+  Result := Copy(s, StartCharIndex, CharCount);
+  {$ENDIF}
+end;
+
+function UTF8StringLength(const Value: string): Integer;
+begin
+  {$IFDEF FPC}
+  Result := UTF8Length(Value);
+  {$ELSE}
+  Result := Length(Value);
+  {$ENDIF}
 end;
 
 procedure DrawArrow(ACanvas: TCanvas; Direction: TScrollDirection;

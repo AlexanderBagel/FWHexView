@@ -2047,13 +2047,11 @@ end;
 procedure TRowWithExDescription.GetHitInfo(var AHitInfo: TMouseHitInfo);
 var
   ABounds: TBoundaries;
-  LeftOffset: Integer;
 begin
   if AHitInfo.SelectPoint.Column = ctDescription then
   begin
     if GetLinkBoundaries(ABounds) then
     begin
-      LeftOffset := AHitInfo.ColumnStart;
       Inc(ABounds.LeftOffset, AHitInfo.ColumnStart + TextMargin);
       if AHitInfo.ScrolledCursorPos.X >= ABounds.LeftOffset then
         if AHitInfo.ScrolledCursorPos.X < (ABounds.LeftOffset + ABounds.Width) then
