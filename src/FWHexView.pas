@@ -216,13 +216,15 @@ type
     property Item[Index: Integer]: TSelection read GetItem; default;
   end;
 
+  TKnownElement = (keHeader, keSplitter, keSelection);
+  TKnownElements = set of TKnownElement;
+
   TMouseHitInfo = record
     CursorPos: TPoint;
     ScrolledCursorPos: TPoint;
     Shift: TShiftState;
     SelectPoint: TSelectPoint;
-    OnHeader: Boolean;
-    OnSplitter: Boolean;
+    Elements: TKnownElements;
     ColumnStart: Integer;
     ColumnWidth: Integer;
     Cursor: TCursor;
@@ -1726,8 +1728,7 @@ begin
   ScrolledCursorPos := TPoint.Zero;
   SelectPoint.Erase;
   Shift := [];
-  OnHeader := False;
-  OnSplitter := False;
+  Elements := [];
   ColumnWidth := 0;
   Cursor := crDefault;
 end;
@@ -3043,7 +3044,7 @@ begin
     begin
       ARect := Bounds(LeftOffset, ARect.Top, ColumnWidth[I], ARect.Height);
       DrawColumnBackground(ACanvas, I, ARect,
-        MousePressed and AHitInfo.OnSplitter and (AHitInfo.SelectPoint.Column = I));
+        MousePressed and (keSplitter in AHitInfo.Elements) and (AHitInfo.SelectPoint.Column = I));
       Inc(LeftOffset, ColumnWidth[I]);
     end;
 
@@ -5871,7 +5872,8 @@ begin
 
       if Header.DrawColumnSeparator then
       begin
-        Result.OnSplitter := LeftOffset - SplitMargin < XPos;
+        if LeftOffset - SplitMargin < XPos then
+          Include(Result.Elements, keSplitter);
 
         // если правая граница колонки за экраном,
         // позволяем быстро изменить ее размеры без скролирования по горизонтали
@@ -5879,10 +5881,11 @@ begin
         // if the right border of a column is off the screen,
         // we allow you to quickly resize it without scrolling horizontally
 
-        if not Result.OnSplitter and (XPos + FScrollOffset.X >= ClientWidth - DblSize(SplitMargin)) then
+        if not (keSplitter in Result.Elements) and (XPos + FScrollOffset.X >= ClientWidth - DblSize(SplitMargin)) then
         begin
           Result.ColumnWidth := FHeader.ColumnWidth[I] - (LeftOffset - XPos - FScrollOffset.X);
-          Result.OnSplitter := Result.ColumnWidth >= MinColumnWidth;
+          if Result.ColumnWidth >= MinColumnWidth then
+            Include(Result.Elements, keSplitter);
         end;
       end;
 
@@ -5892,10 +5895,11 @@ begin
 
   if Header.Visible then
   begin
-    Result.OnHeader := (YPos >= 0) and (YPos <= FRowHeight);
+    if (YPos >= 0) and (YPos <= FRowHeight) then
+      Include(Result.Elements, keHeader);
     Dec(YPos, FRowHeight);
   end;
-  if Result.OnHeader then Exit;
+  if keHeader in Result.Elements then Exit;
   Dec(YPos, FScrollOffset.Y);
 
   Result.SelectPoint.RowIndex := YPos div FRowHeight;
@@ -5904,7 +5908,7 @@ begin
 
   Result.ScrolledCursorPos := Point(XPos, YPos);
 
-  if Result.OnSplitter then Exit;
+  if keSplitter in Result.Elements then Exit;
 
   if Result.SelectPoint.RowIndex < 0 then Exit;
 
@@ -5915,6 +5919,8 @@ begin
   if Assigned(Painter) then
     Painter.GetHitInfo(Result);
 
+  if CheckSelected(Result.SelectPoint) then
+    Include(Result.Elements, keSelection);
 end;
 
 function TFWCustomHexView.GetLeftNCWidth: Integer;
@@ -6370,7 +6376,7 @@ begin
 
     if DoLButtonDown(FMousePressedHitInfo) then Exit;
 
-    if FMousePressedHitInfo.OnSplitter  then
+    if keSplitter in FMousePressedHitInfo.Elements then
     begin
       FHeader.ColumnWidth[FMousePressedHitInfo.SelectPoint.Column] :=
         FMousePressedHitInfo.ColumnWidth;
@@ -6381,7 +6387,7 @@ begin
       if RawData.Count = 0 then Exit;
       if FMousePressedHitInfo.SelectPoint.RowIndex < 0 then Exit;
 
-      if FMousePressedHitInfo.OnHeader then
+      if keHeader in FMousePressedHitInfo.Elements then
         CaretChangeMode := ccmNone
       else if FMousePressedHitInfo.SelectPoint.Column in [ctNone, ctWorkSpace, ctJmpLine] then
         CaretChangeMode := ccmReset
@@ -6419,7 +6425,7 @@ begin
       Exit;
     end;
 
-    if FMousePressed and FMousePressedHitInfo.OnSplitter then
+    if FMousePressed and (keSplitter in FMousePressedHitInfo.Elements) then
     begin
       FHeader.ColumnWidth[FMousePressedHitInfo.SelectPoint.Column] :=
         FMousePressedHitInfo.ColumnWidth + X - FMousePressedHitInfo.CursorPos.X;
@@ -6487,7 +6493,7 @@ procedure TFWCustomHexView.MouseUp(Button: TMouseButton; Shift: TShiftState; X,
   Y: Integer);
 begin
   FMousePressed := False;
-  if FMousePressedHitInfo.OnSplitter then
+  if keSplitter in FMousePressedHitInfo.Elements then
   begin
     UpdateTextBoundary;
     UpdateScrollPos;
@@ -7278,7 +7284,7 @@ end;
 
 procedure TFWCustomHexView.UpdateCursor(var AHitInfo: TMouseHitInfo);
 begin
-  if AHitInfo.OnSplitter and (AHitInfo.Cursor = crDefault) then
+  if (keSplitter in AHitInfo.Elements) and (AHitInfo.Cursor = crDefault) then
     AHitInfo.Cursor := crHSplit;
   Cursor := AHitInfo.Cursor;
 end;
