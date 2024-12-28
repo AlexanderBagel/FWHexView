@@ -1096,12 +1096,12 @@ type
     function GetLeftNCWidth: Integer;
     function GetPageHeight: Integer;
     function GetRowOffset(ARowIndex: Int64): Int64;
-    function CheckSelected(Value: TSelectPoint): Boolean;
     function GetSelectData(ARowIndex: Int64): TSelectData;
     function GetSelectDataWithSelection(ARowIndex: Int64; ASelStart, ASelEnd: TSelectPoint): TSelectData;
     function MeasureCanvas: TCanvas;
     function RowVisible(ARowIndex: Int64): Boolean;
     procedure RestoreViewParam; virtual;
+    function SelectPointInSelection(const Value: TSelectPoint): Boolean;
     procedure SetScrollOffset(X, Y: Int64); virtual;
     procedure SetTopRow(ARowIndex: Int64);
     procedure SaveViewParam;
@@ -4725,30 +4725,6 @@ begin
   DoChangeScale(False);
 end;
 
-function TFWCustomHexView.CheckSelected(Value: TSelectPoint): Boolean;
-var
-  LeftSel, RightSel: TSelectPoint;
-begin
-  Result := False;
-
-  if FSelStart.InvalidRow then Exit;
-  if FSelEnd.InvalidRow then Exit;
-  if Value.InvalidRow then Exit;
-
-  if FSelEnd < FSelStart then
-  begin
-    LeftSel := FSelEnd;
-    RightSel := FSelStart;
-  end
-  else
-  begin
-    LeftSel := FSelStart;
-    RightSel := FSelEnd;
-  end;
-
-  Result := (Value >= LeftSel) and (Value <= RightSel);
-end;
-
 procedure TFWCustomHexView.ClearSelection(ResetCaretPos: Boolean);
 begin
   FSelStart.Erase;
@@ -5919,7 +5895,7 @@ begin
   if Assigned(Painter) then
     Painter.GetHitInfo(Result);
 
-  if CheckSelected(Result.SelectPoint) then
+  if SelectPointInSelection(Result.SelectPoint) then
     Include(Result.Elements, keSelection);
 end;
 
@@ -6789,6 +6765,31 @@ begin
   finally
     EndUpdate;
   end;
+end;
+
+function TFWCustomHexView.SelectPointInSelection(const Value: TSelectPoint
+  ): Boolean;
+var
+  LeftSel, RightSel: TSelectPoint;
+begin
+  Result := False;
+
+  if FSelStart.InvalidRow then Exit;
+  if FSelEnd.InvalidRow then Exit;
+  if Value.InvalidRow then Exit;
+
+  if FSelEnd < FSelStart then
+  begin
+    LeftSel := FSelEnd;
+    RightSel := FSelStart;
+  end
+  else
+  begin
+    LeftSel := FSelStart;
+    RightSel := FSelEnd;
+  end;
+
+  Result := (Value >= LeftSel) and (Value <= RightSel);
 end;
 
 function TFWCustomHexView.RowToAddress(ARowIndex: Int64;
