@@ -1057,6 +1057,7 @@ type
       AColumn: TColumnType; Shift: TShiftState): TCaretChangeMode; virtual;
     function GetCaretNextRowIndex(FromIndex: Int64; AColumn: TColumnType = ctNone): Int64; virtual;
     function GetCaretPreviosRowIndex(FromIndex: Int64; AColumn: TColumnType = ctNone): Int64; virtual;
+    function IgnoreSelectionWhenCopyAddress: Boolean; virtual;
     procedure UpdateCaretColumn(AColumn: TColumnType);
     procedure UpdateCaretPosData(Value: TSelectPoint; AChangeMode: TCaretChangeMode);
     procedure UpdateCaretTimer;
@@ -1142,6 +1143,8 @@ type
 
     function GetHitInfo(XPos, YPos: Int64; AShift: TShiftState): TMouseHitInfo;
     function IsColorMapStored: Boolean; virtual;
+    function LeftSelPoint: TSelectPoint;
+    function RightSelPoint: TSelectPoint;
     procedure RebuildData;
     procedure RegisterTextMetric(Value: TAbstractTextMetric);
 
@@ -1223,6 +1226,7 @@ type
     function SelectedColumnAsString(AColumn: TColumnType): string;
     function SelectedRawLength: Integer;
     function SelectedRowIndex: Int64;
+    function SelectPointToAddress(const AValue: TSelectPoint): Int64;
     procedure SetDataStream(Value: TStream; StartAddress: Int64;
       AOwnerShip: TStreamOwnership = soReference);
     procedure SetCaretPos(AColumn: TColumnType; ARowIndex: Int64; ACharIndex: Integer);
@@ -4827,8 +4831,13 @@ begin
 
   if CopyStyle = csAddress then
   begin
-    Painter := GetRowPainter(SelectedRowIndex);
-    Clipboard.AsText := Painter.ColumnAsString(ctAddress);
+    if IgnoreSelectionWhenCopyAddress or not (LeftSelPoint.Column in [ctOpcode, ctDescription]) then
+    begin
+      Painter := GetRowPainter(SelectedRowIndex);
+      Clipboard.AsText := Painter.ColumnAsString(ctAddress);
+    end
+    else
+      Clipboard.AsText := IntToHex(SelectPointToAddress(LeftSelPoint));
     Exit;
   end;
 
@@ -5230,7 +5239,7 @@ begin
   if ShortCuts.JmpTo.IsShortCut(Key, Shift) then
   begin
     Handled := False;
-    DoJmpTo(Min(SelStart, SelEnd), jsQueryJump, Handled);
+    DoJmpTo(SelectPointToAddress(LeftSelPoint), jsQueryJump, Handled);
     Exit;
   end;
 
@@ -5787,6 +5796,11 @@ begin
   end;
 end;
 
+function TFWCustomHexView.IgnoreSelectionWhenCopyAddress: Boolean;
+begin
+  Result := False;
+end;
+
 function TFWCustomHexView.GetColorMapClass: THexViewColorMapClass;
 begin
   Result := THexViewColorMap;
@@ -6153,6 +6167,22 @@ end;
 function TFWCustomHexView.IsColorMapStored: Boolean;
 begin
   Result := FColorMap.IsColorStored;
+end;
+
+function TFWCustomHexView.LeftSelPoint: TSelectPoint;
+begin
+  if SelStart <= SelEnd then
+    Result := FSelStart
+  else
+    Result := FSelEnd;
+end;
+
+function TFWCustomHexView.RightSelPoint: TSelectPoint;
+begin
+  if SelStart >= SelEnd then
+    Result := FSelStart
+  else
+    Result := FSelEnd;
 end;
 
 function TFWCustomHexView.IsFontStored: Boolean;
@@ -6810,7 +6840,13 @@ end;
 
 function TFWCustomHexView.SelectedRowIndex: Int64;
 begin
-  Result := RawData.AddressToRowIndex(Min(SelStart, SelEnd));
+  Result := LeftSelPoint.RowIndex;
+end;
+
+function TFWCustomHexView.SelectPointToAddress(const AValue: TSelectPoint
+  ): Int64;
+begin
+  Result := RowToAddress(AValue.RowIndex, AValue.ValueOffset);
 end;
 
 function TFWCustomHexView.RowVisible(ARowIndex: Int64): Boolean;
