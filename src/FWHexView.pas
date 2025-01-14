@@ -5,7 +5,7 @@
 //  * Unit Name : FWHexView.pas
 //  * Purpose   : Implementation of a basic HexView editor
 //  * Author    : Alexander (Rouse_) Bagel
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
 //  * Version   : 2.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -68,11 +68,11 @@ uses
   {$ENDIF}
   Messages,
   Classes,
+  Forms,
   Controls,
   Graphics,
   ClipBrd,
   SysUtils,
-  Forms,
   Themes,
   Types,
   Math,
@@ -744,23 +744,34 @@ type
       var Offset: TPoint); override;
   end;
 
+  THeaderColumn = record
+    Caption: string;
+    MaxWidth,
+    MinWidth,
+    Width: Integer;
+  end;
+
   TCustomHexViewHeader = class(TPersistent)
   strict private
     FOwner: TFWCustomHexView;
-    FVisible: Boolean;
     FColumns: TFWHexViewColumnTypes;
-    FColumnCaption: array [TColumnType] of string;
-    FColumnWidth: array [TColumnType] of Integer;
+    FColumnsData: array [TColumnType] of THeaderColumn;
     FDrawColumnSeparator: Boolean;
+    FVisible: Boolean;
     FWidth: Integer;
     procedure DoChange;
+    procedure DoWidthChange(AType: TColumnType);
     procedure DrawHeaderColumn(ACanvas: TCanvas; AColumn: TColumnType;
       var ARect: TRect);
-    function GetColCaption(Value: TColumnType): string;
-    function GetColWidth(Value: TColumnType): Integer;
-    procedure SetColCaption(Value: TColumnType; const NewCaption: string);
+    function GetColCaption(AType: TColumnType): string;
+    function GetColMaxWidth(AType: TColumnType): Integer;
+    function GetColMinWidth(AType: TColumnType): Integer;
+    function GetColWidth(AType: TColumnType): Integer;
+    procedure SetColCaption(AType: TColumnType; const NewCaption: string);
     procedure SetColumns(const Value: TFWHexViewColumnTypes);
-    procedure SetColWidth(Value: TColumnType; AWidth: Integer);
+    procedure SetColWidth(AType: TColumnType; AWidth: Integer);
+    procedure SetColMaxWidth(AType: TColumnType; AWidth: Integer);
+    procedure SetColMinWidth(AType: TColumnType; AWidth: Integer);
     procedure SetDrawColumnSeparator(const Value: Boolean);
     procedure SetVisible(const Value: Boolean);
     procedure UpdateWidth;
@@ -769,8 +780,10 @@ type
     procedure Paint(ACanvas: TCanvas; AScrollXOffset: Integer);
   public
     constructor Create(AOwner: TFWCustomHexView);
-    property ColumnCaption[Value: TColumnType]: string read GetColCaption write SetColCaption;
-    property ColumnWidth[Value: TColumnType]: Integer read GetColWidth write SetColWidth;
+    property ColumnCaption[AType: TColumnType]: string read GetColCaption write SetColCaption;
+    property ColumnMaxWidth[AType: TColumnType]: Integer read GetColMaxWidth write SetColMaxWidth;
+    property ColumnMinWidth[AType: TColumnType]: Integer read GetColMinWidth write SetColMinWidth;
+    property ColumnWidth[AType: TColumnType]: Integer read GetColWidth write SetColWidth;
     property Width: Integer read FWidth;
   published
     property Columns: TFWHexViewColumnTypes read FColumns write SetColumns default [ctAddress, ctOpcode, ctDescription];
@@ -4323,6 +4336,23 @@ begin
   FOwner.DoChange(cmHeader);
 end;
 
+procedure TCustomHexViewHeader.DoWidthChange(AType: TColumnType);
+var
+  AMinWidth, AMaxWidth, AWidth: Integer;
+begin
+  AWidth := ColumnWidth[AType];
+  AMinWidth := FOwner.ToDpi(ColumnMinWidth[AType]);
+  if AMinWidth = 0 then
+    AMinWidth := FOwner.MinColumnWidth;
+  if AWidth < AMinWidth then
+    AWidth := AMinWidth;
+  AMaxWidth := FOwner.ToDpi(ColumnMaxWidth[AType]);
+  if (AMaxWidth > 0) and (AWidth > AMaxWidth) then
+    AWidth := AMaxWidth;
+  FColumnsData[AType].Width := AWidth;
+  UpdateWidth;
+end;
+
 procedure TCustomHexViewHeader.DrawHeaderColumn(ACanvas: TCanvas;
   AColumn: TColumnType; var ARect: TRect);
 var
@@ -4356,14 +4386,24 @@ begin
   Painter.DefaultDrawHeaderColumn(ACanvas, ARect, ColumnCaption[AColumn], Flags);
 end;
 
-function TCustomHexViewHeader.GetColCaption(Value: TColumnType): string;
+function TCustomHexViewHeader.GetColCaption(AType: TColumnType): string;
 begin
-  Result := FColumnCaption[Value];
+  Result := FColumnsData[AType].Caption;
 end;
 
-function TCustomHexViewHeader.GetColWidth(Value: TColumnType): Integer;
+function TCustomHexViewHeader.GetColMaxWidth(AType: TColumnType): Integer;
 begin
-  Result := FColumnWidth[Value];
+  Result := FColumnsData[AType].MaxWidth;
+end;
+
+function TCustomHexViewHeader.GetColMinWidth(AType: TColumnType): Integer;
+begin
+  Result := FColumnsData[AType].MinWidth;
+end;
+
+function TCustomHexViewHeader.GetColWidth(AType: TColumnType): Integer;
+begin
+  Result := FColumnsData[AType].Width;
 end;
 
 procedure TCustomHexViewHeader.InitDefault;
@@ -4371,10 +4411,10 @@ begin
   FDrawColumnSeparator := True;
   FVisible := True;
   FColumns := [ctAddress, ctOpcode, ctDescription];
-  FColumnCaption[ctJmpLine] := 'Jumps';
-  FColumnCaption[ctAddress] := 'Address';
-  FColumnCaption[ctDescription] := 'Description';
-  FColumnCaption[ctComment] := 'Comment';
+  FColumnsData[ctJmpLine].Caption := 'Jumps';
+  FColumnsData[ctAddress].Caption := 'Address';
+  FColumnsData[ctDescription].Caption := 'Description';
+  FColumnsData[ctComment].Caption := 'Comment';
 end;
 
 procedure TCustomHexViewHeader.Paint(ACanvas: TCanvas; AScrollXOffset: Integer);
@@ -4395,13 +4435,37 @@ begin
     end;
 end;
 
-procedure TCustomHexViewHeader.SetColCaption(Value: TColumnType;
+procedure TCustomHexViewHeader.SetColCaption(AType: TColumnType;
   const NewCaption: string);
 begin
-  if ColumnCaption[Value] <> NewCaption then
+  if ColumnCaption[AType] <> NewCaption then
   begin
-    FColumnCaption[Value] := NewCaption;
+    FColumnsData[AType].Caption := NewCaption;
     DoChange;
+  end;
+end;
+
+procedure TCustomHexViewHeader.SetColMaxWidth(AType: TColumnType; AWidth: Integer);
+begin
+  if AWidth < ColumnMinWidth[AType] then
+    AWidth := ColumnMinWidth[AType];
+  if ColumnMaxWidth[AType] <> AWidth then
+  begin
+    FColumnsData[AType].MaxWidth := AWidth;
+    DoWidthChange(AType);
+  end;
+end;
+
+procedure TCustomHexViewHeader.SetColMinWidth(AType: TColumnType; AWidth: Integer);
+begin
+  if AWidth < 0 then
+    AWidth := 0;
+  if (ColumnMaxWidth[AType] > 0) and (AWidth > ColumnMaxWidth[AType]) then
+    AWidth := ColumnMaxWidth[AType];
+  if ColumnMinWidth[AType] <> AWidth then
+  begin
+    FColumnsData[AType].MinWidth := AWidth;
+    DoWidthChange(AType);
   end;
 end;
 
@@ -4414,16 +4478,13 @@ begin
   end;
 end;
 
-procedure TCustomHexViewHeader.SetColWidth(Value: TColumnType; AWidth: Integer);
+procedure TCustomHexViewHeader.SetColWidth(AType: TColumnType; AWidth: Integer);
 begin
-  if AWidth < FOwner.MinColumnWidth then
-    AWidth := FOwner.MinColumnWidth;
-  if Value = ctNone then AWidth := 0;
-  if ColumnWidth[Value] <> AWidth then
+  if AType = ctNone then AWidth := 0;
+  if ColumnWidth[AType] <> AWidth then
   begin
-    FColumnWidth[Value] := AWidth;
-    DoChange;
-    UpdateWidth;
+    FColumnsData[AType].Width := AWidth;
+    DoWidthChange(AType);
   end;
 end;
 
@@ -4452,6 +4513,7 @@ begin
   FWidth := 0;
   for I in Columns do
     Inc(FWidth, ColumnWidth[I]);
+  DoChange;
 end;
 
 { TViewShortCut }
@@ -4690,7 +4752,7 @@ begin
     UpdateTextExtent;
     FTextMargin := ToDpi(NoDpiTextMargin);
     FSplitMargin := ToDpi(NoDpiSplitMargin);
-    FMinColumnWidth := FTextMargin shl 2 + FTextMargin;
+    FMinColumnWidth := FTextMargin shl 2;
     RestoreViewParam;
   end;
 end;
