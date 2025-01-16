@@ -5,7 +5,7 @@
 //  * Unit Name : FWHexView.AsmTokenizer.pas
 //  * Purpose   : Class for defining the type of token with which the string begins
 //  * Author    : Alexander (Rouse_) Bagel
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
 //  * Version   : 2.0.14
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -39,11 +39,8 @@ Licence:
 
 unit FWHexView.AsmTokenizer;
 
-{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
   {$I FWHexViewConfig.inc}
-{$ELSE}
-  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
 
 interface

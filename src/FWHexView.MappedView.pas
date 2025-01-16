@@ -5,7 +5,7 @@
 //  * Unit Name : FWHexView.MappedView.pas
 //  * Purpose   : Implementation of advanced HexView editor with data map support
 //  * Author    : Alexander (Rouse_) Bagel
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
 //  * Version   : 2.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -39,11 +39,8 @@ Licence:
 
 unit FWHexView.MappedView;
 
-{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
   {$I FWHexViewConfig.inc}
-{$ELSE}
-  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
 
 interface
@@ -208,7 +205,7 @@ type
     FCurrentAddr, FSavedCurrentAddr: Int64;
     function AddMapLine(Value: TMapRow): Integer;
     procedure DataChange(Sender: TObject;
-      {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} {%H-}Item: TMapRow;
+      {$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} {%H-}Item: TMapRow;
       {%H-}Action: TCollectionNotification);
     procedure RebuildDataMap;
   protected
@@ -1664,7 +1661,7 @@ begin
   end;
 end;
 
-function DefaultMapRowComparer({$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} A, B: TMapRow): Integer;
+function DefaultMapRowComparer({$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} A, B: TMapRow): Integer;
 var
   LongResult: Int64;
 begin
@@ -1739,7 +1736,7 @@ begin
 end;
 
 procedure TDataMap.DataChange(Sender: TObject;
-  {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} Item: TMapRow;
+  {$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} Item: TMapRow;
   Action: TCollectionNotification);
 begin
   RebuildDataMap;
@@ -2765,7 +2762,7 @@ begin
   Result := FPages.Count;
 end;
 
-function VirtualPagesComparer({$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} A, B: TVirtualPage): Integer;
+function VirtualPagesComparer({$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} A, B: TVirtualPage): Integer;
 begin
   if Int64(A.VirtualAddress) < Int64(B.VirtualAddress) then
     Result := -1

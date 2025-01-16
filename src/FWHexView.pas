@@ -39,11 +39,8 @@ Licence:
 
 unit FWHexView;
 
-{$UNDEF EXTENDED_RTL}
 {$IFDEF FPC}
   {$I FWHexViewConfig.inc}
-{$ELSE}
-  {$DEFINE EXTENDED_RTL}
 {$ENDIF}
 
 interface
@@ -196,7 +193,7 @@ type
     procedure DoChange;
     function GetItem(Index: Integer): TSelection;
     procedure ListNotification(Sender: TObject;
-      {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} Item: TSelection;
+      {$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} Item: TSelection;
       Action: TCollectionNotification);
   protected
     procedure UpdateVisibleSelections;
@@ -1711,7 +1708,7 @@ begin
 end;
 
 procedure TSelections.ListNotification(Sender: TObject;
-  {$IFDEF EXTENDED_RTL}const{$ELSE}constref{$ENDIF} Item: TSelection;
+  {$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} Item: TSelection;
   Action: TCollectionNotification);
 begin
   if Action in [cnAdded, cnExtracted, cnRemoved] then
