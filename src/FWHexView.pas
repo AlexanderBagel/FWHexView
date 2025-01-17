@@ -1071,7 +1071,7 @@ type
     procedure UpdateCaretColumn(AColumn: TColumnType);
     procedure UpdateCaretPosData(Value: TSelectPoint; AChangeMode: TCaretChangeMode);
     procedure UpdateCaretTimer;
-    procedure UpdateSelection(ANewStart, ANewEnd: TSelectPoint);
+    procedure UpdateSelection(ANewStart, ANewEnd: TSelectPoint; AUpdateSelAddr: Boolean = True);
     procedure UpdateSelectionAddr(ANewStart, ANewEnd: Int64);
 
     // внутренние события
@@ -7185,12 +7185,12 @@ end;
 
 procedure TFWCustomHexView.SetSelEnd(const Value: Int64);
 begin
-  UpdateSelection(FSelStart, AddressToSelectPoint(Value));
+  UpdateSelection(FSelStart, AddressToSelectPoint(Value), False);
 end;
 
 procedure TFWCustomHexView.SetSelStart(const Value: Int64);
 begin
-  UpdateSelection(AddressToSelectPoint(Value), FSelEnd);
+  UpdateSelection(AddressToSelectPoint(Value), FSelEnd, False);
 end;
 
 procedure TFWCustomHexView.SetSeparateGroupByColor(const Value: Boolean);
@@ -7471,7 +7471,8 @@ begin
   UpdateVerticalScrollPos;
 end;
 
-procedure TFWCustomHexView.UpdateSelection(ANewStart, ANewEnd: TSelectPoint);
+procedure TFWCustomHexView.UpdateSelection(ANewStart, ANewEnd: TSelectPoint;
+  AUpdateSelAddr: Boolean);
 var
   Painter: TAbstractPrimaryRowPainter;
 begin
@@ -7490,17 +7491,20 @@ begin
     begin
       FSelStartAddr := RawData.RowToAddress(ANewStart.RowIndex, Max(0, ANewStart.ValueOffset));
       FSelEndAddr := RawData.RowToAddress(ANewEnd.RowIndex, ANewEnd.ValueOffset);
-      if FSelStartAddr <= FSelEndAddr then
+      if AUpdateSelAddr then
       begin
-        Painter := GetRowPainter(FSelEnd.RowIndex);
-        if Assigned(Painter) then
-          Inc(FSelEndAddr, Painter.TextMetric.ValueMetric.ByteCount - 1);
-      end
-      else
-      begin
-        Painter := GetRowPainter(FSelStart.RowIndex);
-        if Assigned(Painter) then
-          Inc(FSelStartAddr, Painter.TextMetric.ValueMetric.ByteCount - 1);
+        if FSelStartAddr <= FSelEndAddr then
+        begin
+          Painter := GetRowPainter(FSelEnd.RowIndex);
+          if Assigned(Painter) then
+            Inc(FSelEndAddr, Painter.TextMetric.ValueMetric.ByteCount - 1);
+        end
+        else
+        begin
+          Painter := GetRowPainter(FSelStart.RowIndex);
+          if Assigned(Painter) then
+            Inc(FSelStartAddr, Painter.TextMetric.ValueMetric.ByteCount - 1);
+        end;
       end;
     end;
 
@@ -7511,7 +7515,7 @@ end;
 
 procedure TFWCustomHexView.UpdateSelectionAddr(ANewStart, ANewEnd: Int64);
 begin
-  UpdateSelection(AddressToSelectPoint(ANewStart), AddressToSelectPoint(ANewEnd));
+  UpdateSelection(AddressToSelectPoint(ANewStart), AddressToSelectPoint(ANewEnd), False);
 end;
 
 procedure TFWCustomHexView.DoBeforePaint(const ADiapason: TVisibleRowDiapason);
