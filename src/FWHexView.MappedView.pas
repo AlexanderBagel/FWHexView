@@ -2477,7 +2477,8 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
     Param.LineColor := clDefault;
     Param.DrawOnlySelectedArrow := DrawOnlySelectedArrow;
     Param.Offset := Offset;
-    for I := StartRow to EndRow do
+    I := StartRow;
+    while I <= EndRow do
     begin
 
       // последняя строка может быть невидимой (часть затерта скролом)
@@ -2505,7 +2506,10 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
       end;
 
       if not Owner.DrawIncomingJmp then
+      begin
+        Inc(I);
         Continue;
+      end;
 
       if RawData[I].Linked and JmpData.TryGetValue(I, IncomingJmps) then
         for A := 0 to IncomingJmps.Count - 1 do
@@ -2518,6 +2522,8 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
           DrawLine(ACanvas, Param);
           Inc(PaintedLinesCount);
         end;
+
+      Inc(I);
     end;
   end;
 
@@ -2937,13 +2943,19 @@ begin
   // into the selection, you need to redraw the entire view.
 
   if ctJmpLine in Header.Columns then
-    for I := AStartRow to AEndRow do
+  begin
+    I := AStartRow;
+    while I <= AEndRow do
+    begin
       with RawData[I] do
         if (JmpToAddr <> 0) or Linked then
         begin
           Invalidate;
           Exit;
         end;
+      Inc(I);
+    end;
+  end;
 
   inherited;
 end;

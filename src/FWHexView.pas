@@ -5599,7 +5599,8 @@ var
   {$endif}
 begin
   if FRawData.Count = 0 then Exit;
-  for I := StartRow to EndRow do
+  I := StartRow;
+  while I <= EndRow do
   begin
     Painter := GetRowPainter(I, False);
     if Assigned(Painter) then
@@ -5613,6 +5614,8 @@ begin
     R := Bounds(0, Offset.Y - FRowHeight, FHeader.ColumnWidth[ctWorkSpace], 20);
     DrawText(Canvas, IntToStr(I), -1, R, DT_CENTER);
     {$endif}
+
+    Inc(I);
   end;
 end;
 
