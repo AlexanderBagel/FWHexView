@@ -935,6 +935,7 @@ type
     FPainters: TObjectList<TAbstractPrimaryRowPainter>;
     FPostPainters: TObjectList<TAbstractPostPainter>;
     FPreviosCharWidth: Integer;
+    FProcessMenu: Boolean;
     FQueryStringEvent: TQueryStringEvent;
     FRawData: TRawData;
     FReadOnly: Boolean;
@@ -1186,6 +1187,7 @@ type
     function IsRowVisible(ARowIndex: Int64): Boolean;
     procedure FitColumnToBestSize(Value: TColumnType); virtual;
     procedure FitColumnsToBestSize;
+    function Focused: Boolean; override;
     /// <summary>
     ///  Перемещает скролл делая чтобы адрес (если строка с ним не видима)
     ///  находился вверху текущего окна отображения
@@ -1243,6 +1245,7 @@ type
     function ToDpi(Value: Integer): Integer;
     function VisibleRowDiapason: TVisibleRowDiapason;
     function VisibleRowCount: Integer;
+    procedure WndProc(var AMsg: {$IFDEF FPC}TLMessage{$ELSE}TMessage{$ENDIF}); override;
   public
     property AddressViewOffsetBase: Int64 read FAddressViewOffsetBase write SetAddressViewOffsetBase;
     property Bookmark[AIndex: TBookMark]: Int64 read GetBookMark write SetBookMark;
@@ -5650,6 +5653,14 @@ begin
       FitColumnToBestSize(I);
 end;
 
+function TFWCustomHexView.Focused: Boolean;
+begin
+  if FProcessMenu then
+    Result := True
+  else
+    Result := inherited Focused;
+end;
+
 procedure TFWCustomHexView.FitColumnToBestSize(Value: TColumnType);
 var
   ALength: Integer;
@@ -7618,6 +7629,21 @@ end;
 function TFWCustomHexView.VisibleRowCount: Integer;
 begin
   Result := GetPageHeight div FRowHeight;
+end;
+
+procedure TFWCustomHexView.WndProc(var AMsg: {$IFDEF FPC}TLMessage{$ELSE}TMessage{$ENDIF});
+begin
+  if AMsg.Msg = {$IFDEF FPC}LM_CONTEXTMENU{$ELSE}WM_CONTEXTMENU{$ENDIF} then
+  begin
+    FProcessMenu := True;
+    try
+      inherited WndProc(AMsg);
+    finally
+      FProcessMenu := False;
+    end;
+    Exit;
+  end;
+  inherited WndProc(AMsg);
 end;
 
 function TFWCustomHexView.VisibleRowDiapason: TVisibleRowDiapason;
