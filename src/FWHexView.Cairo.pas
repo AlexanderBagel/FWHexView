@@ -170,6 +170,12 @@ begin
       cairo_clip(ct);
     end;
     cairo_text_extents(ct, PChar(Str), @textents);
+    if Flags and DT_CALCRECT <> 0 then
+    begin
+      ARect.Width := Ceil(textents.width);
+      ARect.Height := Ceil(textents.height);
+      Exit;
+    end;
     awidth := Ceil(textents.width);
     if Flags and DT_CENTER <> 0 then
       x := ARect.Left + (ARect.Width - awidth) div 2;
