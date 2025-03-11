@@ -2247,11 +2247,11 @@ begin
   ACanvas.Font.Style := [];
   ACanvas.Font.Color := TMapViewColors(ColorMap).TextCommentColor;
   ADescription := RawData[RowIndex].Description;
-  DrawText(ACanvas, PChar(ADescription),
+  DrawText(ACanvas, ADescription,
     Length(ADescription), ARect, DT_CALCRECT);
   ACanvas.FillRect(ARect);
   CorrectCanvasFont(ACanvas, AColumn);
-  DrawText(ACanvas, PChar(ADescription),
+  DrawText(ACanvas, ADescription,
     Length(ADescription), ARect, DT_LEFT);
   ACanvas.Font.Style := [];
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}

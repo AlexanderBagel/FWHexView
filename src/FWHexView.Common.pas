@@ -321,7 +321,11 @@ function DrawText(ACanvas: TCanvas; Str: string; Count: Integer;
   var ARect: TRect; Flags: Cardinal): Integer;
 begin
   {$IFDEF MSWINDOWS}
-  Result := Windows.DrawText(ACanvas.Handle, PChar(Str), Count, ARect, Flags);
+    {$IFDEF FPC}
+    Result := Windows.DrawTextW(ACanvas.Handle, PWideChar(UnicodeString(Str)), -1, ARect, Flags);
+    {$ELSE}
+    Result := Windows.DrawText(ACanvas.Handle, PChar(Str), Count, ARect, Flags);
+    {$ENDIF}
   {$ENDIF}
   {$IFDEF LINUX}
     {$IFDEF USE_CAIRO}
