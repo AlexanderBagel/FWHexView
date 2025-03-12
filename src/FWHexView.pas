@@ -7507,13 +7507,13 @@ begin
         if FSelStartAddr <= FSelEndAddr then
         begin
           Painter := GetRowPainter(FSelEnd.RowIndex);
-          if Assigned(Painter) then
+          if Assigned(Painter) and (ANewEnd.ValueOffset >= 0) then
             Inc(FSelEndAddr, Painter.TextMetric.ValueMetric.ByteCount - 1);
         end
         else
         begin
           Painter := GetRowPainter(FSelStart.RowIndex);
-          if Assigned(Painter) then
+          if Assigned(Painter) and (ANewStart.ValueOffset >= 0) then
             Inc(FSelStartAddr, Painter.TextMetric.ValueMetric.ByteCount - 1);
         end;
       end;
