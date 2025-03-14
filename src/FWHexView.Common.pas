@@ -176,6 +176,7 @@ type
     Align: Boolean;
     Inverted: Boolean;
     Divide: Boolean;
+    Divider: Char;
   end;
 
 const
@@ -183,6 +184,7 @@ const
     Align: True;        // aligning the result to the metric value
     Inverted: False;    // parts of the result are inverted
     Divide: False;      // separators have been added between parts
+    Divider: ' ';
   );
 
   RegFormatMode: TFormatMode = (
@@ -193,6 +195,7 @@ const
     Inverted: True;
     {$ENDIF}
     Divide: True;
+    Divider: ' ';
   );
 
   RegFormatModeNoAlign: TFormatMode = (
@@ -203,6 +206,7 @@ const
     Inverted: True;
     {$ENDIF}
     Divide: False;
+    Divider: ' ';
   );
 
   // HexView Change Codes
@@ -565,7 +569,7 @@ begin
       Buff := 0;
       Move(Value[I], Buff, Metric.ByteCount);
       if (I > 0) and FormatMode.Divide then
-        Builder.Append(' ');
+        Builder.Append(FormatMode.Divider);
       Builder.Append(ValueString(Buff));
       Inc(I, Metric.ByteCount);
     end;
@@ -590,6 +594,7 @@ function RawBufToSingle(Value: PByte; nSize: Integer;
       Result := '0'
     else
       Result := FloatToStr(Value);
+    Result := StringReplace(Result, ',', '.', [rfReplaceAll]);
     if FormatMode.Align then
       Result := StringOfChar(' ', Metric.CharCount - Length(Result)) + Result;
   end;
@@ -608,7 +613,7 @@ begin
       Buff := 0;
       Move(Value[I], Buff, Metric.ByteCount);
       if (I > 0) and FormatMode.Divide then
-        Builder.Append(' ');
+        Builder.Append(FormatMode.Divider);
       Builder.Append(ValueString(Buff));
       Inc(I, Metric.ByteCount);
     end;
@@ -651,7 +656,7 @@ begin
       Buff := 0;
       Move(Value[I], Buff, Metric.ByteCount);
       if (I > 0) and FormatMode.Divide then
-        Builder.Append(' ');
+        Builder.Append(FormatMode.Divider);
       Builder.Append(ValueString(Buff));
       Inc(I, Metric.ByteCount);
     end;
@@ -691,7 +696,7 @@ begin
       FillChar(Buff{%H-}, SizeOf(TExtended80Support), 0);
       Move(Value[I], Buff, Metric.ByteCount);
       if (I > 0) and FormatMode.Divide then
-        Builder.Append(' ');
+        Builder.Append(FormatMode.Divider);
       Builder.Append(ValueString(Buff));
       Inc(I, Metric.ByteCount);
     end;

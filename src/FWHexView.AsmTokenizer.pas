@@ -51,6 +51,9 @@ uses
 
 type
   TTokenType = (ttUnknown, ttNumber, ttInstruction, ttReg, ttPrefix, ttJmp, ttKernel, ttNop, ttSize);
+  TRegType = (rtUnknown, rtReg8, rtReg16, rtReg32, rtReg64, rtRegSeg, rtRegPtr, rtX87, rtSimd64, rtSimd128, rtSimd256, rtSimd512);
+
+  { TAsmTokenizer }
 
   TAsmTokenizer = class
   private
@@ -60,6 +63,7 @@ type
     constructor Create;
     destructor Destroy; override;
     function GetToken(pData: PChar; var TokenLength: Integer): TTokenType;
+    function GetRegType(const AReg: string): TRegType;
   end;
 
 implementation
@@ -316,11 +320,50 @@ const RegsBuff: array[0..134] of string = (
   'R10D', 'R10W', 'R11', 'R11B', 'R11D', 'R11W', 'R12', 'R12B', 'R12D', 'R12W', 'R13',
   'R13B', 'R13D', 'R13W', 'R14', 'R14B', 'R14D', 'R14W', 'R15', 'R15B', 'R15D', 'R15W',
   'R8', 'R8B', 'R8D', 'R8W', 'R9', 'R9B', 'R9D', 'R9W', 'RAX', 'RBP', 'RBX', 'RCX',
-  'RDI', 'RDX', 'RIP', 'RSI', 'RSP', 'SI', 'SIL', 'SP', 'SPL', 'SS', 'ST0', 'ST1',
-  'ST2', 'ST3', 'ST4', 'ST5', 'ST6', 'ST7', 'XMM0', 'XMM1', 'XMM10', 'XMM11', 'XMM12',
+  'RDI', 'RDX', 'RIP', 'RSI', 'RSP', 'SI', 'SIL', 'SP', 'SPL', 'SS', 'ST(0)', 'ST(1)',
+  'ST(2)', 'ST(3)', 'ST(4)', 'ST(5)', 'ST(6)', 'ST(7)', 'XMM0', 'XMM1', 'XMM10', 'XMM11', 'XMM12',
   'XMM13', 'XMM14', 'XMM15', 'XMM2', 'XMM3', 'XMM4', 'XMM5', 'XMM6', 'XMM7', 'XMM8',
   'XMM9', 'YMM0', 'YMM1', 'YMM10', 'YMM11', 'YMM12', 'YMM13', 'YMM14', 'YMM15', 'YMM2',
   'YMM3', 'YMM4', 'YMM5', 'YMM6', 'YMM7', 'YMM8', 'YMM9'
+  );
+
+const RegTypesBuff: array[0..134] of TRegType = (
+  // 'AH',   'AL',   'AX',    'BH',   'BL',   'BP',    'BPL',  'BX',   'CH',    'CL',
+     rtReg8, rtReg8, rtReg16, rtReg8, rtReg8, rtReg16, rtReg8, rtReg16, rtReg8, rtReg8,
+  // 'CR0',  'CR2',    'CR3',   'CR4',   'CR8',
+     rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  // 'CS',     'CX',    'DH',   'DI',    'DIL',  'DL',
+     rtRegSeg, rtReg16, rtReg8, rtReg16, rtReg8, rtReg8,
+  // 'DR0',    'DR1',    'DR2',    'DR3',    'DR6',    'DR7',
+     rtRegPtr, rtRegPtr, rtRegPtr, rtRegPtr, rtRegPtr, rtRegPtr,
+  // 'DS',     'DX',    'EAX',   'EBP',   'EBX',   'ECX',   'EDI',   'EDX',   'EIP',
+     rtRegSeg, rtReg16, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  //  'ES',    'ESI',   'ESP',   'FS',     'GS',     'MM0',    'MM1',    'MM2',
+     rtRegSeg, rtReg32, rtReg32, rtRegSeg, rtRegSeg, rtSimd64, rtSimd64, rtSimd64,
+  // 'MM3',    'MM4',    'MM5',    'MM6',    'MM7',    'R10',   'R10B', 'R10D',
+     rtSimd64, rtSimd64, rtSimd64, rtSimd64, rtSimd64, rtReg64, rtReg8, rtReg32,
+  // 'R10W',  'R11',   'R11B', 'R11D',  'R11W',  'R12',   'R12B', 'R12D',  'R12W',
+     rtReg16, rtReg64, rtReg8, rtReg32, rtReg16, rtReg64, rtReg8, rtReg32, rtReg16,
+  // 'R13',   'R13B', 'R13D',  'R13W',  'R14',   'R14B', 'R14D',  'R14W',
+     rtReg64, rtReg8, rtReg32, rtReg16, rtReg64, rtReg8, rtReg32, rtReg16,
+  // 'R15',   'R15B', 'R15D',  'R15W',  'R8',    'R8B',  'R8D',   'R8W',
+     rtReg64, rtReg8, rtReg32, rtReg16, rtReg64, rtReg8, rtReg32, rtReg16,
+  // 'R9',    'R9B',  'R9D',   'R9W',   'RAX',   'RBP',   'RBX',   'RCX',
+     rtReg64, rtReg8, rtReg32, rtReg16, rtReg64, rtReg64, rtReg64, rtReg64,
+  // 'RDI',   'RDX',   'RIP',   'RSI',   'RSP',   'SI',    'SIL',  'SP',    'SPL',
+     rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg16, rtReg8, rtReg16, rtReg8,
+  // 'SS',     'ST0', 'ST1', 'ST2', 'ST3', 'ST4', 'ST5', 'ST6', 'ST7',
+     rtRegSeg, rtX87, rtX87, rtX87, rtX87, rtX87, rtX87, rtX87, rtX87,
+  // 'XMM0',   'XMM1',     'XMM10',   'XMM11',   'XMM12',   'XMM13',   'XMM14',
+     rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
+  // 'XMM15',   'XMM2',    'XMM3',    'XMM4',    'XMM5',    'XMM6',    'XMM7',
+     rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
+  // 'XMM8',    'XMM9',    'YMM0',    'YMM1',    'YMM10',   'YMM11',   'YMM12',
+     rtSimd128, rtSimd128, rtSimd256, rtSimd256, rtSimd256, rtSimd256, rtSimd256,
+  // 'YMM13',   'YMM14',   'YMM15',   'YMM2',    'YMM3',    'YMM4',    'YMM5',
+     rtSimd256, rtSimd256, rtSimd256, rtSimd256, rtSimd256, rtSimd256, rtSimd256,
+  // 'YMM6',    'YMM7',    'YMM8',    'YMM9'
+     rtSimd256, rtSimd256, rtSimd256, rtSimd256
   );
 
 const NopBuff: array[0..3] of string = (
@@ -364,7 +407,7 @@ function TAsmTokenizer.GetToken(pData: PChar;
   begin
     Result := False;
     case Value^ of
-      'A'..'Z', 'a'..'z', '0'..'9': Result := True;
+      'A'..'Z', 'a'..'z', '0'..'9', '(', ')': Result := True;
     end;
   end;
 
@@ -393,6 +436,16 @@ begin
     FTokens.TryGetValue(FoundToken, Result);
   if pCursor^ = ' ' then
     Inc(TokenLength);
+end;
+
+function TAsmTokenizer.GetRegType(const AReg: string): TRegType;
+var
+  I: Integer;
+begin
+  Result := rtUnknown;
+  for I := 0 to Length(RegsBuff) - 1 do
+    if AReg = RegsBuff[I] then
+      Exit(RegTypesBuff[I]);
 end;
 
 function TAsmTokenizer.IsNumber(const Value: string): Boolean;
