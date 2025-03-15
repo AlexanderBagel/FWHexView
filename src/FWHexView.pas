@@ -1068,6 +1068,8 @@ type
       AColumn: TColumnType; Shift: TShiftState): TCaretChangeMode; virtual;
     function GetCaretNextRowIndex(FromIndex: Int64; AColumn: TColumnType = ctNone): Int64; virtual;
     function GetCaretPreviosRowIndex(FromIndex: Int64; AColumn: TColumnType = ctNone): Int64; virtual;
+    function GetSelectedRawBuff(ASelStartRow, ASelEndRow: Int64): TBytes;
+    function GetSelectedRow(out ASelStartRow, ASelEndRow: Int64): Boolean;
     function IgnoreSelectionWhenCopyAddress: Boolean; virtual;
     procedure UpdateCaretColumn(AColumn: TColumnType);
     procedure UpdateCaretPosData(Value: TSelectPoint; AChangeMode: TCaretChangeMode);
@@ -1181,6 +1183,7 @@ type
     procedure ClearSelection(ResetCaretPos: Boolean = True);
     function ColumnAsString(ARowIndex: Int64; AColumn: TColumnType): string;
     procedure CopySelected(CopyStyle: TCopyStyle); virtual;
+    procedure CopySelectedToStream(AStream: TStream);
     function CurrentVisibleRow: Int64;
     procedure EndUpdate;
     function IsAddrVisible(AAddrVA: Int64): Boolean;
@@ -4864,32 +4867,12 @@ end;
 
 procedure TFWCustomHexView.CopySelected(CopyStyle: TCopyStyle);
 var
-  RawBuff, Data: TBytes;
-  CurPos, Len: Integer;
-  I, StartRow, EndRow: Integer;
-  SelData: TSelectData;
+  RawBuff: TBytes;
+  I, StartRow, EndRow: Int64;
   Builder: TSimplyStringBuilder;
   Painter: TAbstractPrimaryRowPainter;
-
-  procedure CheckCapacity(NeedSize: Integer);
-  begin
-    if CurPos + NeedSize > Length(RawBuff) then
-      SetLength(RawBuff, CurPos + NeedSize + 16);
-  end;
-
 begin
-  if FSelStart.InvalidRow then Exit;
-  if FSelEnd.InvalidRow then Exit;
-  if FSelStart.RowIndex > FSelEnd.RowIndex then
-  begin
-    StartRow := FSelEnd.RowIndex;
-    EndRow := FSelStart.RowIndex;
-  end
-  else
-  begin
-    StartRow := FSelStart.RowIndex;
-    EndRow := FSelEnd.RowIndex;
-  end;
+  if not GetSelectedRow(StartRow, EndRow) then Exit;
 
   if CopyStyle = csAddress then
   begin
@@ -4922,51 +4905,27 @@ begin
     Exit;
   end;
 
-  CurPos := 0;
-  for I := StartRow to EndRow do
-  begin
-    GetRawBuff(I, Data);
-    if Length(Data) = 0 then Continue;
-    SelData := GetSelectData(I);
-    case SelData.SelectStyle of
-      ssAllSelected:
-      begin
-        Len := Length(Data);
-        CheckCapacity(Len);
-        Move(Data[0], RawBuff[CurPos], Len);
-        Inc(CurPos, Len);
-      end;
-      ssLeftSelected:
-      begin
-        Len := SelData.FirstSelectIndex + 1;
-        CheckCapacity(Len);
-        Move(Data[0], RawBuff[CurPos], Len);
-        Inc(CurPos, Len);
-      end;
-      ssCenterSelected:
-      begin
-        Len := SelData.SecondSelectIndex - SelData.FirstSelectIndex + 1;
-        CheckCapacity(Len);
-        Move(Data[SelData.FirstSelectIndex], RawBuff[CurPos], Len);
-        Inc(CurPos, Len);
-      end;
-      ssRightSelected:
-      begin
-        Len := Length(Data) - SelData.FirstSelectIndex;
-        CheckCapacity(Len);
-        Move(Data[SelData.FirstSelectIndex], RawBuff[CurPos], Len);
-        Inc(CurPos, Len);
-      end;
-    end;
-  end;
-
-  if CurPos = 0 then Exit;
+  RawBuff := GetSelectedRawBuff(StartRow, EndRow);
+  if RawBuff = nil then Exit;
 
   case CopyStyle of
-    csBytes: Clipboard.AsText := RawBufToHex(@RawBuff[0], CurPos);
-    csPascal: Clipboard.AsText := RawBufToPasArray(@RawBuff[0], CurPos);
-    csCpp: Clipboard.AsText := RawBufToCPPArray(@RawBuff[0], CurPos);
-    csAsmOpcodes: Clipboard.AsText := RawBufToAsmDB(@RawBuff[0], CurPos);
+    csBytes: Clipboard.AsText := RawBufToHex(@RawBuff[0], Length(RawBuff));
+    csPascal: Clipboard.AsText := RawBufToPasArray(@RawBuff[0], Length(RawBuff));
+    csCpp: Clipboard.AsText := RawBufToCPPArray(@RawBuff[0], Length(RawBuff));
+    csAsmOpcodes: Clipboard.AsText := RawBufToAsmDB(@RawBuff[0], Length(RawBuff));
+  end;
+end;
+
+procedure TFWCustomHexView.CopySelectedToStream(AStream: TStream);
+var
+  RawBuff: TBytes;
+  StartRow, EndRow: Int64;
+begin
+  if GetSelectedRow(StartRow, EndRow) then
+  begin
+    RawBuff := GetSelectedRawBuff(StartRow, EndRow);
+    if RawBuff <> nil then
+      AStream.WriteBuffer(RawBuff[0], Length(RawBuff));
   end;
 end;
 
@@ -5869,6 +5828,80 @@ begin
   end;
 end;
 
+function TFWCustomHexView.GetSelectedRawBuff(ASelStartRow, ASelEndRow: Int64): TBytes;
+var
+  RawBuff, Data: TBytes;
+  CurPos, Len: Integer;
+  I: Int64;
+  SelData: TSelectData;
+
+  procedure CheckCapacity(NeedSize: Integer);
+  begin
+    if CurPos + NeedSize > Length(RawBuff) then
+      SetLength(RawBuff, CurPos + NeedSize + 16);
+  end;
+
+begin
+  CurPos := 0;
+  for I := ASelStartRow to ASelEndRow do
+  begin
+    GetRawBuff(I, Data);
+    if Length(Data) = 0 then Continue;
+    SelData := GetSelectData(I);
+    case SelData.SelectStyle of
+      ssAllSelected:
+      begin
+        Len := Length(Data);
+        CheckCapacity(Len);
+        Move(Data[0], RawBuff[CurPos], Len);
+        Inc(CurPos, Len);
+      end;
+      ssLeftSelected:
+      begin
+        Len := SelData.FirstSelectIndex + 1;
+        CheckCapacity(Len);
+        Move(Data[0], RawBuff[CurPos], Len);
+        Inc(CurPos, Len);
+      end;
+      ssCenterSelected:
+      begin
+        Len := SelData.SecondSelectIndex - SelData.FirstSelectIndex + 1;
+        CheckCapacity(Len);
+        Move(Data[SelData.FirstSelectIndex], RawBuff[CurPos], Len);
+        Inc(CurPos, Len);
+      end;
+      ssRightSelected:
+      begin
+        Len := Length(Data) - SelData.FirstSelectIndex;
+        CheckCapacity(Len);
+        Move(Data[SelData.FirstSelectIndex], RawBuff[CurPos], Len);
+        Inc(CurPos, Len);
+      end;
+    end;
+  end;
+
+  Result := RawBuff;
+  SetLength(Result, CurPos);
+end;
+
+function TFWCustomHexView.GetSelectedRow(out ASelStartRow, ASelEndRow: Int64): Boolean;
+begin
+  Result := False;
+  if FSelStart.InvalidRow then Exit;
+  if FSelEnd.InvalidRow then Exit;
+  if FSelStart.RowIndex > FSelEnd.RowIndex then
+  begin
+    ASelStartRow := FSelEnd.RowIndex;
+    ASelEndRow := FSelStart.RowIndex;
+  end
+  else
+  begin
+    ASelStartRow := FSelStart.RowIndex;
+    ASelEndRow := FSelEnd.RowIndex;
+  end;
+  Result := True;
+end;
+
 function TFWCustomHexView.IgnoreSelectionWhenCopyAddress: Boolean;
 begin
   Result := False;
@@ -6210,15 +6243,7 @@ var
   TopRow, BottomRow: Int64;
   Diapason: TVisibleRowDiapason;
 begin
-  if FSelStart.InvalidRow then Exit;
-  if FSelEnd.InvalidRow then Exit;
-  TopRow := FSelStart.RowIndex;
-  BottomRow := FSelEnd.RowIndex;
-  if TopRow > BottomRow then
-  begin
-    TopRow := FSelEnd.RowIndex;
-    BottomRow := FSelStart.RowIndex;
-  end;
+  if not GetSelectedRow(TopRow, BottomRow) then Exit;
   Diapason := VisibleRowDiapason;
   if (TopRow > Diapason.EndRow) or
     (BottomRow < Diapason.StartRow) then Exit;
