@@ -73,6 +73,13 @@ uses
 type
   TArithmeticExceptionMask = TFPUExceptionMask;
 
+  { TLazUTF8Encoding }
+
+  TLazUTF8Encoding = class(TUTF8Encoding)
+  protected
+    function GetCharCount(Bytes: PByte; ByteCount: Integer): Integer; overload; override;
+  end;
+
 const
   exAllArithmeticExceptions = [
     exInvalidOp,
@@ -939,6 +946,36 @@ begin
     Brush.Color := OldColor;
   end;
 end;
+
+{$IFDEF FPC}
+
+{ TLazUTF8Encoding }
+
+function TLazUTF8Encoding.GetCharCount(Bytes: PByte; ByteCount: Integer): Integer;
+{$IFDEF MSWINDOWS}
+const
+  MB_ERR_INVALID_CHARS = 8;
+begin
+  // See: https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
+  // For UTF-8 or code page 54936 (GB18030, starting with Windows Vista),
+  // dwFlags must be set to either 0 or MB_ERR_INVALID_CHARS. Otherwise, the function fails with ERROR_INVALID_FLAGS.
+
+  // But, if MB_ERR_INVALID_CHARS is not set, MultiByteToWideChar will return
+  // ONE (!!!) on Russian characters (e.g. "Р") when ByteCount = 1, which is not correct.
+
+  Result := MultiByteToWideChar(CodePage, MB_ERR_INVALID_CHARS, PChar(Bytes), ByteCount, nil, 0);
+{$ELSE}
+var
+  uBuff: UnicodeString;
+begin
+  widestringmanager.Ansi2UnicodeMoveProc(PAnsiChar(Bytes), CodePage, uBuff, ByteCount);
+  Result := Length(uBuff);
+  if (Result > 0) and (uBuff[1] = '?') and (Bytes^ <> Byte('?')) then
+    Result := 0;
+{$ENDIF}
+end;
+
+{$ENDIF}
 
 { TSimplyStringBuilder }
 

@@ -100,6 +100,7 @@ type
 {$IFDEF FPC}
   TWMTimer = TLMTimer;
 {$ELSE}
+  TUnicodeCharArray = TCharArray;
   TLayoutAdjustmentPolicy = (lapNone);
 {$ENDIF}
 
@@ -331,6 +332,8 @@ type
     cetUTF7, cetUTF8, cetCodePage, cetEncodingName
   );
 
+  { TCharEncoder }
+
   TCharEncoder = class(TPersistent)
   strict private
     FOwner: TFWCustomHexView;
@@ -341,9 +344,13 @@ type
     {$IFDEF UNIX}
     FAnsiEncoding: TEncoding;
     {$ENDIF}
+    {$IFDEF FPC}
+    FLazUTF8Encoding: TEncoding;
+    {$ENDIF}
     function CheckCodePage(Value: Integer): Boolean;
     function CheckEncodingName(const Value: string): Boolean;
     function GetEncoding: TEncoding;
+    function GetUTF8Encoding: TEncoding;
     procedure SetEncodeType(const Value: TCharEncoderType);
     procedure SetCodePage(const Value: Integer);
     procedure SetEncodingName(const Value: string);
@@ -1997,6 +2004,9 @@ begin
   {$IFDEF UNIX}
   FAnsiEncoding.Free;
   {$ENDIF}
+  {$IFDEF FPC}
+  FLazUTF8Encoding.Free;
+  {$ENDIF}
   inherited;
 end;
 
@@ -2022,14 +2032,7 @@ var
   E: TEncoding;
   BuffLen, ByteIndex, GlyphLen, MaxLen: Integer;
   EncodedString: UnicodeString;
-  {$IFDEF FPC}
-  ResIndex, I, InitialBuffLen, StringLen, CmpIdx: Integer;
-  EncodedBuf: UnicodeString;
-  CharBytes: TBytes;
-  CharPosFound: Boolean;
-  {$ELSE}
-  EncodedChar: string;
-  {$ENDIF}
+  EncodedChar: TUnicodeCharArray;
 begin
   E := GetEncoding;
   if E = nil then
@@ -2046,50 +2049,8 @@ begin
     Exit;
   end;
 
-  {$IFDEF FPC}
-
-  EncodedBuf := E.GetString(Buff, 0, BuffLen);
-  StringLen := Length(EncodedBuf);
-  InitialBuffLen := BuffLen;
-  ByteIndex := 1;
-  ResIndex := 1;
   EncodedString := GetEmpty;
-  MaxLen := E.GetMaxByteCount(1);
-  while BuffLen > 0 do
-  begin
-    CharBytes := E.GetBytes(EncodedBuf[ByteIndex]);
-    GlyphLen := Min(Length(CharBytes), BuffLen);
-
-    CharPosFound := False;
-    for I := 0 to MaxLen - 1 do
-    begin
-      CmpIdx := ResIndex - 1 + I;
-      if CmpIdx > InitialBuffLen - GlyphLen then Break;
-      if CompareMem(@CharBytes[0], @Buff[CmpIdx], GlyphLen) then
-      begin
-        Inc(ResIndex, I);
-        CharPosFound := True;
-        Break;
-      end;
-    end;
-
-    if CharPosFound and CharVisible(EncodedBuf[ByteIndex]) then
-      EncodedString[ResIndex] := EncodedBuf[ByteIndex]
-    else
-      GlyphLen := 1;
-
-    Inc(ByteIndex);
-    if ByteIndex > StringLen then
-      Break;
-    Inc(ResIndex, GlyphLen);
-    Dec(BuffLen, GlyphLen);
-  end;
-  Result := string(EncodedString);
-
-  {$ELSE}
-
-  EncodedString := GetEmpty;
-  MaxLen := E.GetMaxByteCount(0);
+  MaxLen := E.GetMaxByteCount({$IFDEF FPC}1{$ELSE}0{$ENDIF});
   ByteIndex := 0;
   repeat
     GlyphLen := 1;
@@ -2104,18 +2065,16 @@ begin
       end;
       if ByteIndex + GlyphLen > BuffLen then
       begin
-        Result := EncodedString;
+        Result := string(EncodedString);
         Exit;
       end;
     end;
-    EncodedChar := E.GetString(Buff, ByteIndex, GlyphLen);
-    if CharVisible(EncodedChar[1]) then
-      EncodedString[ByteIndex + 1] :=  EncodedChar[1];
+    EncodedChar := E.GetChars(Buff, ByteIndex, GlyphLen);
+    if CharVisible(EncodedChar[0]) then
+      EncodedString[ByteIndex + 1] := EncodedChar[0];
     Inc(ByteIndex, GlyphLen);
   until ByteIndex >= BuffLen;
-  Result := EncodedString;
-
-  {$ENDIF}
+  Result := string(EncodedString);
 end;
 
 function TCharEncoder.EncodeChar(AChar: TNativeChar): TBytes;
@@ -2144,12 +2103,27 @@ begin
     cetUnicode: Result := TEncoding.Unicode;
     cetBigEndianUnicode: Result := TEncoding.BigEndianUnicode;
     cetUTF7: Result := TEncoding.UTF7;
-    cetUTF8: Result := TEncoding.UTF8;
+    cetUTF8: Result := GetUTF8Encoding;
     cetCodePage: Result := FCPEncoding;
     cetEncodingName: Result := FNameEncoding;
   else
+    {$IFDEF FPC}
+    Result := GetUTF8Encoding;
+    {$ELSE}
     Result := TEncoding.Default;
+    {$ENDIF}
   end;
+end;
+
+function TCharEncoder.GetUTF8Encoding: TEncoding;
+begin
+  {$IFDEF FPC}
+  if FLazUTF8Encoding = nil then
+    FLazUTF8Encoding := TLazUTF8Encoding.Create;
+  Result := FLazUTF8Encoding;
+  {$ELSE}
+  Result := TEncoding.UTF8;
+  {$ENDIF}
 end;
 
 procedure TCharEncoder.SetCodePage(const Value: Integer);

@@ -5,7 +5,7 @@
 //  * Unit Name : FWHexView.Cairo.pas
 //  * Purpose   : Speeding up text output with the Cairo library
 //  * Author    : Alexander (Rouse_) Bagel
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
 //  * Version   : 2.0.14
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -233,10 +233,7 @@ begin
     begin
       cairo_rectangle(ct, ARect^.Left, ARect^.Top, ARect^.Width + 1, ARect^.Height);
       if ACanvas.Brush.Style = bsSolid then
-      begin
-        ARect^.Right := X + 2;
         ACanvas.FillRect(ARect^);
-      end;
       if Options and ETO_CLIPPED <> 0 then
         cairo_clip(ct);
     end;
