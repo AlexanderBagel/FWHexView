@@ -269,6 +269,8 @@ type
     FCharPositions: array [Boolean] of TIntegerDynArray;
     FSelectionPositions: array [Boolean] of TIntegerDynArray;
     procedure UpdateCharPosition(BytesInRow, CharWidth: Integer); virtual; abstract;
+    procedure UpdateCharPositionDef(BytesInRow, CharWidth: Integer);
+    procedure UpdateCharPositionText(BytesInRow, CharWidth: Integer);
     procedure UpdateSelection(BytesInRow, CharWidth: Integer); virtual;
     property Owner: TFWCustomHexView read FOwner;
   public
@@ -611,6 +613,7 @@ type
     procedure DrawTextBlock(ACanvas: TCanvas; AColumn: TColumnType;
       const ARect: TRect; const DrawString: string; Dx: PInteger);
     procedure DrawWorkSpace(ACanvas: TCanvas; var ARect: TRect); virtual;
+    function FormatMode: TFormatMode; virtual;
     /// <summary>
     ///  Форматирует колонку в текстовое представления для копирования
     /// </summary>
@@ -633,8 +636,6 @@ type
   TDefaultTextMetric = class(TAbstractTextMetric)
   strict private
     FColorGroup: TList<TRect>;
-    procedure UpdateCharPositionDef(BytesInRow, CharWidth: Integer);
-    procedure UpdateCharPositionText(BytesInRow, CharWidth: Integer);
   protected
     function ByteViewMode: TByteViewMode; virtual;
     procedure UpdateCharPosition(BytesInRow, CharWidth: Integer); override;
@@ -1096,7 +1097,6 @@ type
       const ARect: TRect; AToken: PChar; var ATokenLen: Integer); virtual;
     procedure DoEncodingChange;
     procedure DoFontChange(Sender: TObject);
-    procedure DoFontResize(Value: Integer);
     procedure DoGetHint(var AHintParam: THintParam; var AHint: string); virtual;
     procedure DoJmpTo(AAddrVA: Int64; AJmpState: TJmpState; var Handled: Boolean);
     procedure DoQueryString(AddrVA: Int64; AColumn: TColumnType; var AComment: string);
@@ -1256,6 +1256,14 @@ type
     function VisibleRowDiapason: TVisibleRowDiapason;
     function VisibleRowCount: Integer;
     procedure WndProc(var AMsg: {$IFDEF FPC}TLMessage{$ELSE}TMessage{$ENDIF}); override;
+    /// <summary>
+    ///  Use this method to change the font size instead of Font.Size := XXX.
+    ///  This call will automatically recalculate the size of the columns.
+    ///  Example Usage:
+    ///  Zoom(1) - will increase Font.Size by one
+    ///  Zoom(-3) - decreases Font.Size by three
+    /// </summary>
+    procedure Zoom(AZoomValue: Integer);
   public
     property AddressViewOffsetBase: Int64 read FAddressViewOffsetBase write SetAddressViewOffsetBase;
     property Bookmark[AIndex: TBookMark]: Int64 read GetBookMark write SetBookMark;
@@ -1892,6 +1900,44 @@ begin
   CharWidth := Owner.CharWidth;
   UpdateCharPosition(BytesInRow, CharWidth);
   UpdateSelection(BytesInRow, CharWidth);
+end;
+
+procedure TAbstractTextMetric.UpdateCharPositionDef(BytesInRow,
+  CharWidth: Integer);
+var
+  I, ByteIndex, LastIndex: Integer;
+begin
+  for I := 0 to Length(FCharPositions[False]) - 1 do
+    FCharPositions[False][I] := CharWidth;
+  ByteIndex := 0;
+  LastIndex := Length(FCharPositions[True]) - 1;
+  for I := 0 to LastIndex do
+  begin
+    if (I + 1) mod ValueMetric.CharCount = 0 then
+    begin
+      FCharPositions[True][I] := DblSize(CharWidth);
+      Inc(ByteIndex, ValueMetric.ByteCount);
+      if ByteIndex >= Owner.BytesInGroup then
+      begin
+        Inc(FCharPositions[True][I], Owner.TextMargin);
+        Dec(ByteIndex, Owner.BytesInGroup);
+      end;
+    end
+    else
+      FCharPositions[True][I] := CharWidth;
+  end;
+  FCharPositions[True][LastIndex] := CharWidth;
+end;
+
+procedure TAbstractTextMetric.UpdateCharPositionText(BytesInRow,
+  CharWidth: Integer);
+var
+  I: Integer;
+begin
+  for I := 0 to Length(FCharPositions[False]) - 1 do
+    FCharPositions[False][I] := CharWidth;
+  for I := 0 to Length(FCharPositions[True]) - 1 do
+    FCharPositions[True][I] := CharWidth;
 end;
 
 procedure TAbstractTextMetric.UpdateSelection(BytesInRow, CharWidth: Integer);
@@ -2924,7 +2970,7 @@ begin
         Result := Encoder.EncodeBuff(Data)
       else
         Result := RawBufToViewMode(@Data[0], Length(Data), TextMetric.ValueMetric,
-          ByteViewMode, DefFormatMode);
+          ByteViewMode, FormatMode);
     end;
     ctDescription:
     begin
@@ -3224,6 +3270,11 @@ begin
   DrawText(ACanvas, PChar(ColumnAsString(ctWorkSpace)), -1, ARect, 0);
 end;
 
+function TAbstractPrimaryRowPainter.FormatMode: TFormatMode;
+begin
+  Result := DefFormatMode;
+end;
+
 function TAbstractPrimaryRowPainter.FormatRowColumn(AColumn: TColumnType;
   const Value: string): string;
 const
@@ -3324,44 +3375,6 @@ begin
     UpdateCharPositionText(BytesInRow, CharWidth)
   else
     UpdateCharPositionDef(BytesInRow, CharWidth);
-end;
-
-procedure TDefaultTextMetric.UpdateCharPositionDef(BytesInRow,
-  CharWidth: Integer);
-var
-  I, ByteIndex, LastIndex: Integer;
-begin
-  for I := 0 to Length(FCharPositions[False]) - 1 do
-    FCharPositions[False][I] := CharWidth;
-  ByteIndex := 0;
-  LastIndex := Length(FCharPositions[True]) - 1;
-  for I := 0 to LastIndex do
-  begin
-    if (I + 1) mod ValueMetric.CharCount = 0 then
-    begin
-      FCharPositions[True][I] := DblSize(CharWidth);
-      Inc(ByteIndex, ValueMetric.ByteCount);
-      if ByteIndex >= Owner.BytesInGroup then
-      begin
-        Inc(FCharPositions[True][I], Owner.TextMargin);
-        Dec(ByteIndex, Owner.BytesInGroup);
-      end;
-    end
-    else
-      FCharPositions[True][I] := CharWidth;
-  end;
-  FCharPositions[True][LastIndex] := CharWidth;
-end;
-
-procedure TDefaultTextMetric.UpdateCharPositionText(BytesInRow,
-  CharWidth: Integer);
-var
-  I: Integer;
-begin
-  for I := 0 to Length(FCharPositions[False]) - 1 do
-    FCharPositions[False][I] := CharWidth;
-  for I := 0 to Length(FCharPositions[True]) - 1 do
-    FCharPositions[True][I] := CharWidth;
 end;
 
 procedure TDefaultTextMetric.UpdateColorGroup(BytesInRow, CharWidth: Integer);
@@ -5425,17 +5438,6 @@ begin
   SetTopRow(PresiosTopRow);
 end;
 
-procedure TFWCustomHexView.DoFontResize(Value: Integer);
-begin
-  SaveViewParam;
-  if Value > 0 then
-    Font.Size := Font.Size + Value
-  else
-    if Font.Size + Value > 4 then
-      Font.Size := Font.Size + Value;
-  RestoreViewParam;
-end;
-
 procedure TFWCustomHexView.DoGetHint(var AHintParam: THintParam;
   var AHint: string);
 begin
@@ -5477,7 +5479,7 @@ begin
   try
     if ssCtrl in Shift then
     begin
-      DoFontResize(IfThen(WheelDelta > 0, 1, -1));
+      Zoom(IfThen(WheelDelta > 0, 1, -1));
       Exit;
     end;
     if not (ScrollBars in [TScrollStyle.ssBoth, TScrollStyle.ssVertical]) then Exit;
@@ -7643,6 +7645,17 @@ begin
     Exit;
   end;
   inherited WndProc(AMsg);
+end;
+
+procedure TFWCustomHexView.Zoom(AZoomValue: Integer);
+begin
+  SaveViewParam;
+  if AZoomValue > 0 then
+    Font.Size := Font.Size + AZoomValue
+  else
+    if Font.Size + AZoomValue > 4 then
+      Font.Size := Font.Size + AZoomValue;
+  RestoreViewParam;
 end;
 
 function TFWCustomHexView.VisibleRowDiapason: TVisibleRowDiapason;
