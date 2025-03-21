@@ -1342,7 +1342,7 @@ type
     property SeparateGroupByColor: Boolean read FSeparateGroupByColor write SetSeparateGroupByColor default True;
     property ShortCuts: TViewShortCuts read FShortCuts write SetShortCuts stored IsShortCutsStored;
     property TabStop default True;
-    property WheelMultiplyer: Integer read FWheelMultiplyer write FWheelMultiplyer default 3;
+    property WheelMultiplyer: Integer read FWheelMultiplyer write FWheelMultiplyer default 0;
     property OnCaretPosChange: TNotifyEvent read FOnCaretPosChange write FOnCaretPosChange;
     property OnDrawColumnBackground: TDrawColumnBackgroundEvent read FOnDrawColBack write FOnDrawColBack;
     property OnDrawToken: TDrawTokenEvent read FOnDrawToken write FOnDrawToken;
