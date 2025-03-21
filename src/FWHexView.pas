@@ -952,6 +952,7 @@ type
     FScrollOffset, FTextBoundary: TLargePoint;
     FSelections: TSelections;
     FSelectOnMouseDown: Boolean;
+    FSelectOnMouseMove: Boolean;
     FSelStart, FSelEnd: TSelectPoint;
     FSelStartAddr, FSelEndAddr: Int64;
     FSeparateGroupByColor: Boolean;
@@ -963,7 +964,7 @@ type
     FTextMetric: TAbstractTextMetric;
     FTextMetrics: TObjectList<TAbstractTextMetric>;
     FUpdateCount: Integer;
-    FWheelMultiplyer: Integer;
+    FWheelMultiplyer, FSystemWheelMultiplyer: Integer;
     FOnCaretPosChange: TNotifyEvent;
     FOnDrawColBack: TDrawColumnBackgroundEvent;
     FOnDrawToken: TDrawTokenEvent;
@@ -1010,6 +1011,7 @@ type
     procedure OnSelectionsChange(Sender: TObject);
     procedure UpdateCursor(var AHitInfo: TMouseHitInfo);
     procedure UpdateSavedShift(Shift: TShiftState);
+    procedure UpdateSystemWheelMultiplyer;
     procedure UpdateTextDarknessColor;
     procedure UpdateTextExtent;
     procedure UpdateTextMetrics;
@@ -1114,9 +1116,11 @@ type
 
     // rendering calculations
 
+    function GetColumnRect(AColumnType: TColumnType; ARowIndex: Int64): TRect;
     function GetLeftNCWidth: Integer;
     function GetPageHeight: Integer;
     function GetRowOffset(ARowIndex: Int64): Int64;
+    function GetRowOffsetPoint(ARowIndex: Int64): TPoint;
     function GetSelectData(ARowIndex: Int64): TSelectData;
     function GetSelectDataWithSelection(ARowIndex: Int64; ASelStart, ASelEnd: TSelectPoint): TSelectData;
     function MeasureCanvas: TCanvas;
@@ -1334,6 +1338,7 @@ type
     property ReadOnly: Boolean read FReadOnly write SetReadOnly default True;
     property ScrollBars: TScrollStyle read FScrollBars write SetScrollBars default TScrollStyle.ssBoth;
     property SelectOnMouseDown: Boolean read FSelectOnMouseDown write FSelectOnMouseDown default True;
+    property SelectOnMouseMove: Boolean read FSelectOnMouseMove write FSelectOnMouseMove default True;
     property SeparateGroupByColor: Boolean read FSeparateGroupByColor write SetSeparateGroupByColor default True;
     property ShortCuts: TViewShortCuts read FShortCuts write SetShortCuts stored IsShortCutsStored;
     property TabStop default True;
@@ -4811,10 +4816,7 @@ begin
   HintParam.AddrVA := Painter.RowToAddress(
     HintParam.MouseHitInfo.SelectPoint.RowIndex,
     HintParam.MouseHitInfo.SelectPoint.ValueOffset);
-  Offset.X := FScrollOffset.X;
-  Offset.Y := Painter.RowIndex * FRowHeight + FScrollOffset.Y;
-  if Header.Visible then
-    Inc(Offset.Y, FRowHeight);
+  Offset := GetRowOffsetPoint(Painter.RowIndex);
   Message.HintInfo.CursorRect := Painter.ColumnRect(Offset, HintParam.MouseHitInfo.SelectPoint.Column);
   Message.HintInfo.HideTimeout := HintHideTimeout;
   HintParam.HintInfo := Message.HintInfo;
@@ -4947,11 +4949,13 @@ begin
   FSeparateGroupByColor := True;
   FTextMargin := ToDpi(NoDpiTextMargin);
   FSelectOnMouseDown := True;
+  FSelectOnMouseMove := True;
   FSplitMargin := ToDpi(NoDpiSplitMargin);
   FShortCuts := GetShortCutsClass.Create;
   FMeasureCanvas := TBitmap.Create;
   FMeasureCanvas.SetSize(1, 1);
   FMinColumnWidth := FTextMargin shl 2;
+  FReadOnly := True;
 
   FColorMap := GetColorMapClass.Create(Self);
   FRawData := GetRawDataClass.Create(Self);
@@ -4967,9 +4971,6 @@ begin
 
   FOldOnFontChange := Font.OnChange;
   Font.OnChange := DoFontChange;
-
-  FReadOnly := True;
-  FWheelMultiplyer := 3;
 end;
 
 procedure TFWCustomHexView.CreateCaretTimer;
@@ -5474,6 +5475,8 @@ end;
 
 function TFWCustomHexView.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer;
   MousePos: TPoint): Boolean;
+var
+  AWheelMultiplyer: Integer;
 begin
   Result := True;
   try
@@ -5483,8 +5486,21 @@ begin
       Exit;
     end;
     if not (ScrollBars in [TScrollStyle.ssBoth, TScrollStyle.ssVertical]) then Exit;
+    if WheelMultiplyer <> 0 then
+      AWheelMultiplyer := WheelMultiplyer
+    else
+    begin
+      UpdateSystemWheelMultiplyer;
+      AWheelMultiplyer := FSystemWheelMultiplyer;
+      if AWheelMultiplyer < 0 then
+      begin
+        AWheelMultiplyer := ClientHeight div FRowHeight;
+        if Header.Visible then
+          Dec(AWheelMultiplyer);
+      end;
+    end;
     UpdateScrollY(FScrollOffset.Y +
-      (FRowHeight * FWheelMultiplyer) * WheelDelta div WHEEL_DELTA);
+      (FRowHeight * AWheelMultiplyer) * WheelDelta div WHEEL_DELTA);
   finally
     MousePos := ScreenToClient(MousePos);
     MouseMove(Shift, MousePos.X, MousePos.Y);
@@ -5888,6 +5904,18 @@ begin
   Result := THexViewColorMap;
 end;
 
+function TFWCustomHexView.GetColumnRect(AColumnType: TColumnType;
+  ARowIndex: Int64): TRect;
+var
+  Painter: TAbstractPrimaryRowPainter;
+begin
+  Painter := GetRowPainter(ARowIndex, True);
+  if Painter <> nil then
+    Result := Painter.ColumnRect(GetRowOffsetPoint(ARowIndex), AColumnType)
+  else
+    Result := TRect.Empty;
+end;
+
 function TFWCustomHexView.GetDataStreamSize: Int64;
 begin
   if Assigned(FDataStream) then
@@ -6036,6 +6064,14 @@ begin
   Result := FScrollOffset.Y + ARowIndex * FRowHeight;
   if Header.Visible then
     Inc(Result, FRowHeight);
+end;
+
+function TFWCustomHexView.GetRowOffsetPoint(ARowIndex: Int64): TPoint;
+begin
+  Result.X := FScrollOffset.X;
+  Result.Y := ARowIndex * FRowHeight + FScrollOffset.Y;
+  if Header.Visible then
+    Inc(Result.Y, FRowHeight);
 end;
 
 function TFWCustomHexView.GetRowPainter(ARowIndex: Int64;
@@ -6199,6 +6235,7 @@ procedure TFWCustomHexView.InvalidateRow(ARowIndex: Int64);
 var
   R: TRect;
   LeftOffset: Integer;
+  Offset: TPoint;
 begin
   if not RowVisible(ARowIndex) then
   begin
@@ -6206,11 +6243,9 @@ begin
     Exit;
   end;
   LeftOffset := GetLeftNCWidth;
-  R := Bounds(FScrollOffset.X + LeftOffset,
-    FCaretPosData.RowIndex * FRowHeight + FScrollOffset.Y,
+  Offset := GetRowOffsetPoint(ARowIndex);
+  R := Bounds(Offset.X + LeftOffset, Offset.Y,
     ClientWidth - LeftOffset, FRowHeight);
-  if Header.Visible then
-    OffsetRect(R, 0, FRowHeight);
   InvalidateRect(Handle, @R, False);
 end;
 
@@ -6534,6 +6569,7 @@ begin
 
     // checking for conditions under which allocation is not possible
 
+    if not SelectOnMouseMove then Exit;
     if HitTest.SelectPoint.InvalidRow then Exit;
     if FSelStart.InvalidRow then Exit;
     if HitTest.SelectPoint = FMousePressedHitInfo.SelectPoint then Exit;
@@ -6627,9 +6663,7 @@ begin
   Clipped := (AClipRect <> ClientRect) and (AClipRect.Top > RowHeight);
   if Clipped then
   begin
-    Offset.Y := Diapason.EndRow * FRowHeight + FScrollOffset.Y;
-    if Header.Visible then
-      Inc(Offset.Y, FRowHeight);
+    Offset := GetRowOffsetPoint(Diapason.EndRow);
     while Offset.Y > AClipRect.Bottom do
     begin
       Dec(Offset.Y, FRowHeight);
@@ -6645,10 +6679,7 @@ begin
     Diapason.StartRow := Max(0, Diapason.StartRow);
   end;
 
-  Offset.X := FScrollOffset.X;
-  Offset.Y := Diapason.StartRow * FRowHeight + FScrollOffset.Y;
-  if Header.Visible then
-    Inc(Offset.Y, FRowHeight);
+  Offset := GetRowOffsetPoint(Diapason.StartRow);
 
   if Diapason.EndRow < FRawData.Count - 1 then
     Inc(Diapason.EndRow);
@@ -6678,10 +6709,8 @@ begin
   // postpainter handling
 
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('postpainter handling');{$ENDIF}
-  Offset.X := FScrollOffset.X;
-  SavedTopOffset := PostPaintDiapason.StartRow * FRowHeight + FScrollOffset.Y;
-  if Header.Visible then
-    Inc(SavedTopOffset, FRowHeight);
+  Offset := GetRowOffsetPoint(PostPaintDiapason.StartRow);
+  SavedTopOffset := Offset.Y;
   for I := 0 to FPostPainters.Count - 1 do
   begin
     Offset.Y := SavedTopOffset;
@@ -6706,10 +6735,8 @@ begin
   if FCaretPosData.Showed then
   begin
     if not RowVisible(FCaretPosData.RowIndex) then Exit;
-    Offset.X := FScrollOffset.X;
-    Offset.Y := FCaretPosData.RowIndex * FRowHeight + FScrollOffset.Y;
-    if not Header.Visible then
-      Dec(Offset.Y, FRowHeight);
+    Offset := GetRowOffsetPoint(FCaretPosData.RowIndex);
+    Dec(Offset.Y, FRowHeight);
     DrawEditMark(Offset);
   end;
 
@@ -7436,6 +7463,16 @@ begin
       UpdateCursor(HitTest);
     end;
   end;
+end;
+
+procedure TFWCustomHexView.UpdateSystemWheelMultiplyer;
+begin
+  {$IFDEF LINUX}
+  FSystemWheelMultiplyer := 3;
+  {$ELSE}
+  if GetSystemMetrics(SM_MOUSEWHEELPRESENT) = 1 then
+    SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, @FSystemWheelMultiplyer, 0);
+  {$ENDIF}
 end;
 
 procedure TFWCustomHexView.UpdateScrollPos;

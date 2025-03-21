@@ -173,7 +173,7 @@ begin
     if Flags and DT_CALCRECT <> 0 then
     begin
       ARect.Width := Ceil(textents.width);
-      ARect.Height := Ceil(textents.height);
+      ARect.Height := Max(Result, Ceil(textents.height));
       Exit;
     end;
     awidth := Ceil(textents.width);
