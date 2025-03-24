@@ -721,7 +721,6 @@ object dlgHexEditor: TdlgHexEditor
     end
     object acCopyBytes: THexViewCopyAction
       Category = 'HexView Actions'
-      Caption = 'Copy'
       CopyStyle = csBytes
     end
     object acCopyCpp: THexViewCopyAction

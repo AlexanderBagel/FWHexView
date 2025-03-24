@@ -237,21 +237,32 @@ type
     ccmSelectPointer,
     ccmReset);
 
+  /// Три режима работы с кареткой для редактирования:
+  /// 1. Каретка отключена
+  /// 2. Каретка позволяет производить посимвольное редактирование
+  /// 3. Вместо каретки должен использоваться встроенный редактор полей
+
+  /// <summary>
+  /// Three modes of operation with the editing carriage:
+  /// 1. The carriage is disabled
+  /// 2. The carriage allows character-by-character editing
+  /// 3. The built-in field editor must be used instead of the carriage
+  /// </summary>
+  TCaretEditMode = (cemDisabled, cemSingleChar, cemValueEditor);
+
   TCaretPosData = record
-    Enabled: Boolean;
+    EditMode: TCaretEditMode;
     Column: TColumnType;
     RowIndex: Int64;
     CharIndex: Integer;
     Showed: Boolean;
   end;
 
-  /// <summary>
   ///  Класс описывает представление вывода текста
   ///  FCharPositions - размер каждого символа при выводе, можно выводить
   ///  сколько угодно символов на каждый байт
   ///  FSelectionPositions - координаты выделения символа.
   ///  Должен содержать размеры в которых будут помещаться все символы ByteStringLength * CharSize
-  /// </summary>
 
   /// <summary>
   ///  The class describes the representation of the text output
@@ -276,11 +287,9 @@ type
   public
     constructor Create(AOwner: TFWCustomHexView); virtual;
 
-    /// <summary>
     ///  CharCount - возвращает количество символов которые будут выделены
     ///  под отображение указанного количества реальных байт RawLength
     ///  с учетом текущих метрик текста
-    /// </summary>
 
     /// <summary>
     ///  CharCount - returns the number of characters that will be allocated
@@ -291,27 +300,21 @@ type
 
     function CharIndexToValueOffset(AColumn: TColumnType; CharIndex: Integer): Integer;
 
-    /// <summary>
     ///  CharLength - возвращает размер в пикселях между AStart, AEnd
-    /// </summary>
 
     /// <summary>
     ///  CharLength - returns the size in pixels between AStart, AEnd
     /// </summary>
     function CharLength(AColumn: TColumnType; AStart, AEnd: Integer): Integer; virtual;
 
-    /// <summary>
     ///  CharPointer - указатель на массив кернингов символов
-    /// </summary>
 
     /// <summary>
     ///  CharPointer - pointer to an array of character kerning
     /// </summary>
     function CharPointer(AColumn: TColumnType; AIndex: Integer): PInteger; virtual;
 
-    /// <summary>
     ///  CharWidth - возвращает размер символа в пикселях
-    /// </summary>
 
     /// <summary>
     ///  CharWidth - returns the character size in pixels
@@ -365,28 +368,25 @@ type
     function EncodeBuff(const Buff: TBytes): string;
     function EncodeChar(AChar: TNativeChar): TBytes;
   published
-    /// <summary>
+
     ///  CodePage - номер кодовой страницы кодировки текста.
     ///  Должен быть указан ДО переключения в режим cetCodePage
-    /// </summary>
 
     /// <summary>
     ///  CodePage - number of the text encoding code page.
     ///  Must be specified BEFORE switching to cetCodePage mode
     /// </summary>
     property CodePage: Integer read FCodePage write SetCodePage default 0;
-    /// <summary>
+
     ///  EncodeType - типы кодировки текста
-    /// </summary>
 
     /// <summary>
     ///  EncodeType - text encoding types
     /// </summary>
     property EncodeType: TCharEncoderType read FEncodeType write SetEncodeType default cetDefault;
-    /// <summary>
+
     ///  EncodingName - наименование кодировки текста.
     ///  Должен быть указан ДО переключения в режим cetEncodingName
-    /// </summary>
 
     /// <summary>
     ///  EncodingName - text encoding name.
@@ -539,12 +539,12 @@ type
     function VisibleRowDiapason: TVisibleRowDiapason; inline;
   protected
     function ByteViewMode: TByteViewMode; virtual;
-    function CharCount(Column: TColumnType): Integer; virtual;
-    function CharIndexToValueOffset(Column: TColumnType; CharIndex: Integer): Integer;
+    function CharCount(AColumn: TColumnType): Integer; virtual;
+    function CharIndexToValueOffset(AColumn: TColumnType; ACharIndex: Integer): Integer;
     procedure DefaultDrawHeaderColumn(ACanvas: TCanvas; var ARect: TRect;
       const ACaption: string; Flags: DWORD = DT_CENTER);
     function SelectedColor(SelectStyle: TSelectStyle): TColor;
-    function ValueOffsetToCharIndex(Column: TColumnType; ValueOffset: Integer): Integer;
+    function ValueOffsetToCharIndex(AColumn: TColumnType; AValueOffset: Integer): Integer;
   protected
     property ColumnWidth[Value: TColumnType]: Integer read GetColWidth;
     property Owner: TFWCustomHexView read FOwner;
@@ -559,25 +559,24 @@ type
     FSelData: TSelectData;
     procedure SetRowIndex(const Value: Int64);
   protected
-    function AcceptEdit(AColumn: TColumnType): Boolean; virtual;
+    function AcceptEdit(AColumn: TColumnType): Boolean;
     function AcceptSelection: Boolean; virtual;
     function CalcEditParam(ACaretPosData: TCaretPosData; var Offset: TPoint;
       out EditChar: string): Boolean; virtual;
     function CalcLeftNCWidth: Integer; virtual;
-    /// <summary>
+
     ///  Количество символов в колонке при копировании в буффер обмена
-    /// </summary>
 
     /// <summary>
     ///  Number of characters per column when copying to clipboard
     /// </summary>
-    function CalcColumnLengthForCopy(Column: TColumnType): Integer; virtual;
-    function CaretKeyIncrement(Column: TColumnType): Integer;
-    function CharCount(Column: TColumnType): Integer; override;
+    function CalcColumnLengthForCopy(AColumn: TColumnType): Integer; virtual;
+    function CaretKeyIncrement(AColumn: TColumnType): Integer;
+    function CaretEditMode(AColumn: TColumnType): TCaretEditMode; virtual;
+    function CharCount(AColumn: TColumnType): Integer; override;
     function ColumnAsString(AColumn: TColumnType): string; virtual;
-    /// <summary>
+
     ///  Указывает какие колонки заголовка пайнтер может рисовать самостоятельно
-    /// </summary>
 
     /// <summary>
     ///  Specifies which header columns the painter can draw independently
@@ -585,9 +584,8 @@ type
     function ColumnsDrawSupport: TFWHexViewColumnTypes; virtual;
     function ColumnRect(const Offset: TPoint; AColumn: TColumnType): TRect;
     procedure CorrectCanvasFont({%H-}ACanvas: TCanvas; {%H-}AColumn: TColumnType); virtual;
-    /// <summary>
+
     ///  Форматирует текущую строку для копирования в буфер
-    /// </summary>
 
     /// <summary>
     ///  Formats the current string to be copied to the buffer
@@ -614,9 +612,8 @@ type
       const ARect: TRect; const DrawString: string; Dx: PInteger);
     procedure DrawWorkSpace(ACanvas: TCanvas; var ARect: TRect); virtual;
     function FormatMode: TFormatMode; virtual;
-    /// <summary>
+
     ///  Форматирует колонку в текстовое представления для копирования
-    /// </summary>
 
     /// <summary>
     ///  Formats the column into a text representation for copying
@@ -666,11 +663,11 @@ type
     procedure AddSelDataToColorMix(ASelData: TSelectData; AColor: TColor; Primary: Boolean);
     procedure DrawColorMix(ACanvas: TCanvas; var ARect: TRect);
   protected
-    function AcceptEdit(AColumn: TColumnType): Boolean; override;
     function AcceptSelection: Boolean; override;
     function CalcEditParam(ACaretPosData: TCaretPosData; var Offset: TPoint;
      out EditChar: string): Boolean; override;
     function CalcLeftNCWidth: Integer; override;
+    function CaretEditMode(AColumn: TColumnType): TCaretEditMode; override;
     function ColumnsDrawSupport: TFWHexViewColumnTypes; override;
     procedure CorrectCanvasFont({%H-}ACanvas: TCanvas; {%H-}AColumn: TColumnType); override;
     procedure DoDrawToken(ACanvas: TCanvas; ATokenParam: TDrawParam;
@@ -964,7 +961,7 @@ type
     FTextMetric: TAbstractTextMetric;
     FTextMetrics: TObjectList<TAbstractTextMetric>;
     FUpdateCount: Integer;
-    FWheelMultiplyer, FSystemWheelMultiplyer: Integer;
+    FWheelMultiplier, FSystemWheelMultiplier: Integer;
     FOnCaretPosChange: TNotifyEvent;
     FOnDrawColBack: TDrawColumnBackgroundEvent;
     FOnDrawToken: TDrawTokenEvent;
@@ -980,7 +977,6 @@ type
       AColumn: TColumnType): TSelectPoint;
     function SetNewEditRowIndex(ANewRowIndex: Int64): Int64;
     procedure InternalClear;
-    procedure InvalidateCaretPosData(NewState: Boolean);
     procedure InvalidateSelections;
     function IsFontStored: Boolean;
     function IsShortCutsStored: Boolean;
@@ -1009,9 +1005,8 @@ type
     function Scroll32To64(Value: Integer): Int64;
     function Scroll64To32(Value: Int64): Integer;
     procedure OnSelectionsChange(Sender: TObject);
-    procedure UpdateCursor(var AHitInfo: TMouseHitInfo);
     procedure UpdateSavedShift(Shift: TShiftState);
-    procedure UpdateSystemWheelMultiplyer;
+    procedure UpdateSystemWheelMultiplier;
     procedure UpdateTextDarknessColor;
     procedure UpdateTextExtent;
     procedure UpdateTextMetrics;
@@ -1081,9 +1076,11 @@ type
     function GetSelectedRawBuff(ASelStartRow, ASelEndRow: Int64): TBytes;
     function GetSelectedRow(out ASelStartRow, ASelEndRow: Int64): Boolean;
     function IgnoreSelectionWhenCopyAddress: Boolean; virtual;
+    procedure InvalidateCaretPosData(NewState: Boolean);
     procedure UpdateCaretColumn(AColumn: TColumnType);
     procedure UpdateCaretPosData(Value: TSelectPoint; AChangeMode: TCaretChangeMode);
     procedure UpdateCaretTimer;
+    procedure UpdateCursor(var AHitInfo: TMouseHitInfo);
     procedure UpdateSelection(ANewStart, ANewEnd: TSelectPoint; AUpdateSelAddr: Boolean = True);
     procedure UpdateSelectionAddr(ANewStart, ANewEnd: Int64);
 
@@ -1202,21 +1199,19 @@ type
     procedure FitColumnToBestSize(Value: TColumnType); virtual;
     procedure FitColumnsToBestSize;
     function Focused: Boolean; override;
-    /// <summary>
+
     ///  Перемещает скролл делая чтобы адрес (если строка с ним не видима)
     ///  находился вверху текущего окна отображения
-    /// </summary>
 
     /// <summary>
     ///  Moves the scroll to make the address (if it is not visible)
     ///  at the top of the current display window.
     /// </summary>
     procedure FocusOnAddress(Address: Int64; ACaretChangeMode: TCaretChangeMode);
-    /// <summary>
+
     ///  Перемещает скролл делая чтобы строка стала видимой, результат перемещения
     ///  не определен, если невидимая строка выше текущего окна, она появится
     ///  сверху. Если ниже - она появится снизу.
-    /// </summary>
 
     /// <summary>
     ///  Moves the scroll to make the string visible, the result of the move
@@ -1231,17 +1226,14 @@ type
     function JumpRedo: Boolean;
     function JumpUndo: Boolean;
 
-    /// <summary>
     ///  Общий метод чтения данных с начала выделения вьювера
-    /// </summary>
 
     /// <summary>
     ///  A common method for reading data from the beginning of a viewer selection
     /// </summary>
     function ReadDataAtSelStart(var pBuffer; nSize: Integer): Integer; virtual;
-    /// <summary>
+
     ///  Сброс настроек вьювера на значения по умолчанию
-    /// </summary>
 
     /// <summary>
     ///  Reset viewer settings to default values
@@ -1259,6 +1251,7 @@ type
     function ToDpi(Value: Integer): Integer;
     function VisibleRowDiapason: TVisibleRowDiapason;
     function VisibleRowCount: Integer;
+    function WheelRowCount: Integer;
     procedure WndProc(var AMsg: {$IFDEF FPC}TLMessage{$ELSE}TMessage{$ENDIF}); override;
     /// <summary>
     ///  Use this method to change the font size instead of Font.Size := XXX.
@@ -1278,6 +1271,7 @@ type
     {$ENDIF}
     property DataStream: TStream read FDataStream;
     property MinColumnWidth: Integer read FMinColumnWidth;
+    property PrefferededSize: TLargePoint read FTextBoundary;
     property RowHeight: Integer read FRowHeight;
     property ScrollOffset: TLargePoint read FScrollOffset;
     property Selections: TSelections read FSelections;
@@ -1299,10 +1293,9 @@ type
     property SavedShift: TShiftState read FSavedShift;
     property TextMetric: TAbstractTextMetric read FTextMetric;
   protected
-    /// <summary>
+
     ///  Позволяет устанавливать выделение на колонки
     ///  не поддерживающие редактирование, при перемещении курсора с клавиатуры
-    /// </summary>
 
     /// <summary>
     ///  Allows you to set a selection on columns that do not support editing
@@ -1311,10 +1304,9 @@ type
     property AcceptKeySelectionAllways: Boolean read FAcceptSelForced write FAcceptSelForced default True;
     property AddressMode: TAddressMode read FAddressMode write SetAddressMode default am32bit;
     property AddressView: TAddressView read FAddressView write SetAddressView default avHex;
-    /// <summary>
+
     ///  Автоматически переключает AddressView между avHex-avOffset
     ///  при двойном клике на колонке адресов
-    /// </summary>
 
     /// <summary>
     ///  Automatically toggles AddressView between avHex-avOffset
@@ -1342,7 +1334,7 @@ type
     property SeparateGroupByColor: Boolean read FSeparateGroupByColor write SetSeparateGroupByColor default True;
     property ShortCuts: TViewShortCuts read FShortCuts write SetShortCuts stored IsShortCutsStored;
     property TabStop default True;
-    property WheelMultiplyer: Integer read FWheelMultiplyer write FWheelMultiplyer default 0;
+    property WheelMultiplier: Integer read FWheelMultiplier write FWheelMultiplier default 0;
     property OnCaretPosChange: TNotifyEvent read FOnCaretPosChange write FOnCaretPosChange;
     property OnDrawColumnBackground: TDrawColumnBackgroundEvent read FOnDrawColBack write FOnDrawColBack;
     property OnDrawToken: TDrawTokenEvent read FOnDrawToken write FOnDrawToken;
@@ -1396,7 +1388,7 @@ type
     property TabOrder;
     property TabStop;
     property Visible;
-    property WheelMultiplyer;
+    property WheelMultiplier;
     property OnCaretPosChange;
     property OnClick;
     property OnContextPopup;
@@ -2613,16 +2605,16 @@ begin
   Result := FOwner.ByteViewMode;
 end;
 
-function TBasePainter.CharCount(Column: TColumnType): Integer;
+function TBasePainter.CharCount(AColumn: TColumnType): Integer;
 begin
   Result := 0;
 end;
 
-function TBasePainter.CharIndexToValueOffset(Column: TColumnType;
-  CharIndex: Integer): Integer;
+function TBasePainter.CharIndexToValueOffset(AColumn: TColumnType;
+  ACharIndex: Integer): Integer;
 begin
-  if Column in [ctOpcode, ctDescription] then
-    Result := TextMetric.CharIndexToValueOffset(Column, CharIndex)
+  if AColumn in [ctOpcode, ctDescription] then
+    Result := TextMetric.CharIndexToValueOffset(AColumn, ACharIndex)
   else
     Result := 0;
 end;
@@ -2841,11 +2833,11 @@ begin
   Result := FOwner.ToDpi(Value);
 end;
 
-function TBasePainter.ValueOffsetToCharIndex(Column: TColumnType;
-  ValueOffset: Integer): Integer;
+function TBasePainter.ValueOffsetToCharIndex(AColumn: TColumnType;
+  AValueOffset: Integer): Integer;
 begin
-  if Column in [ctOpcode, ctDescription] then
-    Result := TextMetric.ValueOffsetToCharIndex(Column, ValueOffset)
+  if AColumn in [ctOpcode, ctDescription] then
+    Result := TextMetric.ValueOffsetToCharIndex(AColumn, AValueOffset)
   else
     Result := 0;
 end;
@@ -2859,7 +2851,7 @@ end;
 
 function TAbstractPrimaryRowPainter.AcceptEdit(AColumn: TColumnType): Boolean;
 begin
-  Result := False;
+  Result := CaretEditMode(AColumn) <> cemDisabled;
 end;
 
 function TAbstractPrimaryRowPainter.AcceptSelection: Boolean;
@@ -2868,12 +2860,12 @@ begin
 end;
 
 function TAbstractPrimaryRowPainter.CalcColumnLengthForCopy(
-  Column: TColumnType): Integer;
+  AColumn: TColumnType): Integer;
 const
   AddrLengthHex: array [TAddressMode] of Byte = (2, 4, 8, 16);
   AddrLengthInt: array [TAddressMode] of Byte = (3, 5, 10, 19);
 begin
-  case Column of
+  case AColumn of
     ctAddress:
     begin
       Result := IfThen(AddressView = avHex,
@@ -2883,10 +2875,10 @@ begin
     end;
     ctOpcode:
     begin
-      Result := TextMetric.CharCount(Column, BytesInRow);
+      Result := TextMetric.CharCount(AColumn, BytesInRow);
       Inc(Result, TextMetric.FieldCount(BytesInRow) - 1);
     end;
-    ctDescription: Result := TextMetric.CharCount(Column, BytesInRow);
+    ctDescription: Result := TextMetric.CharCount(AColumn, BytesInRow);
   else
     Result := 0;
   end;
@@ -2904,18 +2896,23 @@ begin
   Result := 0;
 end;
 
-function TAbstractPrimaryRowPainter.CaretKeyIncrement(
-  Column: TColumnType): Integer;
+function TAbstractPrimaryRowPainter.CaretEditMode(AColumn: TColumnType): TCaretEditMode;
 begin
-  Result := 1;
-  if ReadOnly or not AcceptEdit(Column) then
-    Result := TextMetric.ValueWidthInChar(Column);
+  Result := cemDisabled;
 end;
 
-function TAbstractPrimaryRowPainter.CharCount(Column: TColumnType): Integer;
+function TAbstractPrimaryRowPainter.CaretKeyIncrement(
+  AColumn: TColumnType): Integer;
 begin
-  if Column in [ctOpcode, ctDescription] then
-    Result := TextMetric.CharCount(Column, RawData[RowIndex].RawLength)
+  Result := 1;
+  if ReadOnly or not AcceptEdit(AColumn) then
+    Result := TextMetric.ValueWidthInChar(AColumn);
+end;
+
+function TAbstractPrimaryRowPainter.CharCount(AColumn: TColumnType): Integer;
+begin
+  if AColumn in [ctOpcode, ctDescription] then
+    Result := TextMetric.CharCount(AColumn, RawData[RowIndex].RawLength)
   else
     Result := 0;
 end;
@@ -3456,11 +3453,6 @@ end;
 
 { TRowHexPainter }
 
-function TRowHexPainter.AcceptEdit(AColumn: TColumnType): Boolean;
-begin
-  Result := True;
-end;
-
 function TRowHexPainter.AcceptSelection: Boolean;
 begin
   Result := True;
@@ -3535,7 +3527,8 @@ var
   I: TColumnType;
   CaretOffset: Integer;
 begin
-  Result := AcceptEdit(ACaretPosData.Column) and (ACaretPosData.CharIndex >= 0);
+  Result := (CaretEditMode(ACaretPosData.Column) = cemSingleChar) and
+    (ACaretPosData.CharIndex >= 0);
   if not Result then Exit;
 
   for I := ctWorkSpace to High(TColumnType) do
@@ -3587,6 +3580,23 @@ begin
     Inc(Result, ColumnWidth[ctWorkSpace]);
   if ctJmpLine in Columns then
     Inc(Result, ColumnWidth[ctJmpLine]);
+end;
+
+function TRowHexPainter.CaretEditMode(AColumn: TColumnType): TCaretEditMode;
+begin
+  case AColumn of
+    ctOpcode:
+    begin
+      if ByteViewMode in [bvmHex8..bvmHex64, bvmText] then
+        Result := cemSingleChar
+      else
+        Result := cemValueEditor;
+    end;
+    ctDescription:
+      Result := cemSingleChar;
+  else
+    Result := cemDisabled;
+  end;
 end;
 
 function TRowHexPainter.ColumnsDrawSupport: TFWHexViewColumnTypes;
@@ -4975,7 +4985,7 @@ end;
 
 procedure TFWCustomHexView.CreateCaretTimer;
 begin
-  if FCaretPosData.Enabled then
+  if FCaretPosData.EditMode <> cemDisabled then
     SetTimer(Handle, 0, GetCaretBlinkTime, nil);
 end;
 
@@ -5106,10 +5116,9 @@ var
 begin
   if ReadOnly or not Assigned(FOnEdit) then Exit;
   if RawData[FCaretPosData.RowIndex].RawLength = 0 then Exit;
-  if not (ByteViewMode in [bvmHex8..bvmHex64]) then Exit;
   Painter := GetRowPainter(FCaretPosData.RowIndex);
   if Painter = nil then Exit;
-  if not Painter.AcceptEdit(FCaretPosData.Column) then Exit;
+  if Painter.CaretEditMode(FCaretPosData.Column) <> cemSingleChar then Exit;
 
   ACursor.Column := FCaretPosData.Column;
   ACursor.RowIndex := FCaretPosData.RowIndex;
@@ -5475,8 +5484,6 @@ end;
 
 function TFWCustomHexView.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer;
   MousePos: TPoint): Boolean;
-var
-  AWheelMultiplyer: Integer;
 begin
   Result := True;
   try
@@ -5486,21 +5493,7 @@ begin
       Exit;
     end;
     if not (ScrollBars in [TScrollStyle.ssBoth, TScrollStyle.ssVertical]) then Exit;
-    if WheelMultiplyer <> 0 then
-      AWheelMultiplyer := WheelMultiplyer
-    else
-    begin
-      UpdateSystemWheelMultiplyer;
-      AWheelMultiplyer := FSystemWheelMultiplyer;
-      if AWheelMultiplyer < 0 then
-      begin
-        AWheelMultiplyer := ClientHeight div FRowHeight;
-        if Header.Visible then
-          Dec(AWheelMultiplyer);
-      end;
-    end;
-    UpdateScrollY(FScrollOffset.Y +
-      (FRowHeight * AWheelMultiplyer) * WheelDelta div WHEEL_DELTA);
+    UpdateScrollY(FScrollOffset.Y + (FRowHeight * WheelRowCount) * Sign(WheelDelta));
   finally
     MousePos := ScreenToClient(MousePos);
     MouseMove(Shift, MousePos.X, MousePos.Y);
@@ -5527,7 +5520,7 @@ var
   R: TRect;
   Painter: TAbstractPrimaryRowPainter;
 begin
-  if not FCaretPosData.Enabled then Exit;
+  if FCaretPosData.EditMode <> cemSingleChar then Exit;
   if not RowVisible(FCaretPosData.RowIndex) then Exit;
   Painter := GetRowPainter(FCaretPosData.RowIndex);
   if Painter = nil then Exit;
@@ -5721,7 +5714,7 @@ begin
   if ReadOnly then Exit(ccmSetNewSelection);
   if APainter.AcceptEdit(AColumn) then
   begin
-    if FCaretPosData.Enabled then
+    if FCaretPosData.EditMode <> cemDisabled then
       Result := ccmNone
     else
       Result := ccmReset;
@@ -7389,16 +7382,15 @@ begin
   FCaretPosData.Column := Value.Column;
   FCaretPosData.CharIndex := Value.CharIndex;
   FCaretPosData.Showed := Value.ValidSelectedByte;
-
-  if ReadOnly then
-    FCaretPosData.Enabled := False
-  else
+  FCaretPosData.EditMode := cemDisabled;
+  if not ReadOnly then
   begin
     Painter := GetRowPainter(Value.RowIndex);
-    FCaretPosData.Enabled := Assigned(Painter) and Painter.AcceptEdit(Value.Column);
+    if Assigned(Painter) then
+      FCaretPosData.EditMode := Painter.CaretEditMode(Value.Column);
   end;
 
-  if not FCaretPosData.Enabled then Exit;
+  if FCaretPosData.EditMode = cemDisabled then Exit;
   if FCaretPosData.Showed then
   begin
     InvalidateCaretPosData(FCaretPosData.Showed);
@@ -7411,7 +7403,7 @@ end;
 
 procedure TFWCustomHexView.UpdateCaretTimer;
 begin
-  if FCaretPosData.Enabled then
+  if FCaretPosData.EditMode <> cemDisabled then
   begin
     KillTimer(Handle, 0);
     if not FCaretPosData.Showed then
@@ -7465,13 +7457,13 @@ begin
   end;
 end;
 
-procedure TFWCustomHexView.UpdateSystemWheelMultiplyer;
+procedure TFWCustomHexView.UpdateSystemWheelMultiplier;
 begin
   {$IFDEF LINUX}
-  FSystemWheelMultiplyer := 3;
+  FSystemWheelMultiplier := 3;
   {$ELSE}
   if GetSystemMetrics(SM_MOUSEWHEELPRESENT) = 1 then
-    SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, @FSystemWheelMultiplyer, 0);
+    SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, @FSystemWheelMultiplier, 0);
   {$ENDIF}
 end;
 
@@ -7667,6 +7659,23 @@ end;
 function TFWCustomHexView.VisibleRowCount: Integer;
 begin
   Result := GetPageHeight div FRowHeight;
+end;
+
+function TFWCustomHexView.WheelRowCount: Integer;
+begin
+  if WheelMultiplier <> 0 then
+    Result := WheelMultiplier
+  else
+  begin
+    UpdateSystemWheelMultiplier;
+    Result := FSystemWheelMultiplier;
+    if Result < 0 then
+    begin
+      Result := ClientHeight div FRowHeight;
+      if Header.Visible then
+        Dec(Result);
+    end;
+  end;
 end;
 
 procedure TFWCustomHexView.WndProc(var AMsg: {$IFDEF FPC}TLMessage{$ELSE}TMessage{$ENDIF});

@@ -701,7 +701,7 @@ begin
   else
     StatusBar.Panels[3].Text := Format('Sel: %x-%x len: %d', [ss, se, se - ss + 1]);
   cpd := ActiveDoc.HexView.CaretPosData;
-  if cpd.Enabled and (cpd.Column in [ctOpcode, ctDescription]) then
+  if (cpd.EditMode <> cemDisabled) and (cpd.Column in [ctOpcode, ctDescription]) then
     StatusBar.Panels[4].Text := Format('Pos: %x', [
       ActiveDoc.HexView.CaretPosToAddress(cpd)])
   else

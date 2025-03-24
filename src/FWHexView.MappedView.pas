@@ -327,7 +327,7 @@ type
 
   TPrimaryMappedRowPainter = class(TRowHexPainter)
   protected
-    function CalcColumnLengthForCopy(Column: TColumnType): Integer; override;
+    function CalcColumnLengthForCopy(AColumn: TColumnType): Integer; override;
   end;
 
   TRowWithExDescription = class(TPrimaryMappedRowPainter)
@@ -336,6 +336,8 @@ type
     function GetLineJmpMarkRect(const ARect: TRect): TRect;
   protected
     function ByteViewMode: TByteViewMode; override;
+    function CaretEditMode(AColumn: TColumnType): TCaretEditMode; override;
+    function CharCount(AColumn: TColumnType): Integer; override;
     function ColumnAsString(AColumn: TColumnType): string; override;
     procedure DrawColorGroup({%H-}ACanvas: TCanvas; var {%H-}ARect: TRect); override;
     procedure DrawDataPart(ACanvas: TCanvas; var ARect: TRect); override;
@@ -348,8 +350,6 @@ type
     function TextMetric: TAbstractTextMetric; override;
   public
     constructor Create(AOwner: TFWCustomHexView); override;
-    function AcceptEdit(AColumn: TColumnType): Boolean; override;
-    function CharCount(Column: TColumnType): Integer; override;
   end;
 
   TRowMask = class(TRowWithExDescription)
@@ -359,8 +359,8 @@ type
   end;
 
   TRowAssembler = class(TRowWithExDescription)
-  public
-    function AcceptEdit(AColumn: TColumnType): Boolean; override;
+  protected
+    function CaretEditMode(AColumn: TColumnType): TCaretEditMode; override;
   end;
 
   TSecondaryMappedRowPainter = class(TSecondaryRowPainter)
@@ -399,7 +399,7 @@ type
     procedure DrawCommentPart(ACanvas: TCanvas; const ARect: TRect);
   protected
     function AcceptSelection: Boolean; override;
-    function CalcColumnLengthForCopy(Column: TColumnType): Integer; override;
+    function CalcColumnLengthForCopy(AColumn: TColumnType): Integer; override;
     function ColumnAsString(AColumn: TColumnType): string; override;
     procedure DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
       var ARect: TRect); override;
@@ -590,7 +590,7 @@ type
     property TabStop;
     property Text;
     property Visible;
-    property WheelMultiplyer;
+    property WheelMultiplier;
     property OnCaretPosChange;
     property OnClick;
     property OnContextPopup;
@@ -1926,9 +1926,9 @@ end;
 { TPrimaryMappedRowPainter }
 
 function TPrimaryMappedRowPainter.CalcColumnLengthForCopy(
-  Column: TColumnType): Integer;
+  AColumn: TColumnType): Integer;
 begin
-  if Column = ctDescription then
+  if AColumn = ctDescription then
     Result := 32
   else
     Result := inherited;
@@ -1936,19 +1936,23 @@ end;
 
 { TRowWithExDescription }
 
-function TRowWithExDescription.AcceptEdit(AColumn: TColumnType): Boolean;
-begin
-  Result := AColumn = ctOpcode;
-end;
-
 function TRowWithExDescription.ByteViewMode: TByteViewMode;
 begin
   Result := bvmHex8;
 end;
 
-function TRowWithExDescription.CharCount(Column: TColumnType): Integer;
+function TRowWithExDescription.CaretEditMode(
+  AColumn: TColumnType): TCaretEditMode;
 begin
-  if Column = ctDescription then
+  if AColumn = ctOpcode then
+    Result := inherited
+  else
+    Result := cemDisabled;
+end;
+
+function TRowWithExDescription.CharCount(AColumn: TColumnType): Integer;
+begin
+  if AColumn = ctDescription then
     Result := 0
   else
     Result := inherited;
@@ -2151,9 +2155,9 @@ end;
 
 { TRowAssembler }
 
-function TRowAssembler.AcceptEdit(AColumn: TColumnType): Boolean;
+function TRowAssembler.CaretEditMode(AColumn: TColumnType): TCaretEditMode;
 begin
-  Result := False;
+  Result := cemDisabled;
 end;
 
 { TSecondaryMappedRowPainter }
@@ -2265,9 +2269,9 @@ begin
 end;
 
 function TRowCheckRadioMask.CalcColumnLengthForCopy(
-  Column: TColumnType): Integer;
+  AColumn: TColumnType): Integer;
 begin
-  if Column = ctDescription then
+  if AColumn = ctDescription then
     Result := 32
   else
     Result := inherited;
