@@ -234,6 +234,8 @@ end;
 procedure TPageFrame.HexViewDrawColumnBackground(Sender: TObject;
   ACanvas: TCanvas; ARowParam: TDrawParam; const ARect: TRect;
   var Handled: Boolean);
+var
+  DrawMetrics: TDrawMetrics;
 begin
   case ARowParam.Column of
     ctNone: GetHighlightBuff(ARowParam.AddrVA);
@@ -242,7 +244,8 @@ begin
       if FHighlightBuffLen = 0 then Exit;
       ACanvas.Brush.Color := clRed;
       ACanvas.Brush.Style := bsSolid;
-      PatBlt(ACanvas, ARect.Right - HexView.ToDpi(6) + HexView.TextMargin,
+      HexView.FillDrawMetrics(DrawMetrics);
+      PatBlt(ACanvas, ARect.Right - HexView.ToDpi(6) + DrawMetrics.TextMargin,
         ARect.Top, HexView.ToDpi(4), ARect.Height, PATCOPY);
     end;
   end;

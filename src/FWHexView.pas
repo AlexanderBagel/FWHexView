@@ -1196,6 +1196,7 @@ type
     procedure EndUpdate;
     function IsAddrVisible(AAddrVA: Int64): Boolean;
     function IsRowVisible(ARowIndex: Int64): Boolean;
+    procedure FillDrawMetrics(out AValue: TDrawMetrics);
     procedure FitColumnToBestSize(Value: TColumnType); virtual;
     procedure FitColumnsToBestSize;
     function Focused: Boolean; override;
@@ -1265,32 +1266,32 @@ type
     property AddressViewOffsetBase: Int64 read FAddressViewOffsetBase write SetAddressViewOffsetBase;
     property Bookmark[AIndex: TBookMark]: Int64 read GetBookMark write SetBookMark;
     property CaretPosData: TCaretPosData read FCaretPosData;
-    property CharWidth: Integer read FCharWidth;
     {$IFDEF FPC}
     property CurrentPPI: Integer read FCurrentPPI;
     {$ENDIF}
     property DataStream: TStream read FDataStream;
-    property MinColumnWidth: Integer read FMinColumnWidth;
     property PrefferededSize: TLargePoint read FTextBoundary;
-    property RowHeight: Integer read FRowHeight;
-    property ScrollOffset: TLargePoint read FScrollOffset;
     property Selections: TSelections read FSelections;
     property SelEnd: Int64 read FSelEndAddr write SetSelEnd;
     property SelStart: Int64 read FSelStartAddr write SetSelStart;
-    property SplitMargin: Integer read FSplitMargin;
-    property StartAddress: Int64 read FStartAddress;
-    property TextMargin: Integer read FTextMargin;
   protected
     // свойства для пейнтеров и наследников
 
     // properties for painters and childs
+    property CharWidth: Integer read FCharWidth;
     property DefaultFontColorIsDark: Boolean read FDefaultFontColorIsDark;
     property DefaultPainter: TAbstractPrimaryRowPainter read FDefaultPainter write SetDefaultPainter;
+    property MinColumnWidth: Integer read FMinColumnWidth;
     property MousePressedHitInfo: TMouseHitInfo read FMousePressedHitInfo;
     property Painters: TObjectList<TAbstractPrimaryRowPainter> read FPainters;
     property PostPainters: TObjectList<TAbstractPostPainter> read FPostPainters;
     property RawData: TRawData read FRawData;
+    property RowHeight: Integer read FRowHeight;
     property SavedShift: TShiftState read FSavedShift;
+    property ScrollOffset: TLargePoint read FScrollOffset;
+    property SplitMargin: Integer read FSplitMargin;
+    property StartAddress: Int64 read FStartAddress;
+    property TextMargin: Integer read FTextMargin;
     property TextMetric: TAbstractTextMetric read FTextMetric;
   protected
 
@@ -1435,7 +1436,6 @@ const
   {$IFDEF FPC}
   USER_DEFAULT_SCREEN_DPI = 96;
   GetCaretBlinkTime = 530;
-  WHEEL_DELTA = 120;
   {$ENDIF}
 
 function DblSize(Value: Integer): Integer;
@@ -6302,6 +6302,15 @@ begin
   if ARowIndex < 0 then Exit;
   Diapason := VisibleRowDiapason;
   Result := (ARowIndex >= Diapason.StartRow) and (ARowIndex <= Diapason.EndRow);
+end;
+
+procedure TFWCustomHexView.FillDrawMetrics(out AValue: TDrawMetrics);
+begin
+  AValue.CharWidth := CharWidth;
+  AValue.MinColumnWidth := MinColumnWidth;
+  AValue.RowHeight := RowHeight;
+  AValue.SplitMargin := SplitMargin;
+  AValue.TextMargin := TextMargin;
 end;
 
 function TFWCustomHexView.IsShortCutsStored: Boolean;

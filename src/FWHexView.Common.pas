@@ -187,6 +187,14 @@ type
     DivideChar: Char;
   end;
 
+  TDrawMetrics = record
+    CharWidth: Integer;
+    MinColumnWidth: Integer;
+    RowHeight: Integer;
+    SplitMargin: Integer;
+    TextMargin: Integer;
+  end;
+
 const
   DefFormatMode: TFormatMode = (
     Align: True;        // aligning the result to the metric value
