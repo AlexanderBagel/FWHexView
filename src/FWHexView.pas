@@ -4856,7 +4856,7 @@ end;
 
 function TFWCustomHexView.CopyCommandEnabled(Value: TCopyStyle): Boolean;
 begin
-  Result := not (FSelStart.InvalidRow or FSelEnd.InvalidRow);
+  Result := Focused and not (FSelStart.InvalidRow or FSelEnd.InvalidRow);
 end;
 
 function TFWCustomHexView.CopyCommandHandled(Value: TCopyStyle): Boolean;
