@@ -57,22 +57,13 @@ object Form1: TForm1
       OnClick = CheckBox3Click
     end
     object Button1: TButton
-      Left = 256
-      Top = 8
+      Left = 176
+      Top = 31
       Width = 90
       Height = 25
-      Caption = #1050#1086#1087#1080#1088#1086#1074#1072#1090#1100
+      Caption = 'Copy'
       TabOrder = 3
       OnClick = Button1Click
-    end
-    object Button2: TButton
-      Left = 1000
-      Top = 8
-      Width = 75
-      Height = 25
-      Caption = 'Button2'
-      TabOrder = 4
-      OnClick = Button2Click
     end
   end
   object Hex: TMappedHexView
@@ -80,11 +71,8 @@ object Form1: TForm1
     Top = 0
     Width = 1100
     Height = 544
-    Cursor = crDefault
     Align = alClient
     Header.Columns = [ctWorkSpace, ctJmpLine, ctAddress, ctOpcode, ctDescription]
-    ParentFont = False
     TabOrder = 1
-    TabStop = True
   end
 end

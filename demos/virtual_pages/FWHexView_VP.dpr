@@ -8,7 +8,7 @@ uses
   Forms,
   {$IFDEF FPC}
   Interfaces,
-  {$ENDIF}
+  {$ENDIF }
   Unit1 in 'Unit1.pas' {Form1};
 
 {$R *.res}

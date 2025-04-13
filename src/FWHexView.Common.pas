@@ -278,6 +278,7 @@ type
   function Extended80Mantissa(const Value: TExtended80Support): UInt64;
   function Extended80Sign(const Value: TExtended80Support): Byte;
   function Extended80ToDouble(const Value: TExtended80Support): Double;
+  function DoubleToExtended80(const Value: Double): TExtended80Support;
 
 type
   TFloatType = (
@@ -329,7 +330,7 @@ begin
     ftNegInfinity: Exit('Neg Infinity');
     ftSNaN: Exit('SNaN');
     ftQNaN: Exit('QNaN');
-    ftZero: Exit('0');
+    ftZero: Exit('0.0');
     ftInvalid: Exit('Invalid');
   else
     {$IF SizeOf(Extended) = 8}
@@ -419,6 +420,18 @@ begin
     if Sign = 1 then
       Result := -Result;
   end;
+end;
+
+function DoubleToExtended80(const Value: Double): TExtended80Support;
+var
+  UIntRes: UInt64;
+begin
+  UIntRes := PUInt64(@Value)^;
+  Result.Exp := (UIntRes shr 52) and $7FF + 15360;
+  if (UIntRes shr 52) and $800 <> 0 then
+    Result.Exp := Result.Exp + $8000;
+  Result.Frac := (UIntRes and $FFFFFFFFFFFFF) shl 11;
+  Result.Frac := Result.Frac or $8000000000000000;
 end;
 
 type
@@ -609,25 +622,29 @@ end;
 
 function TrimFloatToMetric(const Value: string; const Metric: TValueMetric): string;
 var
-  EPos, ELen, RLen: Integer;
+  EPos, ELen, RLen, ACharCount: Integer;
 begin
   RLen := Length(Value);
-  if RLen > Metric.CharCount then
+  ACharCount := Metric.CharCount;
+  // There should always be a reserve for "+" or "-" signs.
+  if (RLen > 0) and not CharInSet(Value[1], ['+', '-']) then
+    Dec(ACharCount);
+  if RLen > ACharCount then
   begin
     EPos := Pos('E', Value);
     if EPos = 0 then
-      Result := Copy(Value, 1, Metric.CharCount)
+      Result := Copy(Value, 1, ACharCount)
     else
     begin
       ELen := RLen - EPos + 1;
-      if ELen < Metric.CharCount then
+      if ELen < ACharCount then
       begin
-        RLen := Metric.CharCount - ELen;
+        RLen := ACharCount - ELen;
         while Value[RLen] = '0' do Dec(RLen);
       end
       else
       begin
-        RLen := Metric.CharCount;
+        RLen := ACharCount;
         ELen := 0;
       end;
       Result := Copy(Value, 1, RLen) + Copy(Value, EPos, ELen);
@@ -644,7 +661,7 @@ function RawBufToSingle(Value: PByte; nSize: Integer;
   function ValueString(const Value: Single): string;
   begin
     if Value = 0 then
-      Result := '0'
+      Result := '0.0'
     else
       Result := FloatToStr(Value);
     Result := TrimFloatToMetric(Result, Metric);
@@ -688,7 +705,7 @@ function RawBufToDouble(Value: PByte; nSize: Integer;
   function ValueString(const Value: Double): string;
   begin
     if Value = 0 then
-      Result := '0'
+      Result := '0.0'
     else
       Result := FloatToStr(Value);
     Result := TrimFloatToMetric(Result, Metric);
@@ -776,7 +793,7 @@ begin
   OldMask := SetExceptionMask(exAllArithmeticExceptions);
   try
     case ViewMode of
-      bvmHex8: Result := RawBufToHex(Value, nSize);
+      bvmHex8: Result := RawBufToHex(Value, nSize, FormatMode.Inverted);
       bvmFloat32: Result := RawBufToSingle(Value, nSize, Metric, FormatMode);
       bvmFloat64: Result := RawBufToDouble(Value, nSize, Metric, FormatMode);
       bvmFloat80: Result := RawBufToExtended(Value, nSize, Metric, FormatMode);

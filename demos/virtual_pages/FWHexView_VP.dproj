@@ -101,6 +101,9 @@
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
+        <DCC_UnitSearchPath>..\..\src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -148,6 +151,11 @@
                 <Source>
                     <Source Name="MainSource">FWHexView_VP.dpr</Source>
                 </Source>
+                <Excluded_Packages>
+                    <Excluded_Packages Name="C:\Users\Public\Documents\Embarcadero\Studio\21.0\Bpl\yf.bpl">Max favorite components collection</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclFMXtee9270.bpl">File c:\program files (x86)\embarcadero\studio\21.0\bin\dclFMXtee9270.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcltee9270.bpl">File c:\program files (x86)\embarcadero\studio\21.0\bin\dcltee9270.bpl not found</Excluded_Packages>
+                </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
                 <DeployFile LocalName="Win32\Debug\FWHexView_VP.exe" Configuration="Debug" Class="ProjectOutput">
@@ -159,12 +167,6 @@
                 <DeployFile LocalName="Win64\Debug\FWHexView_VP.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win64">
                         <RemoteName>FWHexView_VP.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="Win64\Debug\FWHexView_VP.rsm" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win64">
-                        <RemoteName>FWHexView_VP.rsm</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

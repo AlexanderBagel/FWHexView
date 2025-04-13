@@ -20,13 +20,10 @@ object Form1: TForm1
     Top = 0
     Width = 904
     Height = 244
-    Cursor = crDefault
     Align = alClient
     Header.Columns = [ctJmpLine, ctAddress, ctOpcode, ctDescription]
-    ParentFont = False
     TabOrder = 0
-    TabStop = True
-    ExplicitWidth = 831
-    ExplicitHeight = 517
+    ExplicitWidth = 304
+    ExplicitHeight = 201
   end
 end

@@ -12,30 +12,15 @@ object Form1: TForm1
   Font.Height = -17
   Font.Name = 'Tahoma'
   Position = poScreenCenter
-  LCLVersion = '3.99.0.0'
+  LCLVersion = '4.99.0.0'
   OnCreate = FormCreate
   object MappedHexView1: TMappedHexView
-    Cursor = crDefault
     Left = 0
     Height = 451
     Top = 0
     Width = 1356
-    AddressToRowIndexMode = armFindFirstRaw
     Align = alClient
-    ColorMap.ArrowDownColor = 16760220
-    ColorMap.ArrowDownSelectedColor = 16744760
-    ColorMap.ArrowUpColor = 12897535
-    ColorMap.ArrowUpSelectedColor = 4345087
-    ColorMap.JmpMarkTextColor = 12087625
-    ColorMap.SeparatorBackgroundColor = clBtnFace
-    ColorMap.SeparatorBorderColor = clGrayText
-    ColorMap.SeparatorTextColor = clWindowText
-    Font.Color = clWindowText
-    Font.Height = -18
-    Font.Name = 'Consolas'
     Header.Columns = [ctJmpLine, ctAddress, ctOpcode, ctDescription]
-    ParentFont = False
     TabOrder = 0
-    TabStop = True
   end
 end

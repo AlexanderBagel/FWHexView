@@ -29,7 +29,6 @@ type
     CheckBox2: TCheckBox;
     CheckBox3: TCheckBox;
     Button1: TButton;
-    Button2: TButton;
     Hex: TMappedHexView;
     procedure FormCreate(Sender: TObject);
     procedure CheckBox1Click(Sender: TObject);
@@ -37,7 +36,6 @@ type
     procedure CheckBox3Click(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure Button1Click(Sender: TObject);
-    procedure Button2Click(Sender: TObject);
   private
     //Hex: TMappedHexView;
     Data: TMemoryStream;
@@ -59,12 +57,6 @@ implementation
 procedure TForm1.Button1Click(Sender: TObject);
 begin
   Hex.CopySelected(csCpp);
-end;
-
-procedure TForm1.Button2Click(Sender: TObject);
-begin
-  Caption := Hex.Canvas.Font.Name;
-  Hex.Font.Name := 'Monospace';
 end;
 
 procedure TForm1.CheckBox1Click(Sender: TObject);

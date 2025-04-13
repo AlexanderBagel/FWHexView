@@ -36,8 +36,8 @@ type
 
   TPageFrame = class(TFrame)
     HexView: TFWHexView;
-    procedure HexViewEdit(Sender: TObject; ACursor: TDrawParam;
-      AData: TEditParam; var Handled: Boolean);
+    procedure HexViewEdit(Sender: TObject; const ACursor: TDrawParam;
+      const AData: TEditParam; var Handled: Boolean);
     procedure HexViewDrawToken(Sender: TObject; ACanvas: TCanvas;
       ATokenParam: TDrawParam; const ARect: TRect; AToken: PChar;
       var ATokenLen: Integer);
@@ -188,6 +188,7 @@ var
 begin
   Result := False;
   FHighlightBuffLen := 0;
+  SetLength(FHighlightBuff, HexView.BytesInRow);
   Len := Min(HexView.BytesInRow, FStream.Size - AddrVA);
   SetLength(CurrentBuf, Len);
   FBuffer.Position := AddrVA;
@@ -282,8 +283,8 @@ begin
     ACanvas.Font.Color := clRed;
 end;
 
-procedure TPageFrame.HexViewEdit(Sender: TObject; ACursor: TDrawParam;
-  AData: TEditParam; var Handled: Boolean);
+procedure TPageFrame.HexViewEdit(Sender: TObject; const ACursor: TDrawParam;
+  const AData: TEditParam; var Handled: Boolean);
 var
   Undo: TUndoRec;
 begin
@@ -294,9 +295,9 @@ begin
     Undo.Column := ACursor.Column;
     Undo.CharIndex := ACursor.CharIndex;
     SetLength(Undo.Buff, AData.ValueSize);
-    Move(AData.NewValue, Undo.Buff[0], AData.ValueSize);
+    Move(AData.NewExtValue[0], Undo.Buff[0], AData.ValueSize);
     SetLength(Undo.OrigBuf, AData.ValueSize);
-    Move(AData.OldValue, Undo.OrigBuf[0], AData.ValueSize);
+    Move(AData.OldExtValue[0], Undo.OrigBuf[0], AData.ValueSize);
     PushToUndoStack(Undo);
     Handled := True;
   end;
@@ -346,6 +347,7 @@ procedure TPageFrame.OnBuffUpdate(AddrVA: Int64; ASize: Integer; pBuff: PByte);
       begin
         Idx := AddrVA - FStack.List[I].AddrVA;
         Dec(MoveLen, Idx);
+        if MoveLen = 0 then Exit;
         if I < FSavedIndex then
           Move(FStack.List[I].OrigBuf[Idx], pBuff^, MoveLen)
         else

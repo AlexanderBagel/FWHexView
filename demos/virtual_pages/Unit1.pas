@@ -7,9 +7,7 @@
 interface
 
 uses
-  {$IFDEF FPC}
-
-  {$ELSE}
+  {$IFNDEF FPC}
   Windows, Messages,
   {$ENDIF}
   SysUtils, Classes, Graphics, Controls, Forms,

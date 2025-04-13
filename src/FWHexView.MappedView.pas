@@ -119,6 +119,8 @@ type
 
   TCustomMappedHexView = class;
 
+  { TMappedRawData }
+
   TMappedRawData = class(TRawData)
   strict private
     FRows: TListEx<TRowData>;
@@ -129,9 +131,9 @@ type
     function GetRawIndexByAddr(AAddr: Int64): Integer;
     function GetRawIndexByRowIndex(RowIndex: Int64): Integer;
     function InternalGetItem (ARowIndex: Int64): TRowData; inline;
+    function View: TCustomMappedHexView;
   protected
     procedure SetLinked(Index: Int64);
-    function Owner: TCustomMappedHexView;
   public
     constructor Create(AOwner: TFWCustomHexView); override;
     destructor Destroy; override;
@@ -410,13 +412,15 @@ type
     constructor Create(AOwner: TFWCustomHexView); override;
   end;
 
+  { TCommonMapViewPostPainter }
+
   TCommonMapViewPostPainter = class(TLinesPostPainter)
   protected
     function IsNeedOffsetRow(ARowIndex: Int64; FirstRow: Boolean): Boolean; override;
     function LineColorPresent(Selected: Boolean; const Param: TDrawLineParam;
       out LineColor: TColor): Boolean; override;
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
-    function Owner: TCustomMappedHexView;
+    function View: TCustomMappedHexView;
   public
     constructor Create(AOwner: TFWCustomHexView); override;
   end;
@@ -506,6 +510,7 @@ type
     procedure SetDrawIncomingJmp(const Value: Boolean);
     procedure UpdateJumpList;
   protected
+    function CalculateColumnBestSize(Value: TColumnType): Integer; override;
     function CalculateJmpToRow(JmpFromRow: Int64): Int64; virtual;
     procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); override;
     procedure DoGetHint(var AHintParam: THintParam; var AHint: string); override;
@@ -527,7 +532,6 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure ClearDataMap;
-    procedure FitColumnToBestSize(Value: TColumnType); override;
     function RowStyle(ARowIndex: Int64): TRowStyle;
     property DataMap: TDataMap read FDataMap;
     property Pages: TVirtualPages read FPages;
@@ -702,7 +706,7 @@ begin
     // If you need to find the first occurrence of an address out of several
     // consecutive ones, run the loop upward
 
-    if Owner.AddressToRowIndexMode = armFindFirstAny then
+    if View.AddressToRowIndexMode = armFindFirstAny then
     begin
       while (RawRowIndex > 0) and (FRows.List[RawRowIndex - 1].Address = Value) do
         Dec(RawRowIndex);
@@ -741,7 +745,7 @@ begin
       Exit;
     end;
     Offset := Value - FRows.List[RawRowIndex].Address;
-    LinesBetween := Offset div Owner.BytesInRow;
+    LinesBetween := Offset div View.BytesInRow;
     Result := FRows.List[RawRowIndex].RowIndex + LinesBetween;
   end;
 end;
@@ -759,11 +763,11 @@ var
   Data: TListEx<TMapRow>;
   ARow: TMapRow;
 begin
-  if Owner.DataMap.Data.Count = 0 then Exit;
+  if View.DataMap.Data.Count = 0 then Exit;
   LastAddr := 0;
   NextAddr := 0;
   LastRowIndex := 0;
-  Data := Owner.DataMap.Data;
+  Data := View.DataMap.Data;
   Data.Sort;
   for I := 0 to Data.Count - 1 do
   begin
@@ -948,18 +952,18 @@ begin
   if FRows.List[RawRowIndex].RowIndex = ARowIndex then
   begin
     Result := FRows[RawRowIndex];
-    Result.RawLength := Min(Owner.BytesInRow, Result.RawLength);
+    Result.RawLength := Min(View.BytesInRow, Result.RawLength);
   end
   else
   begin
     Result := FRows[RawRowIndex];
     LinesBetween := RowIndex - Result.RowIndex;
-    Offset := LinesBetween * Owner.BytesInRow;
+    Offset := LinesBetween * View.BytesInRow;
     Inc(Result.RowIndex, LinesBetween);
     Inc(Result.Address, Offset);
     Inc(Result.DataOffset, Offset);
     Dec(Result.RawLength, Offset);
-    Result.RawLength := Min(Owner.BytesInRow, Result.RawLength);
+    Result.RawLength := Min(View.BytesInRow, Result.RawLength);
   end;
 end;
 
@@ -993,7 +997,7 @@ begin
   Result := GetItem.MaskRowIndex;
 end;
 
-function TMappedRawData.Owner: TCustomMappedHexView;
+function TMappedRawData.View: TCustomMappedHexView;
 begin
   Result := TCustomMappedHexView(inherited Owner);
 end;
@@ -1056,7 +1060,7 @@ var
 
     // page separator
 
-    if Owner.Pages[PageIndex].ShowCaption then
+    if View.Pages[PageIndex].ShowCaption then
     begin
       Line.Style := rsNone;
       Line.Address := PageAddress;
@@ -1064,7 +1068,7 @@ var
       Line.RawLength := 0;
       Line.Description := '';
       Line.Comment := '';
-      Line.Color := Owner.ColorMap.TextColor;
+      Line.Color := View.ColorMap.TextColor;
       Line.DrawRowSmallSeparator := False;
       Line.HintType := THintType.htNone;
       Line.Hint := '';
@@ -1076,7 +1080,7 @@ var
         AddLine;
 
       Line.Style := rsSeparator;
-      Line.Description := Owner.Pages[PageIndex].Caption;
+      Line.Description := View.Pages[PageIndex].Caption;
       AddLine;
 
       Line.Style := rsNone;
@@ -1098,35 +1102,35 @@ begin
   StreamOffset := 0;
   FillChar(Line, SizeOf(Line), 0);
   FRows.Clear;
-  Owner.JmpInitList.Clear;
+  View.JmpInitList.Clear;
 
   CheckDataMap;
 
   PageIndex := -1;
-  PageAddress := Owner.StartAddress;
-  if Owner.Pages.Count = 0 then
-    PageSize := Owner.GetDataStreamSize
+  PageAddress := View.StartAddress;
+  if View.Pages.Count = 0 then
+    PageSize := View.GetDataStreamSize
   else
   begin
-    if Owner.Pages[0].VirtualAddress > Owner.StartAddress then
-      PageSize := Owner.Pages[0].VirtualAddress - Owner.StartAddress
+    if View.Pages[0].VirtualAddress > View.StartAddress then
+      PageSize := View.Pages[0].VirtualAddress - View.StartAddress
     else
     begin
       PageIndex := 0;
-      PageSize := Owner.Pages[0].Size;
+      PageSize := View.Pages[0].Size;
       AddPageDelimiter;
     end;
   end;
 
   PageOffset := 0;
-  DataStreamSize := Owner.GetDataStreamSize;
+  DataStreamSize := View.GetDataStreamSize;
   MapIndex := 0;
-  BytesInRow := Owner.BytesInRow;
-  Data := Owner.DataMap.Data;
+  BytesInRow := View.BytesInRow;
+  Data := View.DataMap.Data;
   LastPageIsRaw := False;
   LastMaskIndex := -1;
   AMapRow := Default(TMapRow);
-  while PageIndex < Owner.Pages.Count do
+  while PageIndex < View.Pages.Count do
   begin
 
     while (StreamOffset < DataStreamSize) and (PageOffset < PageSize) do
@@ -1147,7 +1151,7 @@ begin
       begin
         Line.Style := rsRaw;
         Line.Comment := '';
-        Line.Color := Owner.ColorMap.TextColor;
+        Line.Color := View.ColorMap.TextColor;
         Line.Description := '';
         Line.DrawRowSmallSeparator := False;
         Line.HintType := THintType.htNone;
@@ -1199,7 +1203,7 @@ begin
               Line.LinkStart := AMapRow.LinkStart;
               Line.LinkLength := AMapRow.LinkLength;
               if Line.JmpToAddr > 0 then
-                Owner.JmpInitList.Add(FCount);
+                View.JmpInitList.Add(FCount);
             end;
             rsMask:
             begin
@@ -1250,16 +1254,16 @@ begin
       Inc(PageOffset, Line.RawLength);
     end;
     Inc(PageIndex);
-    if PageIndex < Owner.Pages.Count then
+    if PageIndex < View.Pages.Count then
     begin
-      PageAddress := Owner.Pages[PageIndex].VirtualAddress;
+      PageAddress := View.Pages[PageIndex].VirtualAddress;
       AddPageDelimiter;
 
       // вместе с последней страницей выводим все что в неё не вошло
 
       // along with the last page, we output everything not included in it.
 
-      if PageIndex = Owner.Pages.Count - 1 then
+      if PageIndex = View.Pages.Count - 1 then
       begin
         if DataStreamSize > StreamOffset then
           PageSize := DataStreamSize - StreamOffset
@@ -1269,7 +1273,7 @@ begin
             [StreamOffset, DataStreamSize]);
       end
       else
-        PageSize := Owner.Pages[PageIndex].Size;
+        PageSize := View.Pages[PageIndex].Size;
       PageOffset := 0;
     end;
   end;
@@ -2415,6 +2419,11 @@ begin
     raise Exception.CreateFmt(SInvalidOwnerClass, [ClassName, AOwner.ClassName]);
 end;
 
+function TCommonMapViewPostPainter.View: TCustomMappedHexView;
+begin
+  Result := TCustomMappedHexView(inherited Owner);
+end;
+
 function TCommonMapViewPostPainter.IsNeedOffsetRow(ARowIndex: Int64;
   FirstRow: Boolean): Boolean;
 begin
@@ -2448,11 +2457,6 @@ begin
       end
       else
         Result := False;
-end;
-
-function TCommonMapViewPostPainter.Owner: TCustomMappedHexView;
-begin
-  Result := TCustomMappedHexView(inherited Owner);
 end;
 
 function TCommonMapViewPostPainter.RawData: TMappedRawData;
@@ -2496,8 +2500,8 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
         JmpToAddr := RawData[I].JmpToAddr;
         if JmpToAddr <> 0 then
         begin
-          JmpLine := Owner.CalculateJmpToRow(I);
-          if (JmpLine >= 0) or Owner.IsJumpValid(JmpToAddr) then
+          JmpLine := View.CalculateJmpToRow(I);
+          if (JmpLine >= 0) or View.IsJumpValid(JmpToAddr) then
           begin
             Param.DirectionDown := JmpLine > I;
             Param.RowFrom := I;
@@ -2509,7 +2513,7 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
         end;
       end;
 
-      if not Owner.DrawIncomingJmp then
+      if not View.DrawIncomingJmp then
       begin
         Inc(I);
         Continue;
@@ -2534,8 +2538,8 @@ procedure TJumpLinesPostPainter.PostPaint(ACanvas: TCanvas;
 begin
   if ctJmpLine in Columns then
   begin
-    Process(False, Owner.JmpData);
-    Process(True, Owner.JmpData);
+    Process(False, View.JmpData);
+    Process(True, View.JmpData);
   end;
 end;
 
@@ -2854,6 +2858,20 @@ end;
 
 { TCustomMappedHexView }
 
+function TCustomMappedHexView.CalculateColumnBestSize(
+  Value: TColumnType): Integer;
+begin
+  case Value of
+    ctWorkSpace: Result := ToDpi(32);
+    ctJmpLine: Result := ToDpi(82);
+    ctOpcode: Result := ToDpi(235);
+    ctDescription: Result:= ToDpi(377);
+    ctComment: Result := ToDpi(440);
+  else
+    Result := inherited;
+  end;
+end;
+
 function TCustomMappedHexView.CalculateJmpToRow(JmpFromRow: Int64): Int64;
 var
   OldAddressToRowMode: TAddressToRowIndexMode;
@@ -2969,19 +2987,6 @@ begin
   Result := AHitInfo.Cursor = crHandPoint;
   if Result then
     HandleUserInputJump(MousePressedHitInfo.SelectPoint.RowIndex);
-end;
-
-procedure TCustomMappedHexView.FitColumnToBestSize(Value: TColumnType);
-begin
-  case Value of
-    ctWorkSpace: Header.ColumnWidth[ctWorkSpace] := ToDpi(32);
-    ctJmpLine: Header.ColumnWidth[ctJmpLine] := ToDpi(82);
-    ctOpcode: Header.ColumnWidth[ctOpcode] := ToDpi(235);
-    ctDescription: Header.ColumnWidth[ctDescription] := ToDpi(377);
-    ctComment: Header.ColumnWidth[ctComment] := ToDpi(440);
-  else
-    inherited;
-  end;
 end;
 
 function TCustomMappedHexView.GetColorMap: TMapViewColors;
