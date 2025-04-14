@@ -8756,7 +8756,8 @@ begin
   inherited;
   DestroyCaretTimer;
   InvalidateSelections;
-  InplaceEdit.Hide;
+  if not FProcessMenu then
+    InplaceEdit.Hide;
 end;
 
 procedure TFWCustomHexView.WMSetFocus(var Msg: TWMSetFocus);
