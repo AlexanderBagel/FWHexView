@@ -312,7 +312,7 @@ const PrefixBuff: array[0..6] of string = (
   'LOCK', 'NOTRACK', 'REP', 'REPE', 'REPNE', 'REPNZ', 'REPZ'
   );
 
-const RegsBuff: array[0..134] of string = (
+const RegsBuff: array[0..137] of string = (
   'AH', 'AL', 'AX', 'BH', 'BL', 'BP', 'BPL', 'BX', 'CH', 'CL', 'CR0', 'CR2', 'CR3',
   'CR4', 'CR8', 'CS', 'CX', 'DH', 'DI', 'DIL', 'DL', 'DR0', 'DR1', 'DR2', 'DR3', 'DR6',
   'DR7', 'DS', 'DX', 'EAX', 'EBP', 'EBX', 'ECX', 'EDI', 'EDX', 'EIP', 'ES', 'ESI', 'ESP',
@@ -324,10 +324,11 @@ const RegsBuff: array[0..134] of string = (
   'ST(2)', 'ST(3)', 'ST(4)', 'ST(5)', 'ST(6)', 'ST(7)', 'XMM0', 'XMM1', 'XMM10', 'XMM11', 'XMM12',
   'XMM13', 'XMM14', 'XMM15', 'XMM2', 'XMM3', 'XMM4', 'XMM5', 'XMM6', 'XMM7', 'XMM8',
   'XMM9', 'YMM0', 'YMM1', 'YMM10', 'YMM11', 'YMM12', 'YMM13', 'YMM14', 'YMM15', 'YMM2',
-  'YMM3', 'YMM4', 'YMM5', 'YMM6', 'YMM7', 'YMM8', 'YMM9'
+  'YMM3', 'YMM4', 'YMM5', 'YMM6', 'YMM7', 'YMM8', 'YMM9',
+  'RFLAGS', 'EFLAGS', 'FLAGS'
   );
 
-const RegTypesBuff: array[0..134] of TRegType = (
+const RegTypesBuff: array[0..137] of TRegType = (
   // 'AH',   'AL',   'AX',    'BH',   'BL',   'BP',    'BPL',  'BX',   'CH',    'CL',
      rtReg8, rtReg8, rtReg16, rtReg8, rtReg8, rtReg16, rtReg8, rtReg16, rtReg8, rtReg8,
   // 'CR0',  'CR2',    'CR3',   'CR4',   'CR8',
@@ -354,7 +355,7 @@ const RegTypesBuff: array[0..134] of TRegType = (
      rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg16, rtReg8, rtReg16, rtReg8,
   // 'SS',     'ST0', 'ST1', 'ST2', 'ST3', 'ST4', 'ST5', 'ST6', 'ST7',
      rtRegSeg, rtX87, rtX87, rtX87, rtX87, rtX87, rtX87, rtX87, rtX87,
-  // 'XMM0',   'XMM1',     'XMM10',   'XMM11',   'XMM12',   'XMM13',   'XMM14',
+  // 'XMM0',    'XMM1',    'XMM10',   'XMM11',   'XMM12',   'XMM13',   'XMM14',
      rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
   // 'XMM15',   'XMM2',    'XMM3',    'XMM4',    'XMM5',    'XMM6',    'XMM7',
      rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
@@ -363,7 +364,9 @@ const RegTypesBuff: array[0..134] of TRegType = (
   // 'YMM13',   'YMM14',   'YMM15',   'YMM2',    'YMM3',    'YMM4',    'YMM5',
      rtSimd256, rtSimd256, rtSimd256, rtSimd256, rtSimd256, rtSimd256, rtSimd256,
   // 'YMM6',    'YMM7',    'YMM8',    'YMM9'
-     rtSimd256, rtSimd256, rtSimd256, rtSimd256
+     rtSimd256, rtSimd256, rtSimd256, rtSimd256,
+  // 'RFLAGS','EFLAGS','FLAGS'
+     rtReg64, rtReg32, rtReg16
   );
 
 const NopBuff: array[0..3] of string = (
