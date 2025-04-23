@@ -74,11 +74,11 @@ type
     FIsHighResolution: Boolean;
     FLock: TCriticalSection;
     FMaxNameLen: Integer;
-    FMiltiThread: Boolean;
-    FSaveOnSutdown: Boolean;
+    FMultiThread: Boolean;
+    FSaveOnShutdown: Boolean;
     FValues: TDictionary<THash, TProfileValue>;
     FValueDescriptions: TDictionary<THash, string>;
-    FThreads: TObjectDictionary<Cardinal, TStack<TStackParam>>;
+    FThreads: TObjectDictionary<TThreadID, TStack<TStackParam>>;
     FFilePath: string;
     function GetCallHash: THash;
     function GetNow: Int64;
@@ -104,11 +104,11 @@ type
     /// <summary>The property contains the current frequency of the counters.</summary>
     property Frequency: Int64 read FFrequency;
     /// <summary>The property enables support for multithreading.</summary>
-    property MiltiThread: Boolean read FMiltiThread write FMiltiThread;
+    property MultiThread: Boolean read FMultiThread write FMultiThread;
     /// <summary>The property enables automatic saving of accumulated counter values at the end of the process.</summary>
-    property SaveOnSutdown: Boolean read FSaveOnSutdown write FSaveOnSutdown;
+    property SaveOnShutdown: Boolean read FSaveOnShutdown write FSaveOnShutdown;
     /// <summary>Default path for autosave on process termination..</summary>
-    property SaveOnSutdownDirectory: string read FFilePath write FFilePath;
+    property SaveOnShutdownDirectory: string read FFilePath write FFilePath;
   end;
 
   /// <summary>Single point of entry for accessing the profiler instance.</summary>
@@ -152,8 +152,8 @@ begin
   FLock := TCriticalSection.Create;
   FValues := TDictionary<THash, TProfileValue>.Create;
   FValueDescriptions := TDictionary<THash, string>.Create;
-  FThreads := TObjectDictionary<Cardinal, TStack<TStackParam>>.Create([doOwnsValues]);
-  FSaveOnSutdown := True;
+  FThreads := TObjectDictionary<TThreadID, TStack<TStackParam>>.Create([doOwnsValues]);
+  FSaveOnShutdown := True;
   FMaxNameLen := 4;
 end;
 
@@ -161,11 +161,11 @@ destructor TUniversalProfiler.Destroy;
 var
   Path: string;
 begin
-  if SaveOnSutdown then
+  if SaveOnShutdown then
   begin
-    if SaveOnSutdownDirectory <> '' then
+    if SaveOnShutdownDirectory <> '' then
     begin
-      Path := IncludeTrailingPathDelimiter(SaveOnSutdownDirectory);
+      Path := IncludeTrailingPathDelimiter(SaveOnShutdownDirectory);
       if not DirectoryExists(Path) then
         ForceDirectories(Path);
     end
@@ -221,12 +221,12 @@ end;
 
 function TUniversalProfiler.GetProfileValue(AHash: THash): TProfileValue;
 begin
-  if MiltiThread then FLock.Enter;
+  if MultiThread then FLock.Enter;
   try
     Result := Default(TProfileValue);
     FValues.TryGetValue(AHash, Result);
   finally
-    if MiltiThread then FLock.Leave;
+    if MultiThread then FLock.Leave;
   end;
 end;
 
@@ -251,7 +251,7 @@ var
   SortRec: TSortRec;
   HashName: string;
 begin
-  if MiltiThread then FLock.Enter;
+  if MultiThread then FLock.Enter;
   try
     Result := TStringList.Create;
     Result.Add(Format('%16s | %*s | %8s | %16s | %16s | %16s | %16s |', [
@@ -281,20 +281,20 @@ begin
       List.Free;
     end;
   finally
-    if MiltiThread then FLock.Leave;
+    if MultiThread then FLock.Leave;
   end;
 end;
 
 procedure TUniversalProfiler.Reset;
 begin
-  if MiltiThread then FLock.Enter;
+  if MultiThread then FLock.Enter;
   try
     FMaxNameLen := 0;
     FValues.Clear;
     FValueDescriptions.Clear;
     FThreads.Clear;
   finally
-    if MiltiThread then FLock.Leave;
+    if MultiThread then FLock.Leave;
   end;
 end;
 
@@ -316,11 +316,11 @@ function TUniversalProfiler.Start(const ASectionName: string): THash;
 var
   ProfileValue: TProfileValue;
   PresentSectionName: string;
-  ThreadID: Cardinal;
+  ThreadID: TThreadID;
   ThreadStack: TStack<TStackParam>;
   StackParam: TStackParam;
 begin
-  if MiltiThread then FLock.Enter;
+  if MultiThread then FLock.Enter;
   try
     FMaxNameLen := Max(FMaxNameLen, Length(ASectionName));
     StackParam.Hash := GetCallHash;
@@ -339,20 +339,20 @@ begin
     StackParam.StartTime := GetNow;
     ThreadStack.Push(StackParam);
   finally
-    if MiltiThread then FLock.Leave;
+    if MultiThread then FLock.Leave;
   end;
 end;
 
 procedure TUniversalProfiler.Stop;
 var
   StopTime: Int64;
-  ThreadID: Cardinal;
+  ThreadID: TThreadID;
   ThreadStack: TStack<TStackParam>;
   StackParam: TStackParam;
   ProfileValue: TProfileValue;
 begin
   StopTime := GetNow;
-  if MiltiThread then FLock.Enter;
+  if MultiThread then FLock.Enter;
   try
     ThreadID := GetCurrentThreadId;
     if not FThreads.TryGetValue(ThreadID, ThreadStack) then Exit;
@@ -369,7 +369,7 @@ begin
     Inc(ProfileValue.Count);
     FValues.AddOrSetValue(StackParam.Hash, ProfileValue);
   finally
-    if MiltiThread then FLock.Leave;
+    if MultiThread then FLock.Leave;
   end;
 end;
 

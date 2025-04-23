@@ -6359,6 +6359,7 @@ end;
 procedure TFWCustomHexView.DblClick;
 var
   NewAddressViewOffsetBase: Int64;
+  Painter: TAbstractPrimaryRowPainter;
 begin
   if AddressViewAutoToggle then
   begin
@@ -6373,7 +6374,11 @@ begin
   try
     inherited;
     if not EditAtCaretPos then
-      UpdateCaretPosData(MousePressedHitInfo.SelectPoint, ccmSelectRow);
+    begin
+      Painter := GetRowPainter(MousePressedHitInfo.SelectPoint.RowIndex);
+      UpdateCaretPosData(MousePressedHitInfo.SelectPoint,
+        GetCaretChangeMode(Painter, FCaretPosData.Column, SavedShift + [ssDouble]));
+    end;
   finally
     FMousePressed := False;
   end;
@@ -7105,11 +7110,8 @@ function TFWCustomHexView.GetCaretChangeMode(
   Shift: TShiftState): TCaretChangeMode;
 begin
   Result := ccmNone;
-  if ssShift in Shift then
-  begin
-    Result := ccmContinueSelection;
-    Exit;
-  end;
+  if ssShift in Shift then Exit(ccmContinueSelection);
+  if ssDouble in Shift then Exit(ccmSelectRow);
   if APainter = nil then Exit;
   if ReadOnly then Exit(ccmSetNewSelection);
   case APainter.CaretEditMode(AColumn) of
