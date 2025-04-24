@@ -1037,6 +1037,7 @@ type
 
   TFWCustomHexView = class(TCustomControl, IHexViewCopyAction, IHexViewByteViewModeAction)
   private const
+    NoDpiMultipier = 42;
     NoDpiBorderMargin = 2;
     NoDpiTextMargin = 8;
     NoDpiSplitMargin = 3;
@@ -8351,21 +8352,18 @@ begin
 end;
 
 procedure TFWCustomHexView.RestoreViewParam;
-const
-  Multipier = 42;
 var
   I: TColumnType;
-  M, D: Integer;
+  M: Integer;
 begin
   // New proportions for columns resize
   BeginUpdate;
   try
-    M := CharWidth * Multipier;
-    D := FPreviosCharWidth * Multipier;
+    M := CharWidth * NoDpiMultipier;
     if not (csDesigning in ComponentState) then
     begin
       for I := ctWorkSpace to High(TColumnType) do
-        FHeader.ColumnWidth[I] := MulDiv(FHeader.ColumnWidth[I], M, D);
+        FHeader.ColumnWidth[I] := MulDiv(FHeader.ColumnWidth[I], M, FPreviosCharWidth);
     end;
     if InplaceEdit.Visible then
       InplaceEdit.CalcEditRect;
@@ -8437,7 +8435,7 @@ end;
 
 procedure TFWCustomHexView.SaveViewParam;
 begin
-  FPreviosCharWidth := FCharWidth;
+  FPreviosCharWidth := FCharWidth * NoDpiMultipier;
 end;
 
 function TFWCustomHexView.GetDefaultCaretChangeMode: TCaretChangeMode;
@@ -8987,9 +8985,7 @@ begin
     ScrollInfo.nPos := -FScrollOffset.X;
     ScrollInfo.nPage := ClientWidth;
     ScrollInfo.nMax := FTextBoundary.X;
-    {$IFNDEF FPC}
     ShowScrollBar(Handle, SB_HORZ, True);
-    {$ENDIF}
     SetScrollInfo(Handle, SB_HORZ, ScrollInfo, True);
   end
   else
@@ -9136,9 +9132,7 @@ begin
     ScrollInfo.nPos := -Scroll64To32(FScrollOffset.Y);
     ScrollInfo.nPage := Scroll64To32(ClientHeight);
     ScrollInfo.nMax := Scroll64To32(FTextBoundary.Y);
-    {$IFNDEF FPC}
     ShowScrollBar(Handle, SB_VERT, True);
-    {$ENDIF}
     SetScrollInfo(Handle, SB_VERT, ScrollInfo, True);
 
     Invalidate;
