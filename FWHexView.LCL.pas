@@ -9,7 +9,7 @@ interface
 
 uses
   FWHexView.Actions, FWHexView.AsmTokenizer, FWHexView.Common, 
-  FWHexView.MappedView, FWHexView, uni_profiler;
+  FWHexView.MappedView, FWHexView;
 
 implementation
 
