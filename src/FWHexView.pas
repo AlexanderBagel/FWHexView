@@ -1042,6 +1042,7 @@ type
     NoDpiTextMargin = 8;
     NoDpiSplitMargin = 3;
     CHAR_STRING = 'W';
+    WM_DELAYEDUPDATESCROLL = WM_USER;
   strict private
     FAcceptSelForced: Boolean;
     FAddressMode: TAddressMode;
@@ -1175,6 +1176,7 @@ type
     procedure Resize; override;
     procedure SetParent(AParent: TWinControl); override;
     procedure UTF8KeyPress(var UTF8Key: TNativeChar); {$IFDEF FPC}override;{$ENDIF}
+    procedure WMDelayedUpdateScroll(var Msg: TMessage); message WM_DELAYEDUPDATESCROLL;
     procedure WMGetDlgCode(var Msg: TWMGetDlgCode); message WM_GETDLGCODE;
     procedure WMHScroll(var Msg: TWMHScroll); message WM_HSCROLL;
     procedure WMKillFocus(var Msg: TWMKillFocus); message WM_KILLFOCUS;
@@ -8302,7 +8304,8 @@ begin
   if HandleAllocated and (FRowHeight > 0) then
   begin
     UpdateTextBoundary;
-    UpdateScrollPos;
+    // Lazarus bug fix. When resizing via splitter, resizing is blocked.
+    PostMessage(Handle, WM_DELAYEDUPDATESCROLL, 0, 0);
   end;
 end;
 
@@ -9153,6 +9156,11 @@ procedure TFWCustomHexView.UTF8KeyPress(var UTF8Key: TNativeChar);
 begin
   inherited;
   DoCaretEdit(UTF8Key);
+end;
+
+procedure TFWCustomHexView.WMDelayedUpdateScroll(var Msg: TMessage);
+begin
+  UpdateScrollPos;
 end;
 
 function TFWCustomHexView.VisibleRowCount: Integer;
