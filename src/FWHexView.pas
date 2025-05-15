@@ -3260,7 +3260,7 @@ begin
     ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
   end;
   CorrectCanvasFont(ACanvas, ctAddress);
-  DrawText(ACanvas, PChar(ColumnAsString(ctAddress)), -1, ARect, DT_RIGHT);
+  DrawText(ACanvas, PChar(ColumnAsString(ctAddress)), -1, ARect, DT_SINGLELINE or DT_RIGHT);
 end;
 
 procedure TAbstractPrimaryRowPainter.DrawAlignedTextPart(ACanvas: TCanvas;
@@ -4626,7 +4626,7 @@ begin
       Exit;
     end;
     ctJmpLine, ctAddress:
-      Flags := DT_RIGHT;
+      Flags := DT_SINGLELINE or DT_RIGHT;
   end;
   Painter.DefaultDrawHeaderColumn(ACanvas, ARect, ColumnCaption[AColumn], Flags);
 end;

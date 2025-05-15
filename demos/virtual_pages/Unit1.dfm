@@ -21,9 +21,7 @@ object Form1: TForm1
     Width = 904
     Height = 244
     Align = alClient
-    Header.Columns = [ctJmpLine, ctAddress, ctOpcode, ctDescription]
+    Header.Columns = [ctWorkSpace, ctJmpLine, ctAddress, ctOpcode, ctDescription]
     TabOrder = 0
-    ExplicitWidth = 304
-    ExplicitHeight = 201
   end
 end

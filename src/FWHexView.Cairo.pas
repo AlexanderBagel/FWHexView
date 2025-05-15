@@ -183,8 +183,7 @@ begin
       x := ARect.Right - awidth;
     if ACanvas.Brush.Style = bsSolid then
     begin
-      ARect.Left := X;
-      ARect.Width := awidth + 1;
+      ARect.Left := Max(X, ARect.Left);
       ACanvas.FillRect(ARect);
     end;
     cairo_move_to(ct, x, y);
