@@ -2,7 +2,7 @@ object Form1: TForm1
   Left = 0
   Top = 0
   Caption = 'TMappedHexView Virtual Pages demo'
-  ClientHeight = 244
+  ClientHeight = 337
   ClientWidth = 904
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -19,9 +19,11 @@ object Form1: TForm1
     Left = 0
     Top = 0
     Width = 904
-    Height = 244
+    Height = 337
     Align = alClient
-    Header.Columns = [ctWorkSpace, ctJmpLine, ctAddress, ctOpcode, ctDescription]
+    Header.Columns = [ctJmpLine, ctAddress, ctOpcode, ctDescription]
     TabOrder = 0
+    ExplicitWidth = 304
+    ExplicitHeight = 201
   end
 end

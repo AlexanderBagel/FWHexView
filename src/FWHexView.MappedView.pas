@@ -68,6 +68,9 @@ uses
   FWHexView,
   FWHexView.Common;
 
+const
+  FLAG_RADIOCHECK = 1;
+
 type
   TRowStyle = (
     rsNone,
@@ -113,7 +116,7 @@ type
       2: (
         // for Style = rsMaskCheck, rsMaskRadio
         MaskRowIndex: Int64;  // Index in TRowData for row with mask
-        CharIndex: Byte;
+        BitIndex: Byte;
         Checked: Boolean);
   end;
 
@@ -134,6 +137,7 @@ type
     function View: TCustomMappedHexView;
   protected
     procedure SetLinked(Index: Int64);
+    property PresentRows: TListEx<TRowData> read FRows;
   public
     constructor Create(AOwner: TFWCustomHexView); override;
     destructor Destroy; override;
@@ -159,7 +163,7 @@ type
     function Linked: Boolean;       // the tag means there's an incoming link
     // для Style = rsMaskCheck, rsMaskRadio
     function MaskRowIndex: Int64;
-    function CharIndex: Byte;
+    function BitIndex: Byte;
     function Checked: Boolean;
     function Count: Int64; override;
     procedure Clear; override;
@@ -183,7 +187,7 @@ type
         LinkStart: Integer;
         LinkLength: Integer);
       2: (
-        CharIndex: Byte;
+        BitIndex: Byte;
         Checked: Boolean);
       3: (
         BlockCommentStart: Boolean);
@@ -228,9 +232,9 @@ type
     function AddMask(DataLength: Byte; const Description: string;
       Expanded: Boolean; Color: TColor = clDefault): Integer; overload;
 
-    function AddMaskCheck(ByteIndex: Byte;
+    function AddMaskCheck(BitIndex: Byte;
       const Description, Comment: string; Checked: Boolean): Integer;
-    function AddMaskRadio(ByteIndex: Byte;
+    function AddMaskRadio(BitIndex: Byte;
       const Description, Comment: string; Checked: Boolean): Integer;
     function AddMaskSeparator: Integer;
 
@@ -330,6 +334,15 @@ type
   TPrimaryMappedRowPainter = class(TRowHexPainter)
   protected
     function CalcColumnLengthForCopy(AColumn: TColumnType): Integer; override;
+    function CharCount(AColumn: TColumnType): Integer; override;
+    function ColumnAsString(AColumn: TColumnType): string; override;
+    procedure DrawColorGroup({%H-}ACanvas: TCanvas; var {%H-}ARect: TRect); override;
+    procedure DrawDataPart(ACanvas: TCanvas; var ARect: TRect); override;
+    function FormatRowColumn(AColumn: TColumnType;
+      const Value: string): string; override;
+    function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
+  public
+    constructor Create(AOwner: TFWCustomHexView); override;
   end;
 
   TRowWithExDescription = class(TPrimaryMappedRowPainter)
@@ -339,25 +352,35 @@ type
   protected
     function ByteViewMode: TByteViewMode; override;
     function CaretEditMode(AColumn: TColumnType): TCaretEditMode; override;
-    function CharCount(AColumn: TColumnType): Integer; override;
-    function ColumnAsString(AColumn: TColumnType): string; override;
-    procedure DrawColorGroup({%H-}ACanvas: TCanvas; var {%H-}ARect: TRect); override;
     procedure DrawDataPart(ACanvas: TCanvas; var ARect: TRect); override;
-    function FormatRowColumn(AColumn: TColumnType;
-      const Value: string): string; override;
     procedure GetHitInfo(var AHitInfo: TMouseHitInfo); override;
     function GetLinkBoundaries(out ABounds: TBoundaries): Boolean;
     function GetTextMetricClass: TAbstractTextMetricClass; override;
-    function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     function TextMetric: TAbstractTextMetric; override;
   public
     constructor Create(AOwner: TFWCustomHexView); override;
   end;
 
-  TRowMask = class(TRowWithExDescription)
+  TMaskTextMetric = class(TDefaultTextMetric)
+  strict private
+    FByteViewMode: TByteViewMode;
+    FRawLength: Integer;
+  private
+    procedure SetRawLength(const Value: Integer);
   protected
+    function ByteViewMode: TByteViewMode; override;
+    property RawLength: Integer read FRawLength write SetRawLength;
+  public
+    constructor Create(AOwner: TFWCustomHexView); override;
+  end;
+
+  TRowMask = class(TPrimaryMappedRowPainter)
+  protected
+    function ByteViewMode: TByteViewMode; override;
     procedure DrawHexPart(ACanvas: TCanvas; var ARect: TRect); override;
     procedure GetHitInfo(var AHitInfo: TMouseHitInfo); override;
+    procedure RowChanged; override;
+    function TextMetric: TAbstractTextMetric; override;
   end;
 
   TRowAssembler = class(TRowWithExDescription)
@@ -399,12 +422,14 @@ type
     procedure DrawCheckPart(ACanvas: TCanvas; const ARect: TRect);
     procedure DrawRadioPart(ACanvas: TCanvas; const ARect: TRect);
     procedure DrawCommentPart(ACanvas: TCanvas; const ARect: TRect);
+    function GetCheckRect(const ARect: TRect): TRect;
   protected
     function AcceptSelection: Boolean; override;
     function CalcColumnLengthForCopy(AColumn: TColumnType): Integer; override;
     function ColumnAsString(AColumn: TColumnType): string; override;
     procedure DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
       var ARect: TRect); override;
+    procedure GetHitInfo(var AMouseHitInfo: TMouseHitInfo); override;
     function GetTextMetricClass: TAbstractTextMetricClass; override;
     function TextMetric: TAbstractTextMetric; override;
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
@@ -438,6 +463,7 @@ type
     procedure DrawRow(ACanvas: TCanvas; RowIndex: Int64;
       var Offset: TPoint; DrawOnlySelectedArrow: Boolean;
       DrawRadio: Boolean);
+    function TextMetric: TAbstractTextMetric; override;
   public
     procedure PostPaint(ACanvas: TCanvas; StartRow, EndRow: Int64;
       var Offset: TPoint); override;
@@ -494,6 +520,8 @@ type
 
   TAddressToRowIndexMode = (armFindFirstRaw, armFindFirstAny);
 
+  TRadioCheckClickEvent = procedure(Sender: TObject; ARowIndex: Int64) of object;
+
   { TCustomMappedHexView }
 
   TCustomMappedHexView = class(TFWCustomHexView)
@@ -503,11 +531,15 @@ type
     FDrawIncomingJmp: Boolean;
     FJmpInitList: TList<Int64>;
     FJmpData: TObjectDictionary<Int64, TList<Int64>>;
-    FPages: TVirtualPages;
     FLastInvalidAddrRect: TRect;
+    FMaskTextMetric: TMaskTextMetric;
+    FPages: TVirtualPages;
+    FRadioCheckClick: TRadioCheckClickEvent;
+    FShowMaskAsValue: Boolean;
     function GetColorMap: TMapViewColors;
     procedure SetColorMap(const Value: TMapViewColors);
     procedure SetDrawIncomingJmp(const Value: Boolean);
+    procedure SetShowMaskAsValue(const Value: Boolean);
     procedure UpdateJumpList;
   protected
     function CalculateColumnBestSize(Value: TColumnType): Integer; override;
@@ -516,8 +548,8 @@ type
     procedure DoGetHint(var AHintParam: THintParam; var AHint: string); override;
     procedure DoInvalidateRange(AStartRow, AEndRow: Int64); override;
     function DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean; override;
+    function DoRadioCheckClick(ARowIndex: Int64): Boolean;
     function GetColorMapClass: THexViewColorMapClass; override;
-    function GetDefaultPainterClass: TPrimaryRowPainterClass; override;
     function GetRawDataClass: TRawDataClass; override;
     procedure HandleUserInputJump(ARowIndex: Int64);
     procedure InitPainters; override;
@@ -528,6 +560,7 @@ type
   protected
     property JmpData: TObjectDictionary<Int64, TList<Int64>> read FJmpData;
     property JmpInitList: TList<Int64> read FJmpInitList;
+    property MaskTextMetric: TMaskTextMetric read FMaskTextMetric;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -539,6 +572,8 @@ type
     property AddressToRowIndexMode: TAddressToRowIndexMode read FAddressToRowIndexMode write FAddressToRowIndexMode default armFindFirstRaw;
     property ColorMap: TMapViewColors read GetColorMap write SetColorMap stored IsColorMapStored;
     property DrawIncomingJmp: Boolean read FDrawIncomingJmp write SetDrawIncomingJmp default False;
+    property ShowMaskAsValue: Boolean read FShowMaskAsValue write SetShowMaskAsValue default False;
+    property OnRadioCheckClick: TRadioCheckClickEvent read FRadioCheckClick write FRadioCheckClick;
   end;
 
   TMappedHexView = class(TCustomMappedHexView)
@@ -590,6 +625,7 @@ type
     property SeparateGroupByColor;
     property ShortCuts;
     property ShowHint;
+    property ShowMaskAsValue;
     property TabOrder;
     property TabStop;
     property Text;
@@ -619,6 +655,7 @@ type
     property OnMouseMove;
     property OnMouseUp;
     property OnQueryComment;
+    property OnRadioCheckClick;
     property OnSelectionChange;
     property OnStartDock;
     property OnStartDrag;
@@ -750,9 +787,9 @@ begin
   end;
 end;
 
-function TMappedRawData.CharIndex: Byte;
+function TMappedRawData.BitIndex: Byte;
 begin
-  Result := GetItem.CharIndex;
+  Result := GetItem.BitIndex;
 end;
 
 procedure TMappedRawData.CheckDataMap;
@@ -1035,6 +1072,7 @@ var
   LastPageIsRaw: Boolean;
   LastMaskIndex: Int64;
   AMapRow: TMapRow;
+  ServiceLineProcessing: Boolean;
 
   procedure AddLine;
   begin
@@ -1097,6 +1135,20 @@ var
       AMapRow := Default(TMapRow);
   end;
 
+  procedure UpdateServiceLineProcessing;
+  begin
+    if (StreamOffset = DataStreamSize) or (PageOffset = PageSize) then
+    begin
+      if MapIndex < Data.Count then
+      begin
+        UpdateLocalMapRow;
+        ServiceLineProcessing := AMapRow.Address = (PageAddress + PageOffset);
+      end
+      else
+        ServiceLineProcessing := False;
+    end;
+  end;
+
 begin
   FCount := 0;
   StreamOffset := 0;
@@ -1130,10 +1182,12 @@ begin
   LastPageIsRaw := False;
   LastMaskIndex := -1;
   AMapRow := Default(TMapRow);
+  ServiceLineProcessing := False;
   while PageIndex < View.Pages.Count do
   begin
 
-    while (StreamOffset < DataStreamSize) and (PageOffset < PageSize) do
+    while ((StreamOffset < DataStreamSize) and (PageOffset < PageSize)) or
+      ServiceLineProcessing do
     begin
 
       Line.Address := PageAddress + PageOffset;
@@ -1183,6 +1237,7 @@ begin
             if FRows.Count = 0 then
               Continue;
             FRows.List[FRows.Count - 1].DrawRowSmallSeparator := True;
+            UpdateServiceLineProcessing;
             Continue;
           end;
 
@@ -1217,11 +1272,12 @@ begin
               begin
                 Inc(MapIndex);
                 UpdateLocalMapRow;
+                UpdateServiceLineProcessing;
                 Continue;
               end;
               Line.MaskRowIndex := FRows.List[LastMaskIndex].RowIndex;
               Line.Address := FRows.List[LastMaskIndex].Address;
-              Line.CharIndex := AMapRow.CharIndex;
+              Line.BitIndex := AMapRow.BitIndex;
               Line.Checked := AMapRow.Checked;
             end;
           end;
@@ -1252,6 +1308,7 @@ begin
       AddLine;
       Inc(StreamOffset, Line.RawLength);
       Inc(PageOffset, Line.RawLength);
+      UpdateServiceLineProcessing;
     end;
     Inc(PageIndex);
     if PageIndex < View.Pages.Count then
@@ -1520,7 +1577,7 @@ begin
   Result := AddMask(CurrentAddr, DataLength, Description, '', Expanded, Color);
 end;
 
-function TDataMap.AddMaskCheck(ByteIndex: Byte; const Description,
+function TDataMap.AddMaskCheck(BitIndex: Byte; const Description,
   Comment: string; Checked: Boolean): Integer;
 var
   LineData: TMapRow;
@@ -1531,12 +1588,12 @@ begin
   LineData.Address := CurrentAddr;
   LineData.Description := Description;
   LineData.Comment := Comment;
-  LineData.CharIndex := ByteIndex;
+  LineData.BitIndex := BitIndex;
   LineData.Checked := Checked;
   Result := AddMapLine(LineData);
 end;
 
-function TDataMap.AddMaskRadio(ByteIndex: Byte; const Description,
+function TDataMap.AddMaskRadio(BitIndex: Byte; const Description,
   Comment: string; Checked: Boolean): Integer;
 var
   LineData: TMapRow;
@@ -1547,7 +1604,7 @@ begin
   LineData.Address := CurrentAddr;
   LineData.Description := Description;
   LineData.Comment := Comment;
-  LineData.CharIndex := ByteIndex;
+  LineData.BitIndex := BitIndex;
   LineData.Checked := Checked;
   Result := AddMapLine(LineData);
 end;
@@ -1635,7 +1692,7 @@ function TDataMap.CheckAddr(Address, DataLength: Int64): TAddrCheck;
 begin
   if FOwner.Pages.Count > 0 then
   begin
-    if not FOwner.Pages.CheckAddrInPages(Address) then
+    if (DataLength > 0) and not FOwner.Pages.CheckAddrInPages(Address) then
       Exit(acStartOutOfPool);
     if not FOwner.Pages.CheckAddrInPages(Address + DataLength - 1) then
       Exit(acEndOutOfPool);
@@ -1938,23 +1995,7 @@ begin
     Result := inherited;
 end;
 
-{ TRowWithExDescription }
-
-function TRowWithExDescription.ByteViewMode: TByteViewMode;
-begin
-  Result := bvmHex8;
-end;
-
-function TRowWithExDescription.CaretEditMode(
-  AColumn: TColumnType): TCaretEditMode;
-begin
-  if AColumn = ctOpcode then
-    Result := inherited
-  else
-    Result := cemDisabled;
-end;
-
-function TRowWithExDescription.CharCount(AColumn: TColumnType): Integer;
+function TPrimaryMappedRowPainter.CharCount(AColumn: TColumnType): Integer;
 begin
   if AColumn = ctDescription then
     Result := 0
@@ -1962,7 +2003,7 @@ begin
     Result := inherited;
 end;
 
-function TRowWithExDescription.ColumnAsString(AColumn: TColumnType): string;
+function TPrimaryMappedRowPainter.ColumnAsString(AColumn: TColumnType): string;
 begin
   if AColumn = ctDescription then
     Result := RawData[RowIndex].Description
@@ -1970,21 +2011,15 @@ begin
     Result := inherited;
 end;
 
-constructor TRowWithExDescription.Create(AOwner: TFWCustomHexView);
+constructor TPrimaryMappedRowPainter.Create(AOwner: TFWCustomHexView);
 begin
   if AOwner is TCustomMappedHexView then
     inherited
   else
     raise Exception.CreateFmt(SInvalidOwnerClass, [ClassName, AOwner.ClassName]);
-
-  // дестроить не нужно - метрика зарегистрируется в общем списке
-
-  // no destroying is necessary - the metric will be registered in the common list
-
-  FTextMetric := GetTextMetricClass.Create(AOwner);
 end;
 
-procedure TRowWithExDescription.DrawColorGroup(ACanvas: TCanvas;
+procedure TPrimaryMappedRowPainter.DrawColorGroup(ACanvas: TCanvas;
   var ARect: TRect);
 begin
   // для размапленных данных отрисовка цветовых групп избыточна
@@ -1992,7 +2027,7 @@ begin
   // color group rendering is redundant for unmapped data
 end;
 
-procedure TRowWithExDescription.DrawDataPart(ACanvas: TCanvas;
+procedure TPrimaryMappedRowPainter.DrawDataPart(ACanvas: TCanvas;
   var ARect: TRect);
 var
   R: TRect;
@@ -2013,25 +2048,9 @@ begin
 
   ACanvas.Brush.Style := bsClear;
   DrawAlignedTextPart(ACanvas, ctDescription, DataString, ARect);
-
-  if RawData[RowIndex].LinkLength > 0 then
-  begin
-    R := GetLineJmpMarkRect(ARect);
-    if TMapViewColors(ColorMap).JmpMarkColor <> clDefault then
-    begin
-      ACanvas.Brush.Style := bsSolid;
-      ACanvas.Brush.Color := TMapViewColors(ColorMap).JmpMarkColor;
-    end;
-    ACanvas.Font.Color := TMapViewColors(ColorMap).JmpMarkTextColor;
-    ACanvas.Font.Style := [TFontStyle.fsUnderline];
-    DataString := Copy(DataString, RawData[RowIndex].LinkStart + 1,
-      RawData[RowIndex].LinkLength);
-    DrawAlignedTextPart(ACanvas, ctDescription, DataString, R);
-    ACanvas.Font.Style := [];
-  end;
 end;
 
-function TRowWithExDescription.FormatRowColumn(AColumn: TColumnType;
+function TPrimaryMappedRowPainter.FormatRowColumn(AColumn: TColumnType;
   const Value: string): string;
 
   function AlignStr(const Value: string; CharLength: Integer): string;
@@ -2047,6 +2066,64 @@ begin
     Result := AlignStr(Value, CalcColumnLengthForCopy(AColumn))
   else
     Result := inherited;
+end;
+
+function TPrimaryMappedRowPainter.RawData: TMappedRawData;
+begin
+  Result := TMappedRawData(inherited RawData);
+end;
+
+{ TRowWithExDescription }
+
+function TRowWithExDescription.ByteViewMode: TByteViewMode;
+begin
+  Result := bvmHex8;
+end;
+
+function TRowWithExDescription.CaretEditMode(
+  AColumn: TColumnType): TCaretEditMode;
+begin
+  if AColumn = ctOpcode then
+    Result := inherited
+  else
+    Result := cemDisabled;
+end;
+
+constructor TRowWithExDescription.Create(AOwner: TFWCustomHexView);
+begin
+  inherited;
+
+  // дестроить не нужно - метрика зарегистрируется в общем списке
+
+  // no destroying is necessary - the metric will be registered in the common list
+
+  FTextMetric := GetTextMetricClass.Create(AOwner);
+end;
+
+procedure TRowWithExDescription.DrawDataPart(ACanvas: TCanvas;
+  var ARect: TRect);
+var
+  R: TRect;
+  DataString: string;
+begin
+  inherited;
+
+  if RawData[RowIndex].LinkLength > 0 then
+  begin
+    DataString := RawData[RowIndex].Description;
+    R := GetLineJmpMarkRect(ARect);
+    if TMapViewColors(ColorMap).JmpMarkColor <> clDefault then
+    begin
+      ACanvas.Brush.Style := bsSolid;
+      ACanvas.Brush.Color := TMapViewColors(ColorMap).JmpMarkColor;
+    end;
+    ACanvas.Font.Color := TMapViewColors(ColorMap).JmpMarkTextColor;
+    ACanvas.Font.Style := [TFontStyle.fsUnderline];
+    DataString := Copy(DataString, RawData[RowIndex].LinkStart + 1,
+      RawData[RowIndex].LinkLength);
+    DrawAlignedTextPart(ACanvas, ctDescription, DataString, R);
+    ACanvas.Font.Style := [];
+  end;
 end;
 
 procedure TRowWithExDescription.GetHitInfo(var AHitInfo: TMouseHitInfo);
@@ -2091,17 +2168,54 @@ begin
   Result := TFixedHexByteTextMetric;
 end;
 
-function TRowWithExDescription.RawData: TMappedRawData;
-begin
-  Result := TMappedRawData(inherited RawData);
-end;
-
 function TRowWithExDescription.TextMetric: TAbstractTextMetric;
 begin
   Result := FTextMetric;
 end;
 
+{ TMaskTextMetric }
+
+function TMaskTextMetric.ByteViewMode: TByteViewMode;
+begin
+  if TCustomMappedHexView(Owner).ShowMaskAsValue then
+    Result := FByteViewMode
+  else
+    Result := bvmHex8;
+end;
+
+constructor TMaskTextMetric.Create(AOwner: TFWCustomHexView);
+begin
+  if AOwner is TCustomMappedHexView then
+    inherited
+  else
+    raise Exception.CreateFmt(SInvalidOwnerClass, [ClassName, AOwner.ClassName]);
+end;
+
+procedure TMaskTextMetric.SetRawLength(const Value: Integer);
+var
+  NewByteViewMode: TByteViewMode;
+begin
+  FRawLength := Value;
+  case Value of
+    1: NewByteViewMode := bvmHex8;
+    2: NewByteViewMode := bvmHex16;
+    3, 4: NewByteViewMode := bvmHex32;
+  else
+    NewByteViewMode := bvmHex64;
+  end;
+  if NewByteViewMode <> FByteViewMode then
+  begin
+    FByteViewMode := NewByteViewMode;
+    Update;
+  end;
+end;
+
 { TRowMask }
+
+function TRowMask.ByteViewMode: TByteViewMode;
+begin
+  Result := TMaskTextMetric(TextMetric).ByteViewMode;
+end;
 
 procedure TRowMask.DrawHexPart(ACanvas: TCanvas; var ARect: TRect);
 var
@@ -2119,8 +2233,8 @@ begin
     ACenteredOffset := (RowHeight - AWidth) div 2;
     R := Bounds(ACenteredOffset, ACenteredOffset, AWidth, AWidth);
     OffsetRect(R,
-      ARect.Left + TextMetric.SelectionLength(ctOpcode, 1, Data.RawLength) - MulDiv(AWidth, 3, 2),
-      ARect.Top);
+      ARect.Left + TextMetric.SelectionLength(ctOpcode, 0, Data.RawLength - 1) - MulDiv(AWidth, 3, 2) + AWidth,
+      ARect.Top + 1);
     if R.Right >= ARect.Right then Exit;
     P := R.TopLeft;
     Dec(P.Y, AWidth div 2);
@@ -2131,8 +2245,8 @@ begin
     ACenteredOffset := (RowHeight - AWidth * 2) div 2;
     R := Bounds(ACenteredOffset, ACenteredOffset, AWidth, AWidth);
     OffsetRect(R,
-      ARect.Left + TextMetric.SelectionLength(ctOpcode, 1, Data.RawLength) - AWidth,
-      ARect.Top);
+      ARect.Left + TextMetric.SelectionLength(ctOpcode, 0, Data.RawLength - 1),
+      ARect.Top + 1);
     if R.Right >= ARect.Right then Exit;
     P := R.TopLeft;
     Dec(P.Y, AWidth div 2);
@@ -2144,17 +2258,26 @@ procedure TRowMask.GetHitInfo(var AHitInfo: TMouseHitInfo);
 var
   AWidth, LeftOffset: Integer;
 begin
+  inherited;
   if AHitInfo.SelectPoint.Column = ctOpcode then
   begin
     AWidth := ToDpi(3);
     LeftOffset := AHitInfo.ColumnStart +
-      TextMetric.SelectionLength(ctOpcode, 1, RawData[RowIndex].RawLength) + AWidth;
+      TextMetric.SelectionLength(ctOpcode, 0, RawData[RowIndex].RawLength - 1) + AWidth;
     if (AHitInfo.ScrolledCursorPos.X >= LeftOffset) and
       (AHitInfo.ScrolledCursorPos.X <= LeftOffset + RowHeight + AWidth) then
       AHitInfo.Cursor := crHandPoint;
-  end
-  else
-    inherited;
+  end;
+end;
+
+procedure TRowMask.RowChanged;
+begin
+  TMaskTextMetric(TextMetric).RawLength := RawData[RowIndex].RawLength;
+end;
+
+function TRowMask.TextMetric: TAbstractTextMetric;
+begin
+  Result := TCustomMappedHexView(Owner).MaskTextMetric;
 end;
 
 { TRowAssembler }
@@ -2301,9 +2424,7 @@ var
   R, CheckRect: TRect;
   Details: TThemedElementDetails;
 begin
-  CheckRect := Rect(ARect.Left, ARect.Top, ARect.Left +
-    Min(RowHeight, ToDpi(13)), ARect.Top + Min(RowHeight, ToDpi(13)));
-  OffsetRect(CheckRect, 0, (RowHeight - CheckRect.Height) div 2);
+  CheckRect := GetCheckRect(ARect);
   if StyleServices.Enabled then
   begin
     if RawData[RowIndex].Checked then
@@ -2367,9 +2488,7 @@ var
   R, CheckRect: TRect;
   Details: TThemedElementDetails;
 begin
-  CheckRect := Rect(ARect.Left, ARect.Top, ARect.Left +
-    Min(RowHeight, ToDpi(13)), ARect.Top + Min(RowHeight, ToDpi(13)));
-  OffsetRect(CheckRect, 0, (RowHeight - CheckRect.Height) div 2);
+  CheckRect := GetCheckRect(ARect);
   if StyleServices.Enabled then
   begin
     if RawData[RowIndex].Checked then
@@ -2392,6 +2511,29 @@ begin
   R.Left := CheckRect.Right + ToDpi(4);
   CorrectCanvasFont(ACanvas, ctDescription);
   DrawText(ACanvas, PChar(RawData[RowIndex].Description), -1, R, 0);
+end;
+
+function TRowCheckRadioMask.GetCheckRect(const ARect: TRect): TRect;
+begin
+  Result := Rect(ARect.Left, ARect.Top, ARect.Left +
+    Min(RowHeight, ToDpi(13)), ARect.Top + Min(RowHeight, ToDpi(13)));
+  OffsetRect(Result, 0, (RowHeight - Result.Height) div 2);
+end;
+
+procedure TRowCheckRadioMask.GetHitInfo(var AMouseHitInfo: TMouseHitInfo);
+var
+  R: TRect;
+begin
+  inherited;
+  if AMouseHitInfo.SelectPoint.Column = ctDescription then
+  begin
+    R := GetColumnRect(ctDescription, RowIndex);
+    InflateRect(R, -TextMargin, 0);
+    if R.IsEmpty then Exit;
+    R := GetCheckRect(R);
+    if PtInRect(R, AMouseHitInfo.CursorPos) then
+      AMouseHitInfo.Flags := AMouseHitInfo.Flags or FLAG_RADIOCHECK;
+  end;
 end;
 
 function TRowCheckRadioMask.GetTextMetricClass: TAbstractTextMetricClass;
@@ -2550,7 +2692,7 @@ procedure TCheckRadioRowPostPainter.DrawArrowPart(ACanvas: TCanvas;
 var
   StartPoint, EndPoint: TPoint;
   Selected: Boolean;
-  ArrowSize: Integer;
+  ArrowSize, AMaskIndex, ABitIndex, ACharIndex: Integer;
 begin
   Selected := GetSelectData(RowIndex).SelectStyle <> ssNone;
 
@@ -2561,12 +2703,20 @@ begin
   else
     ACanvas.Pen.Color := TMapViewColors(ColorMap).ArrowDownColor;
 
+  ABitIndex := RawData[RowIndex].BitIndex;
+  ACharIndex := ABitIndex shr 2;
+  AMaskIndex := RawData.MaskRowIndex;
+  if View.ShowMaskAsValue then
+    ACharIndex := RawData[AMaskIndex].RawLength shl 1 - ACharIndex - 1
+  else
+    ACharIndex := ACharIndex xor 1;
+
   StartPoint.X :=
     Offset.X +
     TextMargin +
     CharWidth shr 1 + // центрирование по символу
                       // character centering
-    TextMetric.CharLength(ctOpcode, 0, RawData[RowIndex].CharIndex - 1);
+    TextMetric.CharLength(ctOpcode, 0, ACharIndex - 1);
 
   StartPoint.Y := Offset.Y;
 
@@ -2664,6 +2814,11 @@ begin
       DrawRow(ACanvas, I, Offset, True, RawData[I].Style = rsMaskRadio)
     else
       Inc(Offset.Y, RowHeight);
+end;
+
+function TCheckRadioRowPostPainter.TextMetric: TAbstractTextMetric;
+begin
+  Result := TCustomMappedHexView(Owner).MaskTextMetric;
 end;
 
 { TVirtualPage }
@@ -2860,13 +3015,49 @@ end;
 
 function TCustomMappedHexView.CalculateColumnBestSize(
   Value: TColumnType): Integer;
+
+  function GetRowCustomString: string;
+  begin
+    if Value = ctDescription then
+      Result := RawData.Description
+    else
+      Result := RawData.Comment;
+  end;
+
+var
+  I, ARowIndex: Integer;
+  Painter: TAbstractPrimaryRowPainter;
+  ATextMetric: TAbstractTextMetric;
 begin
   case Value of
     ctWorkSpace: Result := ToDpi(32);
     ctJmpLine: Result := ToDpi(82);
-    ctOpcode: Result := ToDpi(235);
-    ctDescription: Result:= ToDpi(377);
-    ctComment: Result := ToDpi(440);
+    ctOpcode:
+    begin
+      Result := ToDpi(255);
+      for I := 0 to RawData.PresentRows.Count - 1 do
+      begin
+        ARowIndex := RawData.PresentRows.List[I].RowIndex;
+        Painter := GetRowPainter(ARowIndex);
+        if Painter <> nil then
+        begin
+          ATextMetric := TPrimaryMappedRowPainter(Painter).TextMetric;
+          Result := Max(Result, ATextMetric.SelectionLength(Value, 0,
+            RawData[ARowIndex].RawLength - 1));
+        end;
+      end;
+      Inc(Result, TextMargin shl 1);
+    end;
+    ctDescription, ctComment:
+    begin
+      Result := inherited;
+      for I := 0 to RawData.PresentRows.Count - 1 do
+      begin
+        ARowIndex := RawData.PresentRows.List[I].RowIndex;
+        if RawData[ARowIndex].RawLength > 0 then
+          Result := Max(Result, Length(GetRowCustomString) * CharWidth + TextMargin shl 1);
+      end;
+    end;
   else
     Result := inherited;
   end;
@@ -2986,7 +3177,17 @@ function TCustomMappedHexView.DoLButtonDown(const AHitInfo: TMouseHitInfo): Bool
 begin
   Result := AHitInfo.Cursor = crHandPoint;
   if Result then
-    HandleUserInputJump(MousePressedHitInfo.SelectPoint.RowIndex);
+    HandleUserInputJump(MousePressedHitInfo.SelectPoint.RowIndex)
+  else
+    if MousePressedHitInfo.Flags and FLAG_RADIOCHECK <> 0 then
+      Result := DoRadioCheckClick(AHitInfo.SelectPoint.RowIndex);
+end;
+
+function TCustomMappedHexView.DoRadioCheckClick(ARowIndex: Int64): Boolean;
+begin
+  Result := Assigned(FRadioCheckClick);
+  if Result then
+    FRadioCheckClick(Self, ARowIndex);
 end;
 
 function TCustomMappedHexView.GetColorMap: TMapViewColors;
@@ -2997,11 +3198,6 @@ end;
 function TCustomMappedHexView.GetColorMapClass: THexViewColorMapClass;
 begin
   Result := TMapViewColors;
-end;
-
-function TCustomMappedHexView.GetDefaultPainterClass: TPrimaryRowPainterClass;
-begin
-  Result := TPrimaryMappedRowPainter;
 end;
 
 function TCustomMappedHexView.GetRawDataClass: TRawDataClass;
@@ -3037,6 +3233,8 @@ begin
 
   PostPainters.Add(TJumpLinesPostPainter.Create(Self));
   PostPainters.Add(TCheckRadioRowPostPainter.Create(Self));
+
+  FMaskTextMetric := TMaskTextMetric.Create(Self);
 end;
 
 function TCustomMappedHexView.InternalGetRowPainter(
@@ -3085,6 +3283,15 @@ begin
     FDrawIncomingJmp := Value;
     UpdateJumpList;
     Invalidate;
+  end;
+end;
+
+procedure TCustomMappedHexView.SetShowMaskAsValue(const Value: Boolean);
+begin
+  if ShowMaskAsValue <> Value then
+  begin
+    FShowMaskAsValue := Value;
+    DoChange(cmByteViewMode);
   end;
 end;
 

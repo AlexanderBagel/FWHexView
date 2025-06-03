@@ -59,6 +59,13 @@ begin
   // add test map
   MappedHexView1.DataMap.AddExDescription($400000, 3, 'Test Jump to $600110', '', $600110, 14, 7);
   MappedHexView1.DataMap.AddRaw($500000, 2);
+
+  MappedHexView1.DataMap.AddMask($500011, 3, 'Test mask', '', True);
+  MappedHexView1.DataMap.AddMaskCheck(8, 'First check', '', True);
+  MappedHexView1.DataMap.AddMaskCheck(12, 'Second check', '', False);
+  MappedHexView1.DataMap.AddMaskRadio(0, 'First radio', '', True);
+  MappedHexView1.DataMap.AddMaskRadio(4, 'Second radio', '', False);
+
   MappedHexView1.DataMap.AddNone($60014b);
   MappedHexView1.DataMap.AddExDescription(2, 'Test Jump to $500000', '', $500000, 14, 7);
 

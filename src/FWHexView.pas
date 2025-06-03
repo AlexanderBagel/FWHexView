@@ -223,6 +223,7 @@ type
     ColumnStart: Integer;
     ColumnWidth: Integer;
     Cursor: TCursor;
+    Flags: Integer;
     procedure Erase; inline;
   end;
 
@@ -534,6 +535,7 @@ type
     function DrawColumnSeparator: Boolean; inline;
     function Encoder: TCharEncoder; inline;
     function Focused: Boolean; inline;
+    function GetColumnRect(AColumnType: TColumnType; ARowIndex: Int64): TRect; inline;
     function GetLeftNCWidth: Integer; inline;
     procedure GetRawBuff(ARowIndex: Int64; var Data: TBytes); inline;
     function GetRowOffset(ARowIndex: Int64): Int64; inline;
@@ -649,6 +651,7 @@ type
     function GetHeaderColumnCaption(AColumn: TColumnType): string; virtual;
     procedure GetHitInfo(var AMouseHitInfo: TMouseHitInfo); virtual;
     function GetTextMetricClass: TAbstractTextMetricClass; virtual; abstract;
+    procedure RowChanged; virtual;
   protected
     property RowIndex: Int64 read FRowIndex write SetRowIndex;
     property SelData: TSelectData read FSelData;
@@ -1918,6 +1921,7 @@ begin
   Elements := [];
   ColumnWidth := 0;
   Cursor := crDefault;
+  Flags := 0;
 end;
 
 { TAbstractTextMetric }
@@ -2892,6 +2896,12 @@ begin
   Result := FOwner.Focused;
 end;
 
+function TBasePainter.GetColumnRect(AColumnType: TColumnType;
+  ARowIndex: Int64): TRect;
+begin
+  Result := FOwner.GetColumnRect(AColumnType, ARowIndex);
+end;
+
 function TBasePainter.GetColWidth(Value: TColumnType): Integer;
 begin
   Result := FOwner.Header.ColumnWidth[Value];
@@ -3579,11 +3589,16 @@ begin
   end;
 end;
 
+procedure TAbstractPrimaryRowPainter.RowChanged;
+begin
+end;
+
 procedure TAbstractPrimaryRowPainter.SetRowIndex(const Value: Int64);
 begin
   if Value < 0 then
     raise Exception.CreateFmt('Invalid Row Index %d', [Value]);
   FRowIndex := Value;
+  RowChanged;
 end;
 
 { TDefaultTextMetric }
@@ -7162,7 +7177,7 @@ begin
 
   // check if the next line to be edited should be searched
 
-  if ReadOnly or AcceptKeySelectionAllways then Exit;
+  if ReadOnly and AcceptKeySelectionAllways then Exit;
 
   // причем проверку будем делать по признаку что текущая строка редактируемая
 
@@ -7207,7 +7222,7 @@ begin
 
   // check if the previous edited line should be searched
 
-  if ReadOnly or AcceptKeySelectionAllways then Exit;
+  if ReadOnly and AcceptKeySelectionAllways then Exit;
 
   // причем проверку будем делать по признаку что текущая строка редактируемая
 

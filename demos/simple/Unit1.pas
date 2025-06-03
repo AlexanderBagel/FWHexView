@@ -10,9 +10,9 @@ uses
   {$IFDEF FPC}
   LCLType,
   {$ELSE}
-  Windows,
+  Windows, Messages,
   {$ENDIF}
-  Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, ExtCtrls,
 
   FWHexView,
@@ -24,23 +24,16 @@ type
   { TForm1 }
 
   TForm1 = class(TForm)
-    Panel1: TPanel;
-    CheckBox1: TCheckBox;
-    CheckBox2: TCheckBox;
-    CheckBox3: TCheckBox;
-    Button1: TButton;
     Hex: TMappedHexView;
     procedure FormCreate(Sender: TObject);
-    procedure CheckBox1Click(Sender: TObject);
-    procedure CheckBox2Click(Sender: TObject);
-    procedure CheckBox3Click(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure Button1Click(Sender: TObject);
+    procedure HexJmpTo(Sender: TObject; const {%H-}AJmpAddr: Int64;
+      AJmpState: TJmpState; var {%H-}Handled: Boolean);
+    procedure HexKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   private
     //Hex: TMappedHexView;
     Data: TMemoryStream;
     procedure FillHex;
-    procedure HexKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   end;
 
 var
@@ -54,36 +47,14 @@ implementation
   {$R *.dfm}
 {$ENDIF}
 
-procedure TForm1.Button1Click(Sender: TObject);
-begin
-  Hex.CopySelected(csCpp);
-end;
-
-procedure TForm1.CheckBox1Click(Sender: TObject);
-begin
-  if TCheckBox(Sender).Checked then
-    Hex.AddressMode := am64bit
-  else
-    Hex.AddressMode := am32bit;
-end;
-
-procedure TForm1.CheckBox2Click(Sender: TObject);
-begin
-  if TCheckBox(Sender).Checked then
-    Hex.AddressView := avHex
-  else
-    Hex.AddressView := avDecimal;
-end;
-
-procedure TForm1.CheckBox3Click(Sender: TObject);
-begin
-  Hex.Header.Visible := TCheckBox(Sender).Checked;
-end;
-
 procedure TForm1.FillHex;
 begin
   // RAW данные введены строкой со снимка и не соответствуют действительной ситуации
   // Просто чтобы показать возможности контрола
+
+  // RAW data is entered as a string from a snapshot and does not correspond to the actual situation
+  // Just to show the capabilities of the controller
+
   Hex.DataMap.BeginUpdate;
   Hex.DataMap.AddSeparator('IMAGE_DOS_HEADER');
   Hex.DataMap.AddExDescription(2, 'e_magic = "MZ"', 'Magic number');
@@ -117,21 +88,21 @@ begin
   Hex.DataMap.AddExDescription(2, 'SizeOfOptionalHeader = E0');
   Hex.DataMap.AddMask(2, 'Characteristics = 818E', True);
 
-  Hex.DataMap.AddMaskCheck(3, '32BIT_MACHINE', '0x0100', True);
-  Hex.DataMap.AddMaskCheck(3, 'DEBUG_STRIPPED', '0x0200', False);
-  Hex.DataMap.AddMaskCheck(3, 'REMOVABLE_RUN_FROM_SWAP', '0x0400', False);
-  Hex.DataMap.AddMaskCheck(3, 'NET_RUN_FROM_SWAP', '0x0800', False);
-  Hex.DataMap.AddMaskCheck(2, 'SYSTEM', '0x1000', False);
-  Hex.DataMap.AddMaskCheck(2, 'DLL', '0x2000', False);
-  Hex.DataMap.AddMaskCheck(2, 'UP_SYSTEM_ONLY', '0x4000', False);
-  Hex.DataMap.AddMaskCheck(2, 'BYTES_REVERSED_HI', '0x8000', True);
-  Hex.DataMap.AddMaskCheck(1, 'RELOCS_STRIPPED', '0x0001', False);
+  Hex.DataMap.AddMaskCheck(0, 'RELOCS_STRIPPED', '0x0001', False);
   Hex.DataMap.AddMaskCheck(1, 'EXECUTABLE_IMAGE', '0x0002', True);
-  Hex.DataMap.AddMaskCheck(1, 'LINE_NUMS_STRIPPED', '0x0004', True);
-  Hex.DataMap.AddMaskCheck(1, 'LOCAL_SYMS_STRIPPED', '0x0008', True);
-  Hex.DataMap.AddMaskCheck(0, 'AGGRESIVE_WS_TRIM', '0x0010', False);
-  Hex.DataMap.AddMaskCheck(0, 'LARGE_ADDRESS_AWARE', '0x0020', False);
-  Hex.DataMap.AddMaskCheck(0, 'BYTES_REVERSED_LO', '0x0080', True);
+  Hex.DataMap.AddMaskCheck(2, 'LINE_NUMS_STRIPPED', '0x0004', True);
+  Hex.DataMap.AddMaskCheck(3, 'LOCAL_SYMS_STRIPPED', '0x0008', True);
+  Hex.DataMap.AddMaskCheck(4, 'AGGRESIVE_WS_TRIM', '0x0010', False);
+  Hex.DataMap.AddMaskCheck(5, 'LARGE_ADDRESS_AWARE', '0x0020', False);
+  Hex.DataMap.AddMaskCheck(6, 'BYTES_REVERSED_LO', '0x0080', True);
+  Hex.DataMap.AddMaskCheck(8, '32BIT_MACHINE', '0x0100', True);
+  Hex.DataMap.AddMaskCheck(9, 'DEBUG_STRIPPED', '0x0200', False);
+  Hex.DataMap.AddMaskCheck(10, 'REMOVABLE_RUN_FROM_SWAP', '0x0400', False);
+  Hex.DataMap.AddMaskCheck(11, 'NET_RUN_FROM_SWAP', '0x0800', False);
+  Hex.DataMap.AddMaskCheck(12, 'SYSTEM', '0x1000', False);
+  Hex.DataMap.AddMaskCheck(13, 'DLL', '0x2000', False);
+  Hex.DataMap.AddMaskCheck(14, 'UP_SYSTEM_ONLY', '0x4000', False);
+  Hex.DataMap.AddMaskCheck(15, 'BYTES_REVERSED_HI', '0x8000', True);
 
   Hex.DataMap.AddSeparator('IMAGE_OPTIONAL_HEADER32');
   Hex.DataMap.AddExDescription(2, 'Magic = 10B', 'IMAGE_NT_OPTIONAL_HDR32_MAGIC');
@@ -140,7 +111,7 @@ begin
   Hex.DataMap.AddExDescription(4, 'SizeOfCode = 1F8200');
   Hex.DataMap.AddExDescription(4, 'SizeOfInitializedData = 901F5B');
   Hex.DataMap.AddExDescription(4, 'SizeOfUninitializedData = 0');
-  Hex.DataMap.AddExDescription(4, 'AddressOfEntryPoint = 1F956C', 'Вот тут активный линк на точку входа', $005E952C, 22, 6);
+  Hex.DataMap.AddExDescription(4, 'AddressOfEntryPoint = 1F956C', 'Here''s an active link to the entry point', $005E952C, 22, 6);
   Hex.DataMap.AddExDescription(4, 'BaseOfCode = 1000');
   Hex.DataMap.AddExDescription(4, 'BaseOfData = 1FA000');
   Hex.DataMap.AddExDescription(4, 'ImageBase = 400000');
@@ -209,50 +180,51 @@ begin
   Hex.DataMap.AddExDescription(4, 'PointerToLinenumbers = 0');
   Hex.DataMap.AddExDescription(2, 'NumberOfRelocations = 0');
   Hex.DataMap.AddExDescription(2, 'NumberOfLinenumbers = 0');
-  Hex.DataMap.AddMask(4, 'Characteristics = 60000020', False);
+  Hex.DataMap.AddMask(4, 'Characteristics = 60000020', True);
 
-  Hex.DataMap.AddMaskCheck(7, 'IMAGE_SCN_LNK_NRELOC_OVFL',    '0x01000000', False);
-  Hex.DataMap.AddMaskCheck(7, 'IMAGE_SCN_MEM_DISCARDABLE',    '0x02000000', False);
-  Hex.DataMap.AddMaskCheck(7, 'IMAGE_SCN_MEM_NOT_CACHED',     '0x04000000', False);
-  Hex.DataMap.AddMaskCheck(7, 'IMAGE_SCN_MEM_NOT_PAGED',      '0x08000000', False);
+  Hex.DataMap.AddMaskCheck(3, 'IMAGE_SCN_TYPE_NO_PAD',        '0x00000008', False);
 
-  Hex.DataMap.AddMaskCheck(6, 'IMAGE_SCN_MEM_SHARED',         '0x10000000', False);
-  Hex.DataMap.AddMaskCheck(6, 'IMAGE_SCN_MEM_EXECUTE',        '0x20000000', True);
-  Hex.DataMap.AddMaskCheck(6, 'IMAGE_SCN_MEM_READ',           '0x40000000', True);
-  Hex.DataMap.AddMaskCheck(6, 'IMAGE_SCN_MEM_WRITE',          '0x80000000', False);
+  Hex.DataMap.AddMaskCheck(5, 'IMAGE_SCN_CNT_CODE',               '0x00000020', True);
+  Hex.DataMap.AddMaskCheck(6, 'IMAGE_SCN_CNT_INITIALIZED_DATA',   '0x00000040', False);
+  Hex.DataMap.AddMaskCheck(7, 'IMAGE_SCN_CNT_UNINITIALIZED_DATA', '0x00000080', False);
 
-  Hex.DataMap.AddMaskCheck(5, 'IMAGE_SCN_MEM_16BIT',          '0x00020000', False);
-  Hex.DataMap.AddMaskCheck(5, 'IMAGE_SCN_MEM_LOCKED',         '0x00040000', False);
-  Hex.DataMap.AddMaskCheck(5, 'IMAGE_SCN_MEM_PRELOAD',        '0x00080000', False);
+  Hex.DataMap.AddMaskCheck(8, 'IMAGE_SCN_LNK_OTHER',          '0x00000100', False);
+  Hex.DataMap.AddMaskCheck(9, 'IMAGE_SCN_LNK_INFO',           '0x00000200', False);
+  Hex.DataMap.AddMaskCheck(10, 'IMAGE_SCN_LNK_REMOVE',         '0x00000800', False);
+
+  Hex.DataMap.AddMaskCheck(11, 'IMAGE_SCN_LNK_COMDAT',         '0x00001000', False);
+  Hex.DataMap.AddMaskCheck(12, 'IMAGE_SCN_MEM_FARDATA',        '0x00008000', False);
+
+  Hex.DataMap.AddMaskCheck(17, 'IMAGE_SCN_MEM_16BIT',          '0x00020000', False);
+  Hex.DataMap.AddMaskCheck(18, 'IMAGE_SCN_MEM_LOCKED',         '0x00040000', False);
+  Hex.DataMap.AddMaskCheck(19, 'IMAGE_SCN_MEM_PRELOAD',        '0x00080000', False);
 
   Hex.DataMap.AddMaskSeparator;
-  Hex.DataMap.AddMaskRadio(4, 'IMAGE_SCN_ALIGN_1BYTES',       '0x00100000', False);
-  Hex.DataMap.AddMaskRadio(4, 'IMAGE_SCN_ALIGN_2BYTES',       '0x00200000', False);
-  Hex.DataMap.AddMaskRadio(4, 'IMAGE_SCN_ALIGN_4BYTES',       '0x00300000', False);
-  Hex.DataMap.AddMaskRadio(4, 'IMAGE_SCN_ALIGN_8BYTES',       '0x00400000', False);
-  Hex.DataMap.AddMaskRadio(4, 'IMAGE_SCN_ALIGN_16BYTES',      '0x00500000 - Default alignment if no others are specified.', True);
-  Hex.DataMap.AddMaskRadio(4, 'IMAGE_SCN_ALIGN_32BYTES',      '0x00600000', False);
-  Hex.DataMap.AddMaskRadio(4, 'IMAGE_SCN_ALIGN_64BYTES',      '0x00700000', False);
+  Hex.DataMap.AddMaskRadio(20, 'IMAGE_SCN_ALIGN_1BYTES',       '0x00100000', False);
+  Hex.DataMap.AddMaskRadio(20, 'IMAGE_SCN_ALIGN_2BYTES',       '0x00200000', False);
+  Hex.DataMap.AddMaskRadio(20, 'IMAGE_SCN_ALIGN_4BYTES',       '0x00300000', False);
+  Hex.DataMap.AddMaskRadio(20, 'IMAGE_SCN_ALIGN_8BYTES',       '0x00400000', False);
+  Hex.DataMap.AddMaskRadio(20, 'IMAGE_SCN_ALIGN_16BYTES',      '0x00500000 - Default alignment if no others are specified.', True);
+  Hex.DataMap.AddMaskRadio(20, 'IMAGE_SCN_ALIGN_32BYTES',      '0x00600000', False);
+  Hex.DataMap.AddMaskRadio(20, 'IMAGE_SCN_ALIGN_64BYTES',      '0x00700000', False);
   Hex.DataMap.AddMaskSeparator;
 
-  Hex.DataMap.AddMaskCheck(3, 'IMAGE_SCN_LNK_OTHER',          '0x00000100', False);
-  Hex.DataMap.AddMaskCheck(3, 'IMAGE_SCN_LNK_INFO',           '0x00000200', False);
-  Hex.DataMap.AddMaskCheck(3, 'IMAGE_SCN_LNK_REMOVE',         '0x00000800', False);
+  Hex.DataMap.AddMaskCheck(24, 'IMAGE_SCN_LNK_NRELOC_OVFL',    '0x01000000', False);
+  Hex.DataMap.AddMaskCheck(25, 'IMAGE_SCN_MEM_DISCARDABLE',    '0x02000000', False);
+  Hex.DataMap.AddMaskCheck(26, 'IMAGE_SCN_MEM_NOT_CACHED',     '0x04000000', False);
+  Hex.DataMap.AddMaskCheck(27, 'IMAGE_SCN_MEM_NOT_PAGED',      '0x08000000', False);
 
-  Hex.DataMap.AddMaskCheck(2, 'IMAGE_SCN_LNK_COMDAT',         '0x00001000', False);
-  Hex.DataMap.AddMaskCheck(2, 'IMAGE_SCN_MEM_FARDATA',        '0x00008000', False);
+  Hex.DataMap.AddMaskCheck(28, 'IMAGE_SCN_MEM_SHARED',         '0x10000000', False);
+  Hex.DataMap.AddMaskCheck(29, 'IMAGE_SCN_MEM_EXECUTE',        '0x20000000', True);
+  Hex.DataMap.AddMaskCheck(30, 'IMAGE_SCN_MEM_READ',           '0x40000000', True);
+  Hex.DataMap.AddMaskCheck(31, 'IMAGE_SCN_MEM_WRITE',          '0x80000000', False);
 
-  Hex.DataMap.AddMaskCheck(1, 'IMAGE_SCN_TYPE_NO_PAD',        '0x00000008', False);
-
-  Hex.DataMap.AddMaskCheck(0, 'IMAGE_SCN_CNT_CODE',               '0x00000020', True);
-  Hex.DataMap.AddMaskCheck(0, 'IMAGE_SCN_CNT_INITIALIZED_DATA',   '0x00000040', False);
-  Hex.DataMap.AddMaskCheck(0, 'IMAGE_SCN_CNT_UNINITIALIZED_DATA', '0x00000080', False);
-
-
-  Hex.DataMap.AddSeparator('НУ И ТАК ДАЛЕЕ');
+  Hex.DataMap.AddSeparator('AND SO ON...');
 
 
   // добавляем описание на точку входа
+
+  // add a description to the entry point
 
   Hex.DataMap.AddSeparator($005E952C, 'Entry point');
   Hex.DataMap.AddNone;
@@ -285,6 +257,7 @@ begin
   Hex.DataMap.AddAsm(5, 'CALL 0x4098C0', 'FWHexView_Demo.exe!System.@Halt0', $4098C0, 0, 13);
   Hex.DataMap.AddAsm(1, 'NOP');
   Hex.DataMap.AddNone;
+  Hex.ShowMaskAsValue := True;
   Hex.DataMap.EndUpdate;
 end;
 
@@ -294,9 +267,7 @@ begin
   ReportMemoryLeaksOnShutdown := True;
   {$ENDIF}
 
-  //Hex := TMappedHexView.Create(Self);
-  //Hex.Align := alClient;
-  //Hex.Parent := Self;
+  Hex.Header.Columns := [ctWorkSpace..ctComment];
   Hex.ScrollBars := ssBoth;
   Hex.AddressMode := am64bit;
   Hex.SeparateGroupByColor := True;
@@ -312,11 +283,27 @@ begin
   Hex.Bookmark[1] := $400000;
   Hex.Bookmark[2] := $005E952C;
   Hex.OnKeyDown := HexKeyDown;
+  Hex.ReadOnly := False;
 end;
 
 procedure TForm1.FormDestroy(Sender: TObject);
 begin
   Data.Free;
+end;
+
+procedure TForm1.HexJmpTo(Sender: TObject; const AJmpAddr: Int64;
+  AJmpState: TJmpState; var Handled: Boolean);
+begin
+  // По умолчанию после прыжка происходит выделение данных размером с указатель
+  // (в зависимости от выбранного режима).
+  // Здесь показано как можно изменить выделение вручную.
+
+  // By default, a pointer-sized data selection is performed after a jump
+  // (depending on the selected mode).
+  // This shows how you can change the selection manually.
+
+  if AJmpState = jsJmpDone then
+    Hex.SelEnd := Hex.SelStart;
 end;
 
 procedure TForm1.HexKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);

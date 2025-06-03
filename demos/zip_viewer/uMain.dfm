@@ -45,8 +45,6 @@ object dlgMain: TdlgMain
     NoDataText = 'Open any ZIP'
     TabOrder = 1
     OnJmpTo = HexViewJmpTo
-    ExplicitWidth = 68
-    ExplicitHeight = 201
   end
   object MainMenu: TMainMenu
     Left = 16
