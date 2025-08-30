@@ -115,6 +115,10 @@ type
   ///<summary> TFWHexViewColumnTypes - Displayed column types.</summary>
   TFWHexViewColumnTypes = set of TColumnType;
 
+  TRowColumnData = record
+    Columns: array [TColumnType] of string;
+  end;
+
   /// <summary> Data copying style
   ///  csAsText - all columns with comments
   ///  csAddress - selection start address

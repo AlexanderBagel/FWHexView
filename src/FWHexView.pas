@@ -216,7 +216,7 @@ type
 
   TMouseHitInfo = record
     CursorPos: TPoint;
-    ScrolledCursorPos: TPoint;
+    ScrolledCursorPos: TLargePoint;
     Shift: TShiftState;
     SelectPoint: TSelectPoint;
     Elements: TKnownElements;
@@ -650,6 +650,7 @@ type
       const Value: string): string; virtual;
     function GetHeaderColumnCaption(AColumn: TColumnType): string; virtual;
     procedure GetHitInfo(var AMouseHitInfo: TMouseHitInfo); virtual;
+    function GetRowColumnData: TRowColumnData; virtual;
     function GetTextMetricClass: TAbstractTextMetricClass; virtual; abstract;
     procedure RowChanged; virtual;
   protected
@@ -1315,7 +1316,7 @@ type
 
     // utilitarian methods for childs and painters
 
-    function GetHitInfo(XPos, YPos: Int64; AShift: TShiftState): TMouseHitInfo;
+    function GetHitInfo(XPos, YPos: Integer; AShift: TShiftState): TMouseHitInfo;
     function IsColorMapStored: Boolean; virtual;
     function LeftSelPoint: TSelectPoint;
     function RightSelPoint: TSelectPoint;
@@ -1389,6 +1390,7 @@ type
     ///  A common method for reading data from the beginning of a viewer selection
     /// </summary>
     function ReadDataAtSelStart(var pBuffer; nSize: Integer): Integer; virtual;
+    function ReadRowData(ARowIndex: Int64; var Data: TBytes): Boolean; virtual;
 
     ///  Сброс настроек вьювера на значения по умолчанию
 
@@ -1396,6 +1398,7 @@ type
     ///  Reset viewer settings to default values
     /// </summary>
     procedure ResetViewState;
+    function RowColumnData(ARowIndex: Int64): TRowColumnData;
     function RowRawLength(ARowIndex: Int64): Integer;
     function RowToAddress(ARowIndex: Int64; ValueOffset: Integer): Int64;
     function SelectedColumnAsString(AColumn: TColumnType): string;
@@ -1915,7 +1918,7 @@ end;
 procedure TMouseHitInfo.Erase;
 begin
   CursorPos := TPoint.Zero;
-  ScrolledCursorPos := TPoint.Zero;
+  ScrolledCursorPos := Default(TLargePoint);
   SelectPoint.Erase;
   Shift := [];
   Elements := [];
@@ -3199,6 +3202,8 @@ begin
     begin
       Result := RawData[RowIndex].Comment;
     end;
+  else
+    Result := '';
   end;
   DoQueryComment(RawData[RowIndex].Address, AColumn, Result);
 end;
@@ -3226,6 +3231,7 @@ procedure TAbstractPrimaryRowPainter.CopyRowAsString(Builder: TSimplyStringBuild
 var
   Col: TColumnType;
   RowStr: string;
+  RowData: TRowColumnData;
 
   procedure Append(const Value: string);
   begin
@@ -3237,14 +3243,10 @@ var
 
 begin
   RowStr := '';
+  RowData := GetRowColumnData;
   for Col := ctWorkSpace to High(TColumnType) do
     if Col in Columns then
-    case Col of
-      ctOpcode,
-      ctDescription: Append(FormatRowColumn(Col, ColumnAsString(Col)));
-    else
-      Append(ColumnAsString(Col));
-    end;
+      Append(RowData.Columns[Col]);
   Builder.Append(RowStr + sLineBreak);
 end;
 
@@ -3502,6 +3504,21 @@ end;
 procedure TAbstractPrimaryRowPainter.GetHitInfo(
   var AMouseHitInfo: TMouseHitInfo);
 begin
+end;
+
+function TAbstractPrimaryRowPainter.GetRowColumnData: TRowColumnData;
+var
+  Col: TColumnType;
+begin
+  Result := Default(TRowColumnData);
+  for Col := ctWorkSpace to High(TColumnType) do
+    if Col in Columns then
+    case Col of
+      ctOpcode,
+      ctDescription: Result.Columns[Col] := FormatRowColumn(Col, ColumnAsString(Col));
+    else
+      Result.Columns[Col] := ColumnAsString(Col);
+    end;
 end;
 
 procedure TAbstractPrimaryRowPainter.InternalDrawTextBlock(ACanvas: TCanvas;
@@ -5581,6 +5598,11 @@ begin
   FTextMetric := FPainter.TextMetric;
   CalcEditRect;
   Owner.GetRawBuff(FRowIndex, FData);
+  if Length(FData) = 0 then
+  begin
+    Hide(False);
+    Exit;
+  end;
   AValueMetric := FTextMetric.ValueMetric;
   FViewMode := FPainter.ByteViewMode;
   FFormatMode := FPainter.FormatMode;
@@ -6537,6 +6559,7 @@ begin
     ctDescription:
     begin
       GetRawBuff(FCaretPosData.RowIndex, Data);
+      if Length(Data) < ACursor.ValueOffset then Exit;
       NewCharBytes := Encoder.EncodeChar(AKey);
       CharLen := Length(NewCharBytes);
       CaretIndex := FCaretPosData.CharIndex mod CharLen;
@@ -6883,7 +6906,7 @@ begin
   LeftOffset := GetLeftNCWidth;
   R := Rect(LeftOffset,
     AStartRow * FRowHeight + FScrollOffset.Y,
-    ClientWidth, AEndRow * FRowHeight + FScrollOffset.Y);
+    ClientWidth, AEndRow * FRowHeight + FScrollOffset.Y + FRowHeight);
   if Header.Visible then
     OffsetRect(R, 0, FRowHeight);
   InvalidateRect(Handle, @R, False);
@@ -7377,7 +7400,7 @@ begin
   Result := THexViewHeader;
 end;
 
-function TFWCustomHexView.GetHitInfo(XPos, YPos: Int64; AShift: TShiftState): TMouseHitInfo;
+function TFWCustomHexView.GetHitInfo(XPos, YPos: Integer; AShift: TShiftState): TMouseHitInfo;
 var
   I: TColumnType;
   LeftOffset: Integer;
@@ -7432,13 +7455,13 @@ begin
     Dec(YPos, FRowHeight);
   end;
   if keHeader in Result.Elements then Exit;
-  Dec(YPos, FScrollOffset.Y);
 
-  Result.SelectPoint.RowIndex := YPos div FRowHeight;
+  Result.ScrolledCursorPos.X := XPos;
+  Result.ScrolledCursorPos.Y := YPos - FScrollOffset.Y;
+
+  Result.SelectPoint.RowIndex := Result.ScrolledCursorPos.Y div FRowHeight;
   if Result.SelectPoint.RowIndex >= FRawData.Count then
     Result.SelectPoint.RowIndex := -1;
-
-  Result.ScrolledCursorPos := Point(XPos, YPos);
 
   if keSplitter in Result.Elements then Exit;
 
@@ -7488,7 +7511,7 @@ begin
   SetLength(Data, FRawData[ARowIndex].RawLength);
   if Length(Data) = 0 then Exit;
   FDataStream.Position := FRawData[ARowIndex].DataOffset;
-  FDataStream.ReadBuffer(Data[0], Length(Data));
+  SetLength(Data, FDataStream.Read(Data[0], Length(Data)));
 end;
 
 function TFWCustomHexView.GetRawDataClass: TRawDataClass;
@@ -8249,6 +8272,13 @@ begin
   Result := DataStream.Read(pBuffer, Min(nSize, Abs(SelEnd - SelStart) + 1));
 end;
 
+function TFWCustomHexView.ReadRowData(ARowIndex: Int64; var Data: TBytes): Boolean;
+begin
+  if (ARowIndex < 0) or (ARowIndex >= RawData.Count) then Exit(False);
+  GetRawBuff(ARowIndex, Data);
+  Result := Length(Data) > 0;
+end;
+
 procedure TFWCustomHexView.RebuildData;
 begin
   if FUpdateCount = 0 then
@@ -8304,6 +8334,17 @@ procedure TFWCustomHexView.ResetViewState;
 begin
   InitDefault;
   FitColumnsToBestSize;
+end;
+
+function TFWCustomHexView.RowColumnData(ARowIndex: Int64): TRowColumnData;
+var
+  Painter: TAbstractPrimaryRowPainter;
+begin
+  Painter := GetRowPainter(ARowIndex);
+  if Painter = nil then
+    Result := Default(TRowColumnData)
+  else
+    Result := Painter.GetRowColumnData;
 end;
 
 function TFWCustomHexView.RowRawLength(ARowIndex: Int64): Integer;

@@ -68,7 +68,7 @@ type
 
 implementation
 
-const InstBuff: array[0..1378] of string = (
+const InstBuff: array[0..1358] of string = (
   'AAA', 'AAD', 'AAM', 'AAS', 'ADC', 'ADCX', 'ADD', 'ADDPD', 'ADDPS', 'ADDSD',
   'ADDSS', 'ADDSUBPD', 'ADDSUBPS', 'ADOX', 'AESDEC', 'AESDEC128KL',
   'AESDEC256KL', 'AESDECLAST', 'AESDECWIDE128KL', 'AESDECWIDE256KL', 'AESENC',
@@ -108,7 +108,7 @@ const InstBuff: array[0..1378] of string = (
   'FXCH', 'FXRSTOR', 'FXSAVE', 'FXTRACT', 'FYL2X', 'FYL2XP1', 'HADDPD',
   'HADDPS', 'HINT_NOP', 'HLT', 'HSUBPD', 'HSUBPS', 'IBTS', 'ICEBP', 'IDIV',
   'IMUL', 'INC', 'INCSSPD', 'INCSSPQ', 'INSERTPS', 'INSERTQ', 'IRET', 'IRETD',
-  'IRETQ', 'JCC', 'JMPE', 'JMPF', 'JRCXZ', 'KADDB', 'KADDD', 'KADDQ', 'KADDW',
+  'IRETQ', 'KADDB', 'KADDD', 'KADDQ', 'KADDW',
   'KANDB', 'KANDD', 'KANDNB', 'KANDND', 'KANDNQ', 'KANDNW', 'KANDQ', 'KANDW',
   'KMOVB', 'KMOVD', 'KMOVQ', 'KMOVW', 'KNOTB', 'KNOTD', 'KNOTQ', 'KNOTW',
   'KORB', 'KORD', 'KORQ', 'KORTESTB', 'KORTESTD', 'KORTESTQ', 'KORTESTW',
@@ -154,9 +154,7 @@ const InstBuff: array[0..1378] of string = (
   'PUNPCKLWD', 'PUSH', 'PUSHA', 'PUSHAD', 'PUSHAL', 'PUSHF', 'PUSHFD',
   'PUSHFQ', 'PXOR', 'RCL', 'RCPPS', 'RCPSS', 'RCR', 'RDFSBASE', 'RDGSBASE',
   'RDPID', 'RDPKRU', 'RDPMC', 'RDPRU', 'RDRAND', 'RDSEED', 'RDSSPD', 'RDSSPQ',
-  'RDTSC', 'RDTSCP', 'RETF', 'RETN', 'REX', 'REX.B', 'REX.R', 'REX.RB',
-  'REX.RX', 'REX.RXB', 'REX.W', 'REX.WB', 'REX.WR', 'REX.WRB', 'REX.WRX',
-  'REX.WRXB', 'REX.WX', 'REX.WXB', 'REX.X', 'REX.XB', 'ROL', 'ROR', 'RORX',
+  'RDTSC', 'RDTSCP', 'RETF', 'RETN', 'ROL', 'ROR', 'RORX',
   'ROUNDPD', 'ROUNDPS', 'ROUNDSD', 'ROUNDSS', 'RSQRTPS', 'RSQRTSS', 'RSTORSSP',
   'RTDSC', 'SAHF', 'SAL', 'SALC', 'SAR', 'SARX', 'SAVEPREVSSP', 'SBB', 'SCAS',
   'SCASB', 'SCASD', 'SCASQ', 'SCASW', 'SENDUIPI', 'SERIALIZE', 'SETA', 'SETAE',
@@ -288,10 +286,11 @@ const InstBuff: array[0..1378] of string = (
 const SizeBuff: array[0..7] of string = (
   'BYTE', 'WORD', 'DWORD', 'QWORD', 'TBYTE', 'XMMWORD', 'YMMWORD', 'ZMMWORD');
 
-const JmpBuff: array[0..34] of string = (
+const JmpBuff: array[0..38] of string = (
   'CALL', 'JA', 'JAE', 'JB', 'JBE', 'JC', 'JCXZ', 'JE', 'JECXZ', 'JG', 'JGE', 'JL',
   'JLE', 'JMP', 'JNA', 'JNAE', 'JNB', 'JNBE', 'JNC', 'JNE', 'JNG', 'JNGE', 'JNL', 'JNLE',
-  'JNO', 'JNP', 'JNS', 'JNZ', 'JO', 'JP', 'JPE', 'JPO', 'JS', 'JZ', 'RET'
+  'JNO', 'JNP', 'JNS', 'JNZ', 'JO', 'JP', 'JPE', 'JPO', 'JS', 'JZ',
+  'JCC', 'JMPE', 'JMPF', 'JRCXZ', 'RET'
   );
 
 const KernelBuff: array[0..100] of string = (
@@ -308,8 +307,10 @@ const KernelBuff: array[0..100] of string = (
   'WBNOINVD', 'WRMSR', 'WRUSSD', 'WRUSSQ', 'XRSTORS', 'XRSTORS64', 'XSAVES', 'XSAVES64', 'XSETBV'
   );
 
-const PrefixBuff: array[0..6] of string = (
-  'LOCK', 'NOTRACK', 'REP', 'REPE', 'REPNE', 'REPNZ', 'REPZ'
+const PrefixBuff: array[0..22] of string = (
+  'LOCK', 'NOTRACK', 'REP', 'REPE', 'REPNE', 'REPNZ', 'REPZ',
+  'REX', 'REX.B', 'REX.R', 'REX.RB', 'REX.RX', 'REX.RXB', 'REX.W', 'REX.WB',
+  'REX.WR', 'REX.WRB', 'REX.WRX','REX.WRXB', 'REX.WX', 'REX.WXB', 'REX.X', 'REX.XB'
   );
 
 const RegsBuff: array[0..137] of string = (
@@ -373,6 +374,40 @@ const NopBuff: array[0..3] of string = (
   'FNOP', 'NOP', 'NOPL', 'NOPW'
   );
 
+// AT&T specific
+
+  // https://docs.oracle.com/cd/E19120-01/open.solaris/817-5477/enmzx/index.html
+
+const AtAndTInstBuff: array[0..65] of string = (
+  'ADDB', 'ADDW', 'ADDL', 'ADDQ',
+  'ANDB', 'ANDW', 'ANDL', 'ANDQ',
+  'CLTD',
+  'CMOVW', 'CMOVQ',
+  'CMPB', 'CMPW', 'CMPL', 'CMPQ',
+  'CQTO',
+  'DECB', 'DECW', 'DECL', 'DECQ',
+  'DIVB', 'DIVW', 'DIVL', 'DIVQ',
+  'IDIVB', 'IDIVW', 'IDIVL', 'IDIVQ',
+  'IMULB', 'IMULW', 'IMULL', 'IMULQ',
+  'INCB', 'INCW', 'INCL', 'INCQ',
+  'LEAB', 'LEAW', 'LEAL', 'LEAQ',
+  'MOVB', 'MOVW', 'MOVL',
+  'MOVSBB', 'MOVSBW', 'MOVSBL', 'MOVSBQ',
+  'MOVSLB', 'MOVSLW', 'MOVSLQ',
+  'MOVSWB', 'MOVSWW', 'MOVSWL', 'MOVSWQ',
+  'MOVZBB', 'MOVZBW', 'MOVZBL', 'MOVZBQ',
+  'ORB', 'ORW', 'ORL', 'ORQ',
+  'TESTB', 'TESTW', 'TESTL', 'TESTQ'
+  );
+
+const AtAndTJmpBuff: array[0..2] of string = (
+  'CALLQ', 'JMPQ', 'RETQ'
+  );
+
+const AtAndTPrefixBuff: array[0..0] of string = (
+  'DATA16'
+  );
+
 { TAsmTokenizer }
 
 constructor TAsmTokenizer.Create;
@@ -394,7 +429,13 @@ begin
     FTokens.Add(KernelBuff[I], ttKernel);
   for I := 0 to Length(NopBuff) - 1 do
     FTokens.Add(NopBuff[I], ttNop);
-
+  // AT&T specific
+  for I := 0 to Length(AtAndTInstBuff) - 1 do
+    FTokens.Add(AtAndTInstBuff[I], ttInstruction);
+  for I := 0 to Length(AtAndTJmpBuff) - 1 do
+    FTokens.Add(AtAndTJmpBuff[I], ttJmp);
+  for I := 0 to Length(AtAndTPrefixBuff) - 1 do
+    FTokens.Add(AtAndTPrefixBuff[I], ttJmp);
 end;
 
 destructor TAsmTokenizer.Destroy;
