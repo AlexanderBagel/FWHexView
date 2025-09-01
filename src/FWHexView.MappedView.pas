@@ -639,6 +639,7 @@ type
     property OnDragOver;
     property OnDrawColumnBackground;
     property OnDrawToken;
+    property OnEdit;
     property OnEndDock;
     property OnEndDrag;
     property OnEnter;
