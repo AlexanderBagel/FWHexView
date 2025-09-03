@@ -4132,6 +4132,11 @@ end;
 procedure TRowHexPainter.DrawHeaderColumn(ACanvas: TCanvas;
   AColumn: TColumnType; var ARect: TRect);
 begin
+  if (AColumn = ctOpcode) and (Owner.Header.ColumnCaption[AColumn] <> '') then
+  begin
+    DefaultDrawHeaderColumn(ACanvas, ARect, Owner.Header.ColumnCaption[AColumn], 0);
+    Exit;
+  end;
   case ByteViewMode of
     bvmText, bvmAddress:
       DefaultDrawHeaderColumn(ACanvas, ARect,
@@ -6571,7 +6576,11 @@ begin
 
       if Length(AKey) > 1 then Exit;
       HexChar := AKey{$IFDEF FPC}[1]{$ENDIF};
-      if not CharInSet(HexChar, ['0'..'9', 'a'..'f', 'A'..'F']) then Exit;
+      if not CharInSet(HexChar, ['0'..'9', 'a'..'f', 'A'..'F']) then
+      begin
+        Beep;
+        Exit;
+      end;
 
       // чтобы не учитывать BE/LE просто работаем со строкой
       // а RTL возьмет на себя задачу преобразований
@@ -6589,7 +6598,11 @@ begin
       Inc(CaretIndex);
 
       AData.ValueSize := ValueMetric.ByteCount;
-      if not TryStrToInt64('0x' + ValueData, AData.OldValue) then Exit;
+      if not TryStrToInt64('0x' + ValueData, AData.OldValue) then
+      begin
+        Beep;
+        Exit;
+      end;
       if ValueData[CaretIndex] = HexChar then
       begin
         Handled := True;
@@ -6598,7 +6611,11 @@ begin
       else
       begin
         ValueData[CaretIndex] := HexChar;
-        if not TryStrToInt64('0x' + ValueData, AData.NewValue) then Exit;
+        if not TryStrToInt64('0x' + ValueData, AData.NewValue) then
+        begin
+          Beep;
+          Exit;
+        end;
       end;
     end;
     ctDescription:

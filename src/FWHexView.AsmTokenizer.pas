@@ -451,7 +451,7 @@ function TAsmTokenizer.GetToken(pData: PChar;
   begin
     Result := False;
     case Value^ of
-      'A'..'Z', 'a'..'z', '0'..'9', '(', ')', '$': Result := True;
+      'A'..'Z', 'a'..'z', '0'..'9', '$', '%': Result := True;
     end;
   end;
 
@@ -474,6 +474,9 @@ begin
   if not FirstIsTokenChar then
     Exit;
   FoundToken := Copy(pData, 1, CharLeft);
+  // AT&T specific
+  if CharInSet(FoundToken[1], ['%', '$']) then
+    FoundToken := Copy(FoundToken, 2, CharLeft - 1);
   if IsNumber(FoundToken) then
     Result := ttNumber
   else
