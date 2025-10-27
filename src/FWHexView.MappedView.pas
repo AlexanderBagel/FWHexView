@@ -584,6 +584,7 @@ type
     property AddressViewAutoToggle;
     property Align;
     property Anchors;
+    property AutoScrollType;
     property AutoSize;
     //property BevelEdges;
     //property BevelInner;

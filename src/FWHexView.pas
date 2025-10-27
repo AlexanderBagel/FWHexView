@@ -1044,6 +1044,8 @@ type
   TGetHintEvent = procedure(Sender: TObject; const Param: THintParam;
     var Hint: string) of object;
 
+  TAutoScrollType = (astNone, astTop, astBottom);
+
   { TFWCustomHexView }
 
   TFWCustomHexView = class(TCustomControl, IHexViewCopyAction, IHexViewByteViewModeAction)
@@ -1060,6 +1062,7 @@ type
     FAddressView: TAddressView;
     FAddressViewAutoToggle: Boolean;
     FAddressViewOffsetBase: Int64;
+    FAutoScrollType: TAutoScrollType;
     FBookMarks: array [TBookMark] of Int64;
     FBorderStyle: TBorderStyle;
     FBytesInGroup, FBytesInColorGroup, FBytesInRow: Integer;
@@ -1481,6 +1484,7 @@ type
     ///  when double-clicking on an address column
     /// </summary>
     property AddressViewAutoToggle: Boolean read FAddressViewAutoToggle write FAddressViewAutoToggle default True;
+    property AutoScrollType: TAutoScrollType read FAutoScrollType write FAutoScrollType default astNone;
     property BorderStyle: TBorderStyle read FBorderStyle write SetCtlBorderStyle default bsSingle;
     property BytesInColorGroup: Integer read FBytesInColorGroup write SetBytesInColorGroup default 4;
     property BytesInGroup: Integer read FBytesInGroup write SetBytesInGroup default 8;
@@ -1521,6 +1525,7 @@ type
     property AddressViewAutoToggle;
     property Align;
     property Anchors;
+    property AutoScrollType;
     property AutoSize;
     {$IFNDEF FPC}
     property BevelEdges;
@@ -7114,6 +7119,11 @@ procedure TFWCustomHexView.EndUpdate;
 begin
   Dec(FUpdateCount);
   RebuildData;
+  case AutoScrollType of
+    astNone: ;
+    astTop: UpdateScrollY(0);
+    astBottom: UpdateScrollY(- FRowHeight * RawData.Count);
+  end;
 end;
 
 procedure TFWCustomHexView.FitColumnsToBestSize;
