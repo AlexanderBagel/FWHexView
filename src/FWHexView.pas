@@ -8911,6 +8911,8 @@ begin
       GetScrollInfo(Handle, SB_VERT, SI);
       NewVerticalOffset := -Scroll32To64(SI.nTrackPos);
     end;
+    SB_TOP: NewVerticalOffset := 0;
+    SB_BOTTOM, SB_ENDSCROLL: NewVerticalOffset := - FRowHeight * RawData.Count;
   end;
   NewVerticalOffset := NewVerticalOffset - (NewVerticalOffset mod FRowHeight);
   UpdateScrollY(NewVerticalOffset);

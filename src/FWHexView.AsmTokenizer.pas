@@ -50,25 +50,30 @@ uses
   Generics.Collections;
 
 type
+  TTokenizerMode = (tmIntel, tmAtAntT, tmArm);
   TTokenType = (ttUnknown, ttNumber, ttInstruction, ttReg, ttPrefix, ttJmp, ttKernel, ttNop, ttSize);
-  TRegType = (rtUnknown, rtReg8, rtReg16, rtReg32, rtReg64, rtRegSeg, rtRegPtr, rtX87, rtSimd64, rtSimd128, rtSimd256, rtSimd512);
+  TRegType = (rtUnknown, rtReg8, rtReg16, rtReg32, rtReg64, rtRegSeg, rtRegPtr, rtX87, rtSingle, rtDouble, rtSimd64, rtSimd128, rtSimd256, rtSimd512);
 
   { TAsmTokenizer }
 
   TAsmTokenizer = class
   private
+    FTokenizerMode: TTokenizerMode;
     FTokens: TDictionary<string, TTokenType>;
     function IsNumber(const Value: string): Boolean;
+    procedure SetTokenizerMode(AValue: TTokenizerMode);
+    procedure UpdateMode;
   public
     constructor Create;
     destructor Destroy; override;
     function GetToken(pData: PChar; var TokenLength: Integer): TTokenType;
     function GetRegType(const AReg: string): TRegType;
+    property TokenizerMode: TTokenizerMode read FTokenizerMode write SetTokenizerMode;
   end;
 
 implementation
 
-const InstBuff: array[0..1358] of string = (
+const InstBuff: array[0..1359] of string = (
   'AAA', 'AAD', 'AAM', 'AAS', 'ADC', 'ADCX', 'ADD', 'ADDPD', 'ADDPS', 'ADDSD',
   'ADDSS', 'ADDSUBPD', 'ADDSUBPS', 'ADOX', 'AESDEC', 'AESDEC128KL',
   'AESDEC256KL', 'AESDECLAST', 'AESDECWIDE128KL', 'AESDECWIDE256KL', 'AESENC',
@@ -153,8 +158,8 @@ const InstBuff: array[0..1358] of string = (
   'PUNPCKHQDQ', 'PUNPCKHWD', 'PUNPCKLBW', 'PUNPCKLDQ', 'PUNPCKLQDQ',
   'PUNPCKLWD', 'PUSH', 'PUSHA', 'PUSHAD', 'PUSHAL', 'PUSHF', 'PUSHFD',
   'PUSHFQ', 'PXOR', 'RCL', 'RCPPS', 'RCPSS', 'RCR', 'RDFSBASE', 'RDGSBASE',
-  'RDPID', 'RDPKRU', 'RDPMC', 'RDPRU', 'RDRAND', 'RDSEED', 'RDSSPD', 'RDSSPQ',
-  'RDTSC', 'RDTSCP', 'RETF', 'RETN', 'ROL', 'ROR', 'RORX',
+  'RDPID', 'RDPKRU', 'RDPMC', 'RDPRU', 'RDRAND', 'RDSEED', 'RDSSP', 'RDSSPD',
+  'RDSSPQ', 'RDTSC', 'RDTSCP', 'RETF', 'RETN', 'ROL', 'ROR', 'RORX',
   'ROUNDPD', 'ROUNDPS', 'ROUNDSD', 'ROUNDSS', 'RSQRTPS', 'RSQRTSS', 'RSTORSSP',
   'RTDSC', 'SAHF', 'SAL', 'SALC', 'SAR', 'SARX', 'SAVEPREVSSP', 'SBB', 'SCAS',
   'SCASB', 'SCASD', 'SCASQ', 'SCASW', 'SENDUIPI', 'SERIALIZE', 'SETA', 'SETAE',
@@ -378,7 +383,7 @@ const NopBuff: array[0..3] of string = (
 
   // https://docs.oracle.com/cd/E19120-01/open.solaris/817-5477/enmzx/index.html
 
-const AtAndTInstBuff: array[0..65] of string = (
+const AtAndTInstBuff: array[0..66] of string = (
   'ADDB', 'ADDW', 'ADDL', 'ADDQ',
   'ANDB', 'ANDW', 'ANDL', 'ANDQ',
   'CLTD',
@@ -387,6 +392,7 @@ const AtAndTInstBuff: array[0..65] of string = (
   'CQTO',
   'DECB', 'DECW', 'DECL', 'DECQ',
   'DIVB', 'DIVW', 'DIVL', 'DIVQ',
+  'FLDT',
   'IDIVB', 'IDIVW', 'IDIVL', 'IDIVQ',
   'IMULB', 'IMULW', 'IMULL', 'IMULQ',
   'INCB', 'INCW', 'INCL', 'INCQ',
@@ -408,34 +414,236 @@ const AtAndTPrefixBuff: array[0..0] of string = (
   'DATA16'
   );
 
+const ArmInstBuff: array [0..1076] of string = (
+  'ABS', 'ADC', 'ADCS', 'ADD', 'ADDG', 'ADDHN', 'ADDHN2', 'ADDP', 'ADDS',
+  'ADDV', 'ADR', 'ADRP', 'AESD', 'AESE', 'AESIMC', 'AESMC', 'AND', 'ANDS',
+  'ASR', 'ASRV', 'AUTDA', 'AUTDB', 'AUTDZA', 'AUTDZB', 'AUTIA',
+  'AUTIA1716', 'AUTIASP', 'AUTIAZ', 'AUTIB', 'AUTIB1716', 'AUTIBSP', 'AUTIBZ',
+  'AUTIZA', 'AUTIZB', 'BCAX', 'BFC', 'BFI', 'BFM', 'BFXIL', 'BIC', 'BICS',
+  'BIF', 'BIT', 'BKPT', 'BRK', 'BSL', 'CAS', 'CASA', 'CASAB', 'CASAH', 'CASAL',
+  'CASALB', 'CASALH', 'CASB', 'CASH', 'CASL', 'CASLB', 'CASLH', 'CASP',
+  'CASPA', 'CASPAL', 'CCMN', 'CCMP', 'CDP', 'CDP2', 'CINC',
+  'CINV', 'CLREX', 'CLS', 'CLZ', 'CMEQ', 'CMGE', 'CMGT', 'CMHI', 'CMHS',
+  'CMLE', 'CMLT', 'CMN', 'CMP', 'CMPP', 'CMTST', 'CNEG', 'CNT', 'CPS', 'CRC32',
+  'CRC32B', 'CRC32C', 'CRC32CB', 'CRC32CH', 'CRC32CW', 'CRC32CX', 'CRC32H',
+  'CRC32W', 'CRC32X', 'CSDB', 'CSEL', 'CSET', 'CSETM', 'CSINC', 'CSINV',
+  'CSNEG', 'DBG', 'DCPS1', 'DCPS2', 'DCPS3', 'DMB', 'DRPS', 'DSB', 'DUP',
+  'EON', 'EOR', 'EOR3', 'EORS', 'ESB', 'EXT', 'EXTR', 'FABD', 'FABS', 'FACGE',
+  'FACGT', 'FADD', 'FADDP', 'FCADD', 'FCCMP', 'FCCMPE', 'FCMEQ', 'FCMGE',
+  'FCMGT', 'FCMLA', 'FCMLE', 'FCMLT', 'FCMP', 'FCMPE', 'FCSEL', 'FCVT',
+  'FCVTAS', 'FCVTAU', 'FCVTL', 'FCVTL2', 'FCVTMS', 'FCVTMU', 'FCVTN', 'FCVTN2',
+  'FCVTNS', 'FCVTNU', 'FCVTPS', 'FCVTPU', 'FCVTXN', 'FCVTXN2', 'FCVTZS',
+  'FCVTZU', 'FDIV', 'FJCVTZS', 'FLDMDBX', 'FLDMIAX', 'FMADD', 'FMAX', 'FMAXNM',
+  'FMAXNMP', 'FMAXNMV', 'FMAXP', 'FMAXV', 'FMIN', 'FMINNM', 'FMINNMP',
+  'FMINNMV', 'FMINP', 'FMINV', 'FMLA', 'FMLAL', 'FMLS', 'FMLSL', 'FMLSL2',
+  'FMOV', 'FMSUB', 'FMUL', 'FMULX', 'FNEG', 'FNMADD', 'FNMSUB', 'FNMUL',
+  'FRECPE', 'FRECPS', 'FRECPX', 'FRINTA', 'FRINTI', 'FRINTM', 'FRINTN',
+  'FRINTP', 'FRINTX', 'FRINTZ', 'FRSQRTE', 'FRSQRTS', 'FSQRT', 'FSTMDBX',
+  'FSTMIAX', 'FSUB', 'GMI', 'HINT', 'HLT', 'HVC', 'INS', 'IRG', 'ISB',
+  'IT', 'ITE', 'ITEE', 'ITEEE', 'ITEET', 'ITET', 'ITETE', 'ITETT', 'ITT',
+  'ITTE', 'ITTEE', 'ITTET', 'ITTT', 'ITTTE', 'ITTTT', 'LD1', 'LD1R', 'LD2',
+  'LD2R', 'LD3', 'LD3R', 'LD4', 'LD4R', 'LDA', 'LDADD', 'LDADDA', 'LDADDAB',
+  'LDADDAH', 'LDADDAL', 'LDADDALB', 'LDADDALH', 'LDADDB', 'LDADDH', 'LDADDL',
+  'LDADDLB', 'LDADDLH', 'LDAEX', 'LDAEXB', 'LDAEXD', 'LDAEXH', 'LDAPR',
+  'LDAPRB', 'LDAPRH', 'LDAR', 'LDARB', 'LDARH', 'LDAXP', 'LDAXR', 'LDAXRB',
+  'LDAXRH', 'LDC', 'LDC2', 'LDC2L', 'LDCL', 'LDCLR', 'LDCLRA', 'LDCLRAB',
+  'LDCLRAH', 'LDCLRAL', 'LDCLRALB', 'LDCLRALH', 'LDCLRB', 'LDCLRH', 'LDCLRL',
+  'LDCLRLB', 'LDCLRLH', 'LDEOR', 'LDEORA', 'LDEORAB', 'LDEORAH', 'LDEORAL',
+  'LDEORALB', 'LDEORALH', 'LDEORB', 'LDEORH', 'LDEORL', 'LDEORLB', 'LDEORLH',
+  'LDG', 'LDGV', 'LDLAR', 'LDLARB', 'LDLARH', 'LDM', 'LDMDA', 'LDMDB', 'LDMIA',
+  'LDMIB', 'LDNP', 'LDP', 'LDPSW', 'LDR', 'LDRAA', 'LDRAB', 'LDRB', 'LDREX',
+  'LDREXB', 'LDREXD', 'LDREXH', 'LDRH', 'LDRSB', 'LDRSH', 'LDRSW', 'LDSET',
+  'LDSETA', 'LDSETAB', 'LDSETAH', 'LDSETAL', 'LDSETALB', 'LDSETALH', 'LDSETB',
+  'LDSETH', 'LDSETL', 'LDSETLB', 'LDSETLH', 'LDSMAX', 'LDSMAXA', 'LDSMAXAB',
+  'LDSMAXAH', 'LDSMAXAL', 'LDSMAXALB', 'LDSMAXALH', 'LDSMAXB', 'LDSMAXH',
+  'LDSMAXL', 'LDSMAXLB', 'LDSMAXLH', 'LDSMIN', 'LDSMINA', 'LDSMINAB',
+  'LDSMINAH', 'LDSMINAL', 'LDSMINALB', 'LDSMINALH', 'LDSMINB', 'LDSMINH',
+  'LDSMINL', 'LDSMINLB', 'LDSMINLH', 'LDTR', 'LDTRB', 'LDTRH', 'LDTRSB',
+  'LDTRSH', 'LDTRSW', 'LDUMAX', 'LDUMAXA', 'LDUMAXAB', 'LDUMAXAH', 'LDUMAXAL',
+  'LDUMAXALB', 'LDUMAXALH', 'LDUMAXB', 'LDUMAXH', 'LDUMAXL', 'LDUMAXLB',
+  'LDUMAXLH', 'LDUMIN', 'LDUMINA', 'LDUMINAB', 'LDUMINAH', 'LDUMINAL',
+  'LDUMINALB', 'LDUMINALH', 'LDUMINB', 'LDUMINH', 'LDUMINL', 'LDUMINLB',
+  'LDUMINLH', 'LDUR', 'LDURB', 'LDURH', 'LDURSB', 'LDURSH', 'LDURSW', 'LDXP',
+  'LDXR', 'LDXRB', 'LDXRH', 'LSL', 'LSLS', 'LSLV', 'LSR', 'LSRS', 'LSRV',
+  'MADD', 'MCR', 'MCR2', 'MCRR', 'MCRR2', 'MLA', 'MLAS', 'MLS', 'MNEG', 'MOV',
+  'MOVI', 'MOVK', 'MOVN', 'MOVS', 'MOVT', 'MOVZ', 'MRC', 'MRC2', 'MRRC',
+  'MRRC2', 'MSUB', 'MUL', 'MULS', 'MVN', 'MVNI', 'MVNS', 'NEG',
+  'NEGS', 'NGC', 'NGCS', 'NOT', 'ORN', 'ORNS', 'ORR', 'ORRS', 'PACDA',
+  'PACDB', 'PACDZA', 'PACDZB', 'PACGA', 'PACIA', 'PACIA1716', 'PACIASP',
+  'PACIAZ', 'PACIB', 'PACIB1716', 'PACIBSP', 'PACIBZ', 'PACIZA', 'PACIZB',
+  'PKHBT', 'PKHTB', 'PLD', 'PLDW', 'PLI', 'PMUL', 'PMULL', 'PMULL2', 'POP',
+  'PRFM', 'PRFUM', 'PSB', 'PUSH', 'QADD', 'QADD16', 'QADD8', 'QASX', 'QDADD',
+  'QDSUB', 'QSAX', 'QSUB', 'QSUB16', 'QSUB8', 'RADDHN', 'RADDHN2', 'RAX1',
+  'RBIT', 'REV', 'REV16', 'REV32', 'REV64', 'REVSH', 'ROR', 'RORS', 'RORV',
+  'RRX', 'RRXS', 'RSB', 'RSBS', 'RSC', 'RSCS', 'RSHRN', 'RSHRN2', 'RSUBHN',
+  'RSUBHN2', 'SABA', 'SABAL', 'SABAL2', 'SABD', 'SABDL', 'SABDL2', 'SADALP',
+  'SADD16', 'SADD8', 'SADDL', 'SADDL2', 'SADDLP', 'SADDLV', 'SADDW', 'SADDW2',
+  'SASX', 'SBC', 'SBCS', 'SBFIZ', 'SBFM', 'SBFX', 'SCVTF', 'SDIV', 'SDOT',
+  'SEL', 'SETEND', 'SETPAN', 'SEV', 'SEVL', 'SG', 'SHA1C', 'SHA1H', 'SHA1M',
+  'SHA1P', 'SHA1SU0', 'SHA1SU1', 'SHA256H', 'SHA256H2', 'SHA256SU0',
+  'SHA256SU1', 'SHA512H', 'SHA512H2', 'SHA512SU0', 'SHA512SU1', 'SHADD',
+  'SHADD16', 'SHADD8', 'SHASX', 'SHL', 'SHLL', 'SHLL2', 'SHRN', 'SHRN2',
+  'SHSAX', 'SHSUB', 'SHSUB16', 'SHSUB8', 'SLI', 'SM3PARTW1', 'SM3PARTW2',
+  'SM3SS1', 'SM3TT1A', 'SM3TT1B', 'SM3TT2A', 'SM3TT2B', 'SM4E', 'SM4EKEY',
+  'SMADDL', 'SMAX', 'SMAXP', 'SMAXV', 'SMC', 'SMIN', 'SMINP', 'SMINV',
+  'SMLABB', 'SMLABT', 'SMLAD', 'SMLADX', 'SMLAL', 'SMLAL2', 'SMLALBB',
+  'SMLALBT', 'SMLALD', 'SMLALDX', 'SMLALS', 'SMLALTB', 'SMLALTT', 'SMLATB',
+  'SMLATT', 'SMLAWB', 'SMLAWT', 'SMLSD', 'SMLSDX', 'SMLSL', 'SMLSL2', 'SMLSLD',
+  'SMLSLDX', 'SMMLA', 'SMMLAR', 'SMMLS', 'SMMLSR', 'SMMUL', 'SMMULR', 'SMNEGL',
+  'SMOV', 'SMSUBL', 'SMUAD', 'SMUADX', 'SMULBB', 'SMULBT', 'SMULH', 'SMULL',
+  'SMULL2', 'SMULLS', 'SMULTB', 'SMULTT', 'SMULWB', 'SMULWT', 'SMUSD',
+  'SMUSDX', 'SQABS', 'SQADD', 'SQDMLAL', 'SQDMLAL2', 'SQDMLSL', 'SQDMLSL2',
+  'SQDMULH', 'SQDMULL', 'SQDMULL2', 'SQNEG', 'SQRDMLAH', 'SQRDMLSH',
+  'SQRDMULH', 'SQRSHL', 'SQRSHRN', 'SQRSHRN2', 'SQRSHRUN', 'SQRSHRUN2',
+  'SQSHL', 'SQSHLU', 'SQSHRN', 'SQSHRN2', 'SQSHRUN', 'SQSHRUN2', 'SQSUB',
+  'SQXTN', 'SQXTN2', 'SQXTUN', 'SQXTUN2', 'SRHADD', 'SRI', 'SRS', 'SRSDA',
+  'SRSDB', 'SRSHL', 'SRSHR', 'SRSIA', 'SRSIB', 'SRSRA', 'SSAT', 'SSAT16',
+  'SSAX', 'SSHL', 'SSHLL', 'SSHLL2', 'SSHR', 'SSRA', 'SSUB16', 'SSUB8',
+  'SSUBL', 'SSUBL2', 'SSUBW', 'SSUBW2', 'ST1', 'ST2', 'ST2G', 'ST3', 'ST4',
+  'STADD', 'STADDB', 'STADDH', 'STADDL', 'STADDLB', 'STADDLH', 'STC', 'STC2',
+  'STC2L', 'STCL', 'STCLR', 'STCLRB', 'STCLRH', 'STCLRL', 'STCLRLB', 'STCLRLH',
+  'STEOR', 'STEORB', 'STEORH', 'STEORL', 'STEORLB', 'STEORLH', 'STG', 'STGP',
+  'STGV', 'STL', 'STLB', 'STLEX', 'STLEXB', 'STLEXD', 'STLEXH', 'STLH',
+  'STLLR', 'STLLRB', 'STLLRH', 'STLR', 'STLRB', 'STLRH', 'STLXP', 'STLXR',
+  'STLXRB', 'STLXRH', 'STM', 'STMDA', 'STMDB', 'STMIA', 'STMIB', 'STNP', 'STP',
+  'STR', 'STRB', 'STREX', 'STREXB', 'STREXD', 'STREXH', 'STRH', 'STSET',
+  'STSETB', 'STSETH', 'STSETL', 'STSETLB', 'STSETLH', 'STSMAX', 'STSMAXB',
+  'STSMAXH', 'STSMAXL', 'STSMAXLB', 'STSMAXLH', 'STSMIN', 'STSMINB', 'STSMINH',
+  'STSMINL', 'STSMINLB', 'STSMINLH', 'STTR', 'STTRB', 'STTRH', 'STUMAX',
+  'STUMAXB', 'STUMAXH', 'STUMAXL', 'STUMAXLB', 'STUMAXLH', 'STUMIN', 'STUMINB',
+  'STUMINH', 'STUMINL', 'STUMINLB', 'STUMINLH', 'STUR', 'STURB', 'STURH',
+  'STXP', 'STXR', 'STXRB', 'STXRH', 'STZ2G', 'STZG', 'SUB', 'SUBG', 'SUBHN',
+  'SUBHN2', 'SUBP', 'SUBPS', 'SUBS', 'SUQADD', 'SVC', 'SWP', 'SWPA', 'SWPAB',
+  'SWPAH', 'SWPAL', 'SWPALB', 'SWPALH', 'SWPB', 'SWPH', 'SWPL', 'SWPLB',
+  'SWPLH', 'SXTAB', 'SXTAB16', 'SXTAH', 'SXTB', 'SXTB16', 'SXTH', 'SXTL',
+  'SXTL2', 'SXTW', 'TBB', 'TBH', 'TBL', 'TBX', 'TEQ',
+  'TRN1', 'TRN2', 'TST', 'TT', 'TTA', 'TTAT', 'TTT', 'UABA', 'UABAL', 'UABAL2',
+  'UABD', 'UABDL', 'UABDL2', 'UADALP', 'UADD16', 'UADD8', 'UADDL', 'UADDL2',
+  'UADDLP', 'UADDLV', 'UADDW', 'UADDW2', 'UASX', 'UBFIZ', 'UBFM', 'UBFX',
+  'UCVTF', 'UDF', 'UDIV', 'UDOT', 'UHADD', 'UHADD16', 'UHADD8', 'UHASX',
+  'UHSAX', 'UHSUB', 'UHSUB16', 'UHSUB8', 'UMAAL', 'UMADDL', 'UMAX', 'UMAXP',
+  'UMAXV', 'UMIN', 'UMINP', 'UMINV', 'UMLAL', 'UMLAL2', 'UMLALS', 'UMLSL',
+  'UMLSL2', 'UMNEGL', 'UMOV', 'UMSUBL', 'UMULH', 'UMULL', 'UMULL2', 'UMULLS',
+  'UQADD', 'UQADD16', 'UQADD8', 'UQASX', 'UQRSHL', 'UQRSHRN', 'UQRSHRN2',
+  'UQSAX', 'UQSHL', 'UQSHRN', 'UQSHRN2', 'UQSUB', 'UQSUB16', 'UQSUB8', 'UQXTN',
+  'UQXTN2', 'URECPE', 'URHADD', 'URSHL', 'URSHR', 'URSQRTE', 'URSRA', 'USAD8',
+  'USADA8', 'USAT', 'USAT16', 'USAX', 'USHL', 'USHLL', 'USHLL2', 'USHR',
+  'USQADD', 'USRA', 'USUB16', 'USUB8', 'USUBL', 'USUBL2', 'USUBW', 'USUBW2',
+  'UXTAB', 'UXTAB16', 'UXTAH', 'UXTB', 'UXTB16', 'UXTH', 'UXTL', 'UXTL2',
+  'UZP1', 'UZP2', 'VABA', 'VABAL', 'VABD', 'VABDL', 'VABS', 'VACGE', 'VACGT',
+  'VACLE', 'VACLT', 'VADD', 'VADDHN', 'VADDL', 'VADDW', 'VAND', 'VBIC', 'VBIF',
+  'VBIT', 'VBSL', 'VCADD', 'VCEQ', 'VCGE', 'VCGT', 'VCLE', 'VCLS', 'VCLT',
+  'VCLZ', 'VCMLA', 'VCMP', 'VCMPE', 'VCNT', 'VCVT', 'VCVTA', 'VCVTB', 'VCVTM',
+  'VCVTN', 'VCVTP', 'VCVTT', 'VDIV', 'VDUP', 'VEOR', 'VEXT', 'VFMA', 'VFMAL',
+  'VFMS', 'VFMSL', 'VFNMA', 'VFNMS', 'VHADD', 'VHSUB', 'VJCVT', 'VLD1', 'VLD2',
+  'VLD3', 'VLD4', 'VLDM', 'VLDMDB', 'VLDMEA', 'VLDMFD', 'VLDMIA', 'VLDR',
+  'VLLDM', 'VLSTM', 'VMAX', 'VMAXNM', 'VMIN', 'VMINNM', 'VMLA', 'VMLAL',
+  'VMLS', 'VMLSL', 'VMOV', 'VMOV2', 'VMOVL', 'VMOVN', 'VMRS', 'VMSR', 'VMUL',
+  'VMULL', 'VMVN', 'VNEG', 'VNMLA', 'VNMLS', 'VNMUL', 'VORN', 'VORR', 'VPADAL',
+  'VPADD', 'VPADDL', 'VPMAX', 'VPMIN', 'VPOP', 'VPUSH', 'VQABS', 'VQADD',
+  'VQDMLAL', 'VQDMLSL', 'VQDMULH', 'VQDMULL', 'VQMOVN', 'VQMOVUN', 'VQNEG',
+  'VQRDMULH', 'VQRSHL', 'VQRSHRN', 'VQRSHRUN', 'VQSHL', 'VQSHLU', 'VQSHRN',
+  'VQSHRUN', 'VQSUB', 'VRADDHN', 'VRECPE', 'VRECPS', 'VREV16', 'VREV32',
+  'VREV64', 'VRHADD', 'VRINTA', 'VRINTM', 'VRINTN', 'VRINTP', 'VRINTR',
+  'VRINTX', 'VRINTZ', 'VRSHL', 'VRSHR', 'VRSHRN', 'VRSQRTE', 'VRSQRTS',
+  'VRSRA', 'VRSUBHN', 'VSDOT', 'VSEL', 'VSHL', 'VSHLL', 'VSHR', 'VSHRN',
+  'VSLI', 'VSQRT', 'VSRA', 'VSRI', 'VST1', 'VST2', 'VST3', 'VST4', 'VSTM',
+  'VSTMDB', 'VSTMEA', 'VSTMFD', 'VSTMIA', 'VSTR', 'VSUB', 'VSUBHN', 'VSUBL',
+  'VSUBW', 'VSWP', 'VTBL', 'VTBX', 'VTRN', 'VTST', 'VUDOT', 'VUZP', 'VZIP',
+  'WFE', 'WFI', 'XAR', 'XPACD', 'XPACI', 'XPACLRI', 'XTN', 'XTN2', 'YIELD',
+  'ZIP1', 'ZIP2');
+
+const ArmJmpBuff: array[0..31] of string = (
+  'B', 'BL', 'BLR', 'BLX', 'BLXNS', 'BLRAA', 'BLRAAZ', 'BLRAB', 'BLRABZ', 'BR',
+  'BRAA', 'BRAAZ', 'BRAB', 'BRABZ', 'BTI', 'BX', 'BXNS', 'BXJ', 'CBNZ', 'CBZ',
+  'TBNZ', 'TBZ', 'RET', 'RETAA', 'RETAB', 'ERET', 'ERETAA', 'ERETAB', 'RFEIA',
+  'RFEIB', 'RFEDA', 'RFEDB');
+
+const ArmKernelBuff: array[0..7] of string = (
+  'AT', 'DC', 'IC', 'SYS', 'SYSL', 'TLBI', 'MRS', 'MSR');
+
+const ArmDataTypeBuff: array[0..14] of string = (
+  'I8', 'I16', 'I32', 'I64', 'S8', 'S16', 'S32', 'S64',
+  'U8', 'U16', 'U32', 'U64', 'F16', 'F32', 'P8');
+
+const ArmSuffixBuff: array[0..16] of string = (
+  'EQ', 'NE', 'CS', 'HS', 'CC', 'LO', 'MI', 'PL',
+  'VS', 'VC', 'HI', 'LS', 'GE', 'LT', 'GT', 'LE', 'AL');
+
+const ArmBarrierBuff: array[0..12] of string = (
+  'SY', 'LD', 'ST', 'ISH', 'ISHLD', 'ISHST', 'NSH', 'NSHLD',
+  'NSHST', 'OSH', 'OSHLD', 'OSHST', '!');
+
+const ArmNopBuff: array[0..0] of string = ('NOP');
+
+const ArmRegsBuff: array[0..197] of string = (
+  'W0', 'W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10', 'W11',
+  'W12', 'W13', 'W14', 'W15', 'W16', 'W17', 'W18', 'W19', 'W20', 'W21', 'W22',
+  'W23', 'W24', 'W25', 'W26', 'W27', 'W28', 'W29', 'W30',
+  'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8', 'R9', 'R10', 'R11',
+  'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19', 'R20', 'R21', 'R22',
+  'R23', 'R24', 'R25', 'R26', 'R27', 'R28', 'R29', 'R30',
+  'X0', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8', 'X9', 'X10', 'X11',
+  'X12', 'X13', 'X14', 'X15', 'X16', 'X17', 'X18', 'X19', 'X20', 'X21', 'X22',
+  'X23', 'X24', 'X25', 'X26', 'X27', 'X28', 'X29', 'X30',
+  'S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11',
+  'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19', 'S20', 'S21', 'S22',
+  'S23', 'S24', 'S25', 'S26', 'S27', 'S28', 'S29', 'S30', 'S31',
+  'D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10', 'D11',
+  'D12', 'D13', 'D14', 'D15', 'D16', 'D17', 'D18', 'D19', 'D20', 'D21', 'D22',
+  'D23', 'D24', 'D25', 'D26', 'D27', 'D28', 'D29', 'D30', 'D31',
+  'V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11',
+  'V12', 'V13', 'V14', 'V15', 'V16', 'V17', 'V18', 'V19', 'V20', 'V21', 'V22',
+  'V23', 'V24', 'V25', 'V26', 'V27', 'V28', 'V29', 'V30', 'V31',
+  'FP', 'LR', 'SP', 'PC', 'CPSR', 'FPCR', 'FPSR', 'XZR', 'WZR'
+  );
+
+const ArmRegTypesBuff: array[0..197] of TRegType = (
+  // W0..W30
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  // R0..R30
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32, rtReg32,
+  // X0..X30
+  rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64,
+  rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64,
+  rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64,
+  rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64, rtReg64,
+  // S0..S31
+  rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle,
+  rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle,
+  rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle,
+  rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle, rtSingle,
+  rtSingle, rtSingle, rtSingle, rtSingle,
+  // D0..D31
+  rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble,
+  rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble,
+  rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble,
+  rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble, rtDouble,
+  rtDouble, rtDouble, rtDouble, rtDouble,
+  // V0..V31
+  rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
+  rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
+  rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
+  rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128, rtSimd128,
+  rtSimd128, rtSimd128, rtSimd128, rtSimd128,
+  // FP     LR        SP        PC        CPSR     FPCR     FPSR
+  rtRegPtr, rtRegPtr, rtRegPtr, rtRegPtr, rtReg32, rtReg32, rtReg32,
+  // XZR   WZR
+  rtReg64, rtReg32
+  );
+
 { TAsmTokenizer }
 
 constructor TAsmTokenizer.Create;
-var
-  I: Integer;
 begin
   FTokens := TDictionary<string, TTokenType>.Create;
-  for I := 0 to Length(InstBuff) - 1 do
-    FTokens.Add(InstBuff[I], ttInstruction);
-  for I := 0 to Length(SizeBuff) - 1 do
-    FTokens.Add(SizeBuff[I], ttSize);
-  for I := 0 to Length(RegsBuff) - 1 do
-    FTokens.Add(RegsBuff[I], ttReg);
-  for I := 0 to Length(PrefixBuff) - 1 do
-    FTokens.Add(PrefixBuff[I], ttPrefix);
-  for I := 0 to Length(JmpBuff) - 1 do
-    FTokens.Add(JmpBuff[I], ttJmp);
-  for I := 0 to Length(KernelBuff) - 1 do
-    FTokens.Add(KernelBuff[I], ttKernel);
-  for I := 0 to Length(NopBuff) - 1 do
-    FTokens.Add(NopBuff[I], ttNop);
-  // AT&T specific
-  for I := 0 to Length(AtAndTInstBuff) - 1 do
-    FTokens.Add(AtAndTInstBuff[I], ttInstruction);
-  for I := 0 to Length(AtAndTJmpBuff) - 1 do
-    FTokens.Add(AtAndTJmpBuff[I], ttJmp);
-  for I := 0 to Length(AtAndTPrefixBuff) - 1 do
-    FTokens.Add(AtAndTPrefixBuff[I], ttJmp);
+  UpdateMode;
 end;
 
 destructor TAsmTokenizer.Destroy;
@@ -451,14 +659,16 @@ function TAsmTokenizer.GetToken(pData: PChar;
   begin
     Result := False;
     case Value^ of
-      'A'..'Z', 'a'..'z', '0'..'9', '$', '%': Result := True;
+      'A'..'Z', 'a'..'z', '0'..'9', '$': Result := True;
+      '%': Result := TokenizerMode = tmAtAntT;
+      '.', '-', '#', '!': Result := TokenizerMode = tmArm;
     end;
   end;
 
 var
   pCursor: PChar;
   FoundToken: string;
-  CharLeft: Integer;
+  CharLeft, I: Integer;
   FirstIsTokenChar: Boolean;
 begin
   Result := ttUnknown;
@@ -474,13 +684,22 @@ begin
   if not FirstIsTokenChar then
     Exit;
   FoundToken := Copy(pData, 1, CharLeft);
-  // AT&T specific
-  if CharInSet(FoundToken[1], ['%', '$']) then
+  if (TokenizerMode = tmAtAntT) and CharInSet(FoundToken[1], ['%', '$']) then
     FoundToken := Copy(FoundToken, 2, CharLeft - 1);
   if IsNumber(FoundToken) then
     Result := ttNumber
   else
     FTokens.TryGetValue(FoundToken, Result);
+  if (Result = ttUnknown) and (TokenizerMode = tmArm) then
+  begin
+    for I := 0 to Length(ArmSuffixBuff) - 1 do
+      if FoundToken.EndsWith('.' + ArmSuffixBuff[I]) then
+      begin
+        SetLength(FoundToken, Length(FoundToken) - Length(ArmSuffixBuff[I]) - 1);
+        FTokens.TryGetValue(FoundToken, Result);
+        Break;
+      end;
+  end;
   if pCursor^ = ' ' then
     Inc(TokenLength);
 end;
@@ -490,6 +709,13 @@ var
   I: Integer;
 begin
   Result := rtUnknown;
+  if TokenizerMode = tmArm then
+  begin
+    for I := 0 to Length(ArmRegsBuff) - 1 do
+      if AReg = ArmRegsBuff[I] then
+        Exit(ArmRegTypesBuff[I]);
+    Exit;
+  end;
   for I := 0 to Length(RegsBuff) - 1 do
     if AReg = RegsBuff[I] then
       Exit(RegTypesBuff[I]);
@@ -499,7 +725,80 @@ function TAsmTokenizer.IsNumber(const Value: string): Boolean;
 var
   Tmp: Int64;
 begin
-  Result := TryStrToInt64(Value, Tmp);
+  if TokenizerMode = tmArm then
+  begin
+    if Pos('X', Value) > 0 then
+      Result := False
+    else
+      if Value[1] = '#' then
+        Result := TryStrToInt64(Copy(Value, 2, Length(Value)), Tmp)
+      else
+        Result := TryStrToInt64(Value, Tmp);
+  end
+  else
+    Result := TryStrToInt64(Value, Tmp);
+end;
+
+procedure TAsmTokenizer.SetTokenizerMode(AValue: TTokenizerMode);
+begin
+  if FTokenizerMode <> AValue then
+  begin
+    FTokenizerMode := AValue;
+    UpdateMode;
+  end;
+end;
+
+procedure TAsmTokenizer.UpdateMode;
+var
+  I: Integer;
+begin
+  FTokens.Clear;
+  if TokenizerMode in [tmIntel, tmAtAntT] then
+  begin
+    for I := 0 to Length(InstBuff) - 1 do
+      FTokens.Add(InstBuff[I], ttInstruction);
+    for I := 0 to Length(SizeBuff) - 1 do
+      FTokens.Add(SizeBuff[I], ttSize);
+    for I := 0 to Length(RegsBuff) - 1 do
+      FTokens.Add(RegsBuff[I], ttReg);
+    for I := 0 to Length(PrefixBuff) - 1 do
+      FTokens.Add(PrefixBuff[I], ttPrefix);
+    for I := 0 to Length(JmpBuff) - 1 do
+      FTokens.Add(JmpBuff[I], ttJmp);
+    for I := 0 to Length(KernelBuff) - 1 do
+      FTokens.Add(KernelBuff[I], ttKernel);
+    for I := 0 to Length(NopBuff) - 1 do
+      FTokens.Add(NopBuff[I], ttNop);
+    // AT&T specific
+    if TokenizerMode = tmAtAntT then
+    begin
+      for I := 0 to Length(AtAndTInstBuff) - 1 do
+        FTokens.Add(AtAndTInstBuff[I], ttInstruction);
+      for I := 0 to Length(AtAndTJmpBuff) - 1 do
+        FTokens.Add(AtAndTJmpBuff[I], ttJmp);
+      for I := 0 to Length(AtAndTPrefixBuff) - 1 do
+        FTokens.Add(AtAndTPrefixBuff[I], ttJmp);
+    end;
+  end;
+  if TokenizerMode = tmArm then
+  begin
+    for I := 0 to Length(ArmInstBuff) - 1 do
+      FTokens.Add(ArmInstBuff[I], ttInstruction);
+    for I := 0 to Length(ArmRegsBuff) - 1 do
+      FTokens.Add(ArmRegsBuff[I], ttReg);
+    for I := 0 to Length(ArmJmpBuff) - 1 do
+      FTokens.Add(ArmJmpBuff[I], ttJmp);
+    for I := 0 to Length(ArmKernelBuff) - 1 do
+      FTokens.Add(ArmKernelBuff[I], ttKernel);
+    for I := 0 to Length(ArmNopBuff) - 1 do
+      FTokens.Add(ArmNopBuff[I], ttNop);
+    for I := 0 to Length(ArmSuffixBuff) - 1 do
+      FTokens.Add(ArmSuffixBuff[I], ttPrefix);
+    //for I := 0 to Length(ArmDataTypeBuff) - 1 do
+    //  FTokens.Add(ArmDataTypeBuff[I], ttSize);
+    for I := 0 to Length(ArmBarrierBuff) - 1 do
+      FTokens.Add(ArmBarrierBuff[I], ttPrefix);
+  end;
 end;
 
 end.

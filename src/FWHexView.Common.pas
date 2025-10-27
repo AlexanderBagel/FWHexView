@@ -430,6 +430,8 @@ function DoubleToExtended80(const Value: Double): TExtended80Support;
 var
   UIntRes: UInt64;
 begin
+  if Value = 0 then
+    Exit(Default(TExtended80Support));
   UIntRes := PUInt64(@Value)^;
   Result.Exp := (UIntRes shr 52) and $7FF + 15360;
   if (UIntRes shr 52) and $800 <> 0 then
