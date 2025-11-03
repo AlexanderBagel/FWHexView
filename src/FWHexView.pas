@@ -1443,6 +1443,7 @@ type
     property Selections: TSelections read FSelections;
     property SelEnd: Int64 read FSelEndAddr write SetSelEnd;
     property SelStart: Int64 read FSelStartAddr write SetSelStart;
+    property StartAddress: Int64 read FStartAddress;
   protected
     // свойства для пейнтеров и наследников
 
@@ -1459,7 +1460,6 @@ type
     property SavedShift: TShiftState read FSavedShift;
     property ScrollOffset: TLargePoint read FScrollOffset;
     property SplitMargin: Integer read FSplitMargin;
-    property StartAddress: Int64 read FStartAddress;
     property TextBoundary: TLargePoint read FTextBoundary;
     property TextMargin: Integer read FTextMargin;
     property TextMetric: TAbstractTextMetric read FTextMetric;

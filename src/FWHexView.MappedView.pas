@@ -1694,9 +1694,9 @@ function TDataMap.CheckAddr(Address, DataLength: Int64): TAddrCheck;
 begin
   if FOwner.Pages.Count > 0 then
   begin
-    if (DataLength > 0) and not FOwner.Pages.CheckAddrInPages(Address) then
+    if not FOwner.Pages.CheckAddrInPages(Address) then
       Exit(acStartOutOfPool);
-    if not FOwner.Pages.CheckAddrInPages(Address + DataLength - 1) then
+    if (DataLength > 0) and not FOwner.Pages.CheckAddrInPages(Address + DataLength - 1) then
       Exit(acEndOutOfPool);
   end
   else
