@@ -78,6 +78,7 @@ type
     rsLine,
     rsUnbrokenLine, // unbroken line between lines, not passed to RawData
     rsRaw,
+    rsRawWithComment,
     rsRawWithExDescription,
     rsAsm,
     rsMask,
@@ -240,6 +241,7 @@ type
 
     function AddRaw(DataLength: Int64): Integer; overload;
     function AddRaw(Address, DataLength: Int64): Integer; overload;
+    function AddRaw(Address, DataLength: Int64; const Comment: string): Integer; overload;
 
     function AddSeparator(const Description: string): Integer; overload;
     function AddSeparator(Address: Int64; const Description: string): Integer; overload;
@@ -1653,6 +1655,21 @@ begin
   LineData.Style := rsRaw;
   LineData.Address := Address;
   LineData.RawLength := DataLength;
+  CurrentAddr := Address + DataLength;
+  Result := AddMapLine(LineData);
+end;
+
+function TDataMap.AddRaw(Address, DataLength: Int64;
+  const Comment: string): Integer;
+var
+  LineData: TMapRow;
+begin
+  LineData := Default(TMapRow);
+  LineData.Index := FData.Count;
+  LineData.Style := rsRawWithComment;
+  LineData.Address := Address;
+  LineData.RawLength := DataLength;
+  LineData.Comment := Comment;
   CurrentAddr := Address + DataLength;
   Result := AddMapLine(LineData);
 end;
@@ -3245,7 +3262,7 @@ begin
   if (ARowIndex < 0) or (ARowIndex >= RawData.Count) then
     Exit(nil);
   case RawData[ARowIndex].Style of
-    rsRaw: Result := Painters[0];
+    rsRaw, rsRawWithComment: Result := Painters[0];
     rsRawWithExDescription: Result := Painters[1];
     rsAsm: Result := Painters[2];
     rsSeparator: Result := Painters[3];
