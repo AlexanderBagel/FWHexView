@@ -511,7 +511,7 @@ type
     procedure Delete(Index: Integer);
     function GetPageIndex(VirtualAddress: Int64;
       out Index: Integer): TPageIndexResult;
-    function CheckAddrInPages(VirtualAddress: Int64): Boolean;
+    function CheckAddrInPages(VirtualAddress: Int64; EmptyData: Boolean): Boolean;
     function MaxAddrAware: Int64;
     property Items[Index: Integer]: TVirtualPage read GetItem; default;
   end;
@@ -1421,7 +1421,7 @@ begin
 
   // If the ending falls on a region boundary, well, just don't add it.
 
-  if FOwner.Pages.CheckAddrInPages(EndAddress) then
+  if FOwner.Pages.CheckAddrInPages(EndAddress, StartAddress = EndAddress) then
   begin
     LineData.Index := FData.Count;
     LineData.Address := EndAddress;
@@ -1711,9 +1711,9 @@ function TDataMap.CheckAddr(Address, DataLength: Int64): TAddrCheck;
 begin
   if FOwner.Pages.Count > 0 then
   begin
-    if not FOwner.Pages.CheckAddrInPages(Address) then
+    if not FOwner.Pages.CheckAddrInPages(Address, DataLength = 0) then
       Exit(acStartOutOfPool);
-    if (DataLength > 0) and not FOwner.Pages.CheckAddrInPages(Address + DataLength - 1) then
+    if (DataLength > 0) and not FOwner.Pages.CheckAddrInPages(Address + DataLength - 1, True) then
       Exit(acEndOutOfPool);
   end
   else
@@ -2919,7 +2919,7 @@ begin
   DoChange;
 end;
 
-function TVirtualPages.CheckAddrInPages(VirtualAddress: Int64): Boolean;
+function TVirtualPages.CheckAddrInPages(VirtualAddress: Int64; EmptyData: Boolean): Boolean;
 var
   PageIndex: TPageIndexResult;
   Tmp: Integer;
@@ -2943,6 +2943,15 @@ begin
       EndAddr := MaxAddrAware;
       Result := (StartAddr <= VirtualAddress) and (EndAddr > VirtualAddress);
     end;
+
+  // В случае если добавляется служебная строчка, наподобие коментария,
+  // разделителя и т.д. разрешаем ей добавляться в первый байт за границей региона
+
+  // If a service line is added, such as a comment, separator, etc.,
+  // we allow it to be added to the first byte outside the region.
+
+  if EmptyData and not Result then
+    Result := CheckAddrInPages(VirtualAddress - 1, False);
 end;
 
 function TVirtualPages.Count: Integer;
