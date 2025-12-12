@@ -2,8 +2,8 @@ object Form1: TForm1
   Left = 0
   Top = 0
   Caption = 'Form1'
-  ClientHeight = 604
-  ClientWidth = 1100
+  ClientHeight = 411
+  ClientWidth = 852
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -13,16 +13,19 @@ object Form1: TForm1
   OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
-  OnDestroy = FormDestroy
   PixelsPerInch = 96
   TextHeight = 13
-  object Hex: TMappedHexView
+  object FWHexView1: TFWHexView
     Left = 0
     Top = 0
-    Width = 1100
-    Height = 604
+    Width = 852
+    Height = 411
     Align = alClient
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -18
+    Font.Name = 'Consolas'
+    Font.Style = []
     TabOrder = 0
-    OnJmpTo = HexJmpTo
   end
 end

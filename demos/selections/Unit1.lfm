@@ -1,0 +1,28 @@
+object Form1: TForm1
+  Left = 1400
+  Height = 616
+  Top = 536
+  Width = 1278
+  Caption = 'Form1'
+  ClientHeight = 616
+  ClientWidth = 1278
+  Color = clBtnFace
+  DesignTimePPI = 144
+  Font.Color = clWindowText
+  Font.Height = -17
+  Font.Name = 'Tahoma'
+  Position = poScreenCenter
+  LCLVersion = '4.99.0.0'
+  OnCreate = FormCreate
+  object FWHexView1: TFWHexView
+    Left = 0
+    Height = 616
+    Top = 0
+    Width = 1278
+    Align = alClient
+    Font.Color = clWindowText
+    Font.Height = -27
+    Font.Name = 'Consolas'
+    TabOrder = 0
+  end
+end

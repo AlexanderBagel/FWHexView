@@ -76,9 +76,8 @@ type
     rsNone,
     rsSeparator,
     rsLine,
-    rsUnbrokenLine, // unbroken line between lines, not passed to RawData
     rsRaw,
-    rsRawWithComment,
+    rsRawCustom,
     rsRawWithExDescription,
     rsAsm,
     rsMask,
@@ -86,7 +85,7 @@ type
     rsMaskRadio,
     rsMaskSeparator,
     rsLineComment,
-    rsBlockComment);
+    rsRegion);
 
   THintType = (htNone, htDescriptionLine, htHiperlink);
 
@@ -119,8 +118,15 @@ type
         MaskRowIndex: Int64;  // Index in TRowData for row with mask
         BitIndex: Byte;
         Checked: Boolean);
+      3: (
+        // for Style = rsRegion
+        RegionStart: Boolean;
+        RegionSizeOrAddr: Int64;
+        RegionIndex: Integer;
+      );
   end;
 
+  TRegion = class;
   TCustomMappedHexView = class;
 
   { TMappedRawData }
@@ -129,6 +135,7 @@ type
   strict private
     FRows: TListEx<TRowData>;
     FCount: Int64;
+    FMaxRegionLevel: Integer;
     procedure CheckDataMap;
     function GetRowAtIndex(ARowIndex: Int64): TMappedRawData;
     function GetItem: TRowData;
@@ -166,9 +173,17 @@ type
     function MaskRowIndex: Int64;
     function BitIndex: Byte;
     function Checked: Boolean;
+    // for Style = rsRegion
+    function Region: TRegion;
+    function RegionIndex: Integer;
+    function RegionSizeOrAddr: Int64;
+    function RegionStart: Boolean;
+
     function Count: Int64; override;
     procedure Clear; override;
     procedure Update; override;
+
+    property MaxRegionLevel: Integer read FMaxRegionLevel;
     property Row[ARowIndex: Int64]: TMappedRawData read GetRowAtIndex; default;
   end;
 
@@ -178,6 +193,7 @@ type
     Address: Int64;
     RawLength: Int64;
     Description: string;
+    DrawRowSmallSeparator: Boolean;
     Comment: string;
     Color: TColor;
     case Integer of
@@ -191,8 +207,13 @@ type
         BitIndex: Byte;
         Checked: Boolean);
       3: (
-        BlockCommentStart: Boolean);
+        RegionStart: Boolean;
+        RegionSizeOrAddr: Int64;
+        RegionIndex: Integer;
+      );
   end;
+
+  TRegionDrawStyle = (rdsComment, rdsSeparator, rdsCenteredSeparator);
 
   TAddrCheck = (
     acStartOutOfPool,
@@ -203,10 +224,15 @@ type
     acChecked);
 
   TDataMap = class
+  private type
+    TRegionCompareResult = (rcrError, rcrNotMatching, rcrPartialIntersectTop,
+      rcrPartialIntersectBottom, rcrSame, rcrNested, rcrFullNested, rcrExternal);
   strict private
     FOwner: TCustomMappedHexView;
     FData: TListEx<TMapRow>;
     FRawIndex: TDictionary<Int64, Int64>;
+    FRegions: TObjectList<TRegion>;
+    FHiddenFooter: TObjectDictionary<Int64, TList<TRegion>>;
     FMaskPresent: Boolean;
     FUpdateCount: Integer;
     FCurrentAddr, FSavedCurrentAddr: Int64;
@@ -214,10 +240,19 @@ type
     procedure DataChange(Sender: TObject;
       {$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} {%H-}Item: TMapRow;
       {%H-}Action: TCollectionNotification);
-    procedure RebuildDataMap;
+  protected type
+    TRegionChangeType = (rctCollapse, rctExpand, rctToggle);
   protected
+    function CompareRegion(AAddress, ASize: Int64; ARegion: TRegion): TRegionCompareResult;
     procedure InternalClear(NewStartAddress: Int64);
+    procedure InternalRegionChange(ARegion: TRegion; AChangeType: TRegionChangeType);
+    procedure InternalRegionChangeByAddress(Address: Int64; AChangeType: TRegionChangeType);
+    function FindRegionLevel(Address, RegionSize: Int64): Integer;
+    procedure RebuildDataMap;
     property CurrentAddr: Int64 read FCurrentAddr write FCurrentAddr;
+    property Data: TListEx<TMapRow> read FData;
+    property Regions: TObjectList<TRegion> read FRegions;
+    property HiddenFooter: TObjectDictionary<Int64, TList<TRegion>> read FHiddenFooter;
   public
     constructor Create(AOwner: TCustomMappedHexView);
     destructor Destroy; override;
@@ -239,7 +274,9 @@ type
       const Description, Comment: string; Checked: Boolean): Integer;
     function AddMaskSeparator: Integer;
 
+    function AddRaw(const Comment: string): Integer; overload;
     function AddRaw(DataLength: Int64): Integer; overload;
+    function AddRaw(DataLength: Int64; const Comment: string): Integer; overload;
     function AddRaw(Address, DataLength: Int64): Integer; overload;
     function AddRaw(Address, DataLength: Int64; const Comment: string): Integer; overload;
 
@@ -271,13 +308,17 @@ type
     function AddComment(const Description: string): Integer; overload;
     function AddComment(Address: Int64; const Description: string): Integer; overload;
 
-    function AddBlockComment(StartAddress, EndAddress: Int64;
-      const Description: string): Integer; overload;
-    function AddBlockComment(EndAddress: Int64;
-      const Description: string): Integer; overload;
+    function AddRegion(Address, RegionSize: Int64;
+      const Description: string; Expanded: Boolean = True): TRegion; overload;
+    function AddRegion(RegionSize: Int64;
+      const Description: string; Expanded: Boolean = True): TRegion; overload;
+    function AddRegion(Address, RegionSize: Int64; const Description: string;
+      DrawStyle: TRegionDrawStyle; Expanded: Boolean = True): TRegion; overload;
+    function AddRegion(RegionSize: Int64; const Description: string;
+      DrawStyle: TRegionDrawStyle; Expanded: Boolean = True): TRegion; overload;
 
-    function AddLine(Address: Int64; UnBroken: Boolean = False): Integer; overload;
-    function AddLine(UnBroken: Boolean = False): Integer; overload;
+    function AddLine(Address: Int64): Integer; overload;
+    function AddLine: Integer; overload;
 
     function AddNone(Address: Int64): Integer; overload;
     function AddNone: Integer; overload;
@@ -285,11 +326,79 @@ type
     procedure Assign({%H-}Value: TDataMap);
     procedure BeginUpdate;
     procedure EndUpdate;
-    property Data: TListEx<TMapRow> read FData;
 
     function GetCurrentAddr: Int64;
     procedure SaveCurrentAddr;
     procedure RestoreCurrentAddr;
+
+    procedure CollapseAllRegions;
+    procedure CollapseRegion(Address: Int64);
+    procedure ExpandAllRegions;
+    procedure ExpandRegion(Address: Int64);
+    procedure ToggleRegion(Address: Int64);
+
+    // modification of existing elements
+
+    procedure SetRowColor(ADataMapIndex: Integer; AValue: TColor);
+    procedure SetRowComment(ADataMapIndex: Integer; const AValue: string);
+    procedure SetRowDescription(ADataMapIndex: Integer; const AValue: string);
+    procedure SetRowLineSeparated(ADataMapIndex: Integer; AValue: Boolean);
+  end;
+
+  TRegionPart = class
+  strict private
+    FOwner: TRegion;
+    FBackgroundColor: TColor;
+    FDataMapIndex, FRowIndex: Int64;
+    FDrawStyle: TRegionDrawStyle;
+    procedure SetBackgroundColor(const Value: TColor);
+    procedure SetDrawStyle(const Value: TRegionDrawStyle);
+    procedure SetText(const Value: string);
+    procedure SetTextColor(const Value: TColor);
+    function GetText: string;
+    function GetTextColor: TColor;
+  protected
+    procedure Assign(AValue: TRegionPart);
+    property DataMapIndex: Int64 read FDataMapIndex write FDataMapIndex;
+    property RowIndex: Int64 read FRowIndex write FRowIndex;
+  public
+    constructor Create(AOwner: TRegion; ADataMapIndex: Int64);
+    property BackgroundColor: TColor read FBackgroundColor write SetBackgroundColor;
+    property DrawStyle: TRegionDrawStyle read FDrawStyle write SetDrawStyle;
+    property Text: string read GetText write SetText;
+    property TextColor: TColor read GetTextColor write SetTextColor;
+  end;
+
+  TRegion = class
+  strict private
+    FOwner: TDataMap;
+    FAddress, FSize: Int64;
+    FExpanded, FFooterVisible: Boolean;
+    FHeader, FFooter: TRegionPart;
+    FLevel: Integer;
+    FLineColor: TColor;
+    procedure SetExpanded(const Value: Boolean);
+    procedure SetLineColor(const Value: TColor);
+  private
+    procedure SetFooterVisible(const Value: Boolean);
+  protected
+    procedure Assign(AValue: TRegion);
+    procedure DoChange;
+    property DataMap: TDataMap read FOwner;
+    property Level: Integer read FLevel write FLevel;
+  public
+    constructor Create(AOwner: TDataMap; AHeaderIndex, AAddress, ASize: Int64);
+    destructor Destroy; override;
+    function AddressInRegion(AAddress: Int64): Boolean;
+    function FirstRawDataRowIndex: Integer;
+    function LastRawDataRowIndex: Integer;
+    property Address: Int64 read FAddress;
+    property Expanded: Boolean read FExpanded write SetExpanded;
+    property Header: TRegionPart read FHeader;
+    property Footer: TRegionPart read FFooter;
+    property FooterVisible: Boolean read FFooterVisible write SetFooterVisible;
+    property LineColor: TColor read FLineColor write SetLineColor;
+    property Size: Int64 read FSize;
   end;
 
   TMapViewColors = class(THexViewColorMap)
@@ -439,6 +548,14 @@ type
     constructor Create(AOwner: TFWCustomHexView); override;
   end;
 
+  TRowRegion = class(TSecondaryMappedRowPainter)
+  protected
+    procedure CopyRowAsString(Builder: TSimplyStringBuilder); override;
+    procedure DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
+      var ARect: TRect); override;
+    procedure GetHitInfo(var AHitInfo: TMouseHitInfo); override;
+  end;
+
   { TCommonMapViewPostPainter }
 
   TCommonMapViewPostPainter = class(TLinesPostPainter)
@@ -471,18 +588,24 @@ type
       var Offset: TPoint); override;
   end;
 
+  TRegionPostPainter = class(TCommonMapViewPostPainter)
+  public
+    procedure PostPaint(ACanvas: TCanvas; StartRow, EndRow: Int64;
+      var Offset: TPoint); override;
+  end;
+
   TVirtualPage = class
   strict private
     FOwner: TCustomMappedHexView;
     FCaption: string;
     FShowCaption: Boolean;
     FVirtualAddress: Int64;
-    FSize: DWORD;
+    FSize: Integer;
   private
     procedure DoChange;
     procedure SetCaption(const Value: string);
     procedure SetShowCaption(const Value: Boolean);
-    procedure SetSize(const Value: DWORD);
+    procedure SetSize(const Value: Integer);
     procedure SetVirtualAddress(const Value: Int64);
   protected
     property Owner: TCustomMappedHexView read FOwner write FOwner;
@@ -490,7 +613,7 @@ type
     property Caption: string read FCaption write SetCaption;
     property ShowCaption: Boolean read FShowCaption write SetShowCaption;
     property VirtualAddress: Int64 read FVirtualAddress write SetVirtualAddress;
-    property Size: DWORD read FSize write SetSize;
+    property Size: Integer read FSize write SetSize;
   end;
 
   TPageIndexResult = (pirOutOfBounds, pirNotPaged, pirPagePresent);
@@ -538,6 +661,7 @@ type
     FPages: TVirtualPages;
     FRadioCheckClick: TRadioCheckClickEvent;
     FShowMaskAsValue: Boolean;
+    FCoveringRegion: TList<TRegion>;
     function GetColorMap: TMapViewColors;
     procedure SetColorMap(const Value: TMapViewColors);
     procedure SetDrawIncomingJmp(const Value: Boolean);
@@ -546,7 +670,10 @@ type
   protected
     function CalculateColumnBestSize(Value: TColumnType): Integer; override;
     function CalculateJmpToRow(JmpFromRow: Int64): Int64; virtual;
+    procedure DblClick; override;
+    procedure DoBeforePostPaint(const ADiapason: TVisibleRowDiapason); override;
     procedure DoCaretKeyDown(var Key: Word; Shift: TShiftState); override;
+    procedure DoColumnWidthChange(AColumnType: TColumnType; var AWidth: Integer); override;
     procedure DoGetHint(var AHintParam: THintParam; var AHint: string); override;
     procedure DoInvalidateRange(AStartRow, AEndRow: Int64); override;
     function DoLButtonDown(const AHitInfo: TMouseHitInfo): Boolean; override;
@@ -560,6 +687,7 @@ type
     function RawData: TMappedRawData; {$ifndef fpc} inline; {$endif}
     procedure UpdateDataMap; override;
   protected
+    property CoveringRegion: TList<TRegion> read FCoveringRegion;
     property JmpData: TObjectDictionary<Int64, TList<Int64>> read FJmpData;
     property JmpInitList: TList<Int64> read FJmpInitList;
     property MaskTextMetric: TMaskTextMetric read FMaskTextMetric;
@@ -567,6 +695,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure ClearDataMap;
+    procedure FocusOnAddress(Address: Int64; ACaretChangeMode: TCaretChangeMode); override;
     function RowStyle(ARowIndex: Int64): TRowStyle;
     property DataMap: TDataMap read FDataMap;
     property Pages: TVirtualPages read FPages;
@@ -718,76 +847,95 @@ var
   RawRowIndex: Integer;
   LinesBetween: Int64;
   Offset: Int64;
+  Reg: TRegion;
+  MaxRegionLevel: Integer;
 begin
-  if Count = 0 then Exit(-1);
+  Result := -1;
+  if Count = 0 then Exit;
   RawRowIndex := GetRawIndexByAddr(Value);
-
-  if FRows.List[RawRowIndex].Address = Value then
-  begin
-
-    // если попали на второстепенную строку отображающую маску
-    // значения, то ищем само значение, находящееся выше
-
-    // If we get to the second line displaying the value mask,
-    // we look for the value above it.
-
-    while (FRows.List[RawRowIndex].Style in [rsMaskCheck..rsMaskSeparator]) do
+  try
+    if FRows.List[RawRowIndex].Address = Value then
     begin
-      Dec(RawRowIndex);
-      if (RawRowIndex < 0) or (FRows.List[RawRowIndex].Address < Value) then
+
+      // если попали на второстепенную строку отображающую маску
+      // значения, то ищем само значение, находящееся выше
+
+      // If we get to the second line displaying the value mask,
+      // we look for the value above it.
+
+      while (FRows.List[RawRowIndex].Style in [rsMaskCheck..rsMaskSeparator]) do
       begin
-        Result := -1;
-        Exit;
-      end;
-    end;
-
-    // Если требуется найти самое первое вхождение адреса из нескольких подряд
-    // идущих, то крутим цикл вверх
-
-    // If you need to find the first occurrence of an address out of several
-    // consecutive ones, run the loop upward
-
-    if View.AddressToRowIndexMode = armFindFirstAny then
-    begin
-      while (RawRowIndex > 0) and (FRows.List[RawRowIndex - 1].Address = Value) do
         Dec(RawRowIndex);
-    end
-    else
-
-      // в противном случае пропускаем все второстепенные строки,
-      // наподобие разделителей и коментариев
-
-      // Otherwise, skip all minor lines like delimiters and comments.
-
-      while not (FRows.List[RawRowIndex].Style in [rsRaw..rsMask]) do
-      begin
-        Inc(RawRowIndex);
-        if (FRows.Count <= RawRowIndex) or (FRows.List[RawRowIndex].Address > Value) then
+        if (RawRowIndex < 0) or (FRows.List[RawRowIndex].Address < Value) then
         begin
           Result := -1;
           Exit;
         end;
       end;
 
-    Result := FRows.List[RawRowIndex].RowIndex
-  end
-  else
-  begin
+      // Если требуется найти самое первое вхождение адреса из нескольких подряд
+      // идущих, то крутим цикл вверх
 
-    // здесь окажемся в случае попадания в блок не размапленных данных,
-    // в этом случае надо просто рассчитать строку по формуле
+      // If you need to find the first occurrence of an address out of several
+      // consecutive ones, run the loop upward
 
-    // here we will find ourselves in the case of non-unmapped data getting
-    // into the block, in this case we just need to calculate the row by the formula
+      if View.AddressToRowIndexMode = armFindFirstAny then
+      begin
+        while (RawRowIndex > 0) and (FRows.List[RawRowIndex - 1].Address = Value) do
+          Dec(RawRowIndex);
+      end
+      else
 
-    if Value < FRows.List[RawRowIndex].Address then
+        // в противном случае пропускаем все второстепенные строки,
+        // наподобие разделителей и коментариев
+
+        // Otherwise, skip all minor lines like delimiters and comments.
+
+        while not (FRows.List[RawRowIndex].Style in [rsRaw..rsMask]) do
+        begin
+          Inc(RawRowIndex);
+          if (FRows.Count <= RawRowIndex) or (FRows.List[RawRowIndex].Address > Value) then
+          begin
+            Result := -1;
+            Exit;
+          end;
+        end;
+
+      Result := FRows.List[RawRowIndex].RowIndex
+    end
+    else
     begin
-      Result := -1;
-      Exit;
+
+      if Value < FRows.List[RawRowIndex].Address then
+      begin
+        Result := -1;
+        Exit;
+      end;
+
+      // здесь окажемся в случае попадания в блок не размапленных данных,
+      // в этом случае надо просто рассчитать строку по формуле
+
+      // here we will find ourselves in the case of non-unmapped data getting
+      // into the block, in this case we just need to calculate the row by the formula
+
+      Offset := Value - FRows.List[RawRowIndex].Address;
+      LinesBetween := Offset div View.BytesInRow;
+      Result := FRows.List[RawRowIndex].RowIndex + LinesBetween;
     end;
-    Offset := Value - FRows.List[RawRowIndex].Address;
-    LinesBetween := Offset div View.BytesInRow;
-    Result := FRows.List[RawRowIndex].RowIndex + LinesBetween;
+  finally
+    if Result < 0 then
+    begin
+      MaxRegionLevel := 0;
+      for Reg in View.DataMap.Regions do
+        if not Reg.Expanded and Reg.AddressInRegion(Value) then
+        begin
+          if MaxRegionLevel < Reg.Level then
+          begin
+            MaxRegionLevel := Reg.Level;
+            Result := Reg.Header.RowIndex;
+          end;
+        end;
+    end;
   end;
 end;
 
@@ -803,11 +951,13 @@ var
   LastRowIndex: Integer;
   Data: TListEx<TMapRow>;
   ARow: TMapRow;
+  Region: TRegion;
 begin
   if View.DataMap.Data.Count = 0 then Exit;
   LastAddr := 0;
   NextAddr := 0;
   LastRowIndex := 0;
+  FMaxRegionLevel := 0;
   Data := View.DataMap.Data;
   Data.Sort;
   for I := 0 to Data.Count - 1 do
@@ -815,8 +965,18 @@ begin
     ARow := Data[I];
     if (NextAddr <> 0) and (ARow.Address < NextAddr) then
       raise Exception.CreateFmt(
-        'Data map address %x (%d) intersects with the block at %x (%d)',
+        'Data map address 0x%x (%d) intersects with the block at 0x%x (%d)',
         [ARow.Address, ARow.Index, LastAddr, LastRowIndex]);
+    if ARow.Style = rsRegion then
+    begin
+      Region := View.DataMap.Regions[ARow.RegionIndex];
+      Region.Level := View.DataMap.FindRegionLevel(Region.Address, Region.Size);
+      FMaxRegionLevel := Max(FMaxRegionLevel, Region.Level);
+      if ARow.RegionStart then
+        Region.Header.DataMapIndex := I
+      else
+        Region.Footer.DataMapIndex := I;
+    end;
     LastAddr := ARow.Address;
     LastRowIndex := ARow.Index;
     NextAddr := LastAddr + ARow.RawLength;
@@ -1048,6 +1208,30 @@ begin
   Result := GetItem.RawLength;
 end;
 
+function TMappedRawData.Region: TRegion;
+var
+  ARowData: TRowData;
+begin
+  ARowData := GetItem;
+  if ARowData.Style <> rsRegion then Exit(nil);
+  Result := View.DataMap.Regions[ARowData.RegionIndex];
+end;
+
+function TMappedRawData.RegionIndex: Integer;
+begin
+  Result := GetItem.RegionIndex;
+end;
+
+function TMappedRawData.RegionSizeOrAddr: Int64;
+begin
+  Result := GetItem.RegionSizeOrAddr;
+end;
+
+function TMappedRawData.RegionStart: Boolean;
+begin
+  Result := GetItem.RegionStart;
+end;
+
 procedure TMappedRawData.SetLinked(Index: Int64);
 var
   RawRowIndex: Integer;
@@ -1073,8 +1257,13 @@ var
   PageSize, PageOffset: Int64;
   BytesInRow: Integer;
   Data: TListEx<TMapRow>;
+  Region: TRegion;
+  Regions: TObjectList<TRegion>;
+  HiddenFooters: TObjectDictionary<Int64, TList<TRegion>>;
+  HiddenFootersList: TList<TRegion>;
   LastPageIsRaw: Boolean;
-  LastMaskIndex: Int64;
+  LastMaskIndex, LastRegionIndex: Int64;
+  NestedRegionCount: Integer;
   AMapRow: TMapRow;
   ServiceLineProcessing: Boolean;
 
@@ -1147,6 +1336,8 @@ var
       begin
         UpdateLocalMapRow;
         ServiceLineProcessing := AMapRow.Address = (PageAddress + PageOffset);
+        if (AMapRow.Style = rsRegion) and AMapRow.RegionStart then
+          ServiceLineProcessing := False;
       end
       else
         ServiceLineProcessing := False;
@@ -1183,8 +1374,13 @@ begin
   MapIndex := 0;
   BytesInRow := View.BytesInRow;
   Data := View.DataMap.Data;
+  Regions := View.DataMap.Regions;
+  HiddenFooters := View.DataMap.HiddenFooter;
+  HiddenFooters.Clear;
   LastPageIsRaw := False;
   LastMaskIndex := -1;
+  LastRegionIndex := -1;
+  NestedRegionCount := 0;
   AMapRow := Default(TMapRow);
   ServiceLineProcessing := False;
   while PageIndex < View.Pages.Count do
@@ -1222,28 +1418,36 @@ begin
 
       if MapIndex < Data.Count then
       begin
+
+        // обработка свернутых регионов
+
+        // processing of collapsed regions
+
+        if LastRegionIndex >= 0 then
+        begin
+          if AMapRow.Style = rsRegion then
+          begin
+            if AMapRow.RegionStart then
+              Inc(NestedRegionCount)
+            else
+            begin
+              if NestedRegionCount = 0 then
+                LastRegionIndex := -1
+              else
+                Dec(NestedRegionCount);
+            end;
+          end;
+          Inc(StreamOffset, Line.RawLength);
+          Inc(PageOffset, Line.RawLength);
+          Inc(MapIndex);
+          UpdateLocalMapRow;
+          UpdateServiceLineProcessing;
+          Continue;
+        end;
+
         if (AMapRow.Address = Line.Address) or
           (AMapRow.Style in [rsMaskCheck..rsMaskSeparator]) then
         begin
-
-          // rsUnbrokenLine - виртуальный флаг не представленый ввиде
-          // отдельного пайнтера. Обрабатывается при отрисовке самим HexView,
-          // отрисовывая штрих между двумя линиями
-
-          // rsUnbrokenLine - virtual flag not represented as a separate pinter.
-          // It is processed during drawing by HexView itself,
-          // drawing a stroke between two lines
-
-          if AMapRow.Style = rsUnbrokenLine then
-          begin
-            Inc(MapIndex);
-            UpdateLocalMapRow;
-            if FRows.Count = 0 then
-              Continue;
-            FRows.List[FRows.Count - 1].DrawRowSmallSeparator := True;
-            UpdateServiceLineProcessing;
-            Continue;
-          end;
 
           RawLength := Min(AMapRow.RawLength,
             PageSize - PageOffset);
@@ -1251,10 +1455,42 @@ begin
           Line.Comment := AMapRow.Comment;
           Line.Style := AMapRow.Style;
           Line.Color := AMapRow.Color;
+          Line.DrawRowSmallSeparator := AMapRow.DrawRowSmallSeparator;
 
           case Line.Style of
-            rsSeparator, rsRaw, rsLineComment, rsBlockComment:
+            rsRaw, rsRawCustom, rsSeparator, rsLineComment:
               LastMaskIndex := -1;
+            rsRegion:
+            begin
+              LastMaskIndex := -1;
+              Line.RegionIndex := AMapRow.RegionIndex;
+              Line.RegionSizeOrAddr := AMapRow.RegionSizeOrAddr;
+              Line.RegionStart := AMapRow.RegionStart;
+              Region := Regions[Line.RegionIndex];
+              if Line.RegionStart then
+              begin
+                if not Region.Expanded then
+                  LastRegionIndex := FRows.Count;
+                Region.Header.RowIndex := Line.RowIndex;
+              end
+              else
+              begin
+                Region.Footer.RowIndex := Line.RowIndex;
+                if not Region.FooterVisible then
+                begin
+                  if not HiddenFooters.TryGetValue(Line.RowIndex, HiddenFootersList) then
+                  begin
+                    HiddenFootersList := TList<TRegion>.Create;
+                    HiddenFooters.Add(Line.RowIndex, HiddenFootersList);
+                  end;
+                  HiddenFootersList.Add(Region);
+                  Inc(MapIndex);
+                  UpdateLocalMapRow;
+                  UpdateServiceLineProcessing;
+                  Continue;
+                end;
+              end;
+            end;
             rsRawWithExDescription, rsAsm:
             begin
               LastMaskIndex := -1;
@@ -1398,40 +1634,6 @@ begin
   CurrentAddr := Address + DataLength;
 end;
 
-function TDataMap.AddBlockComment(EndAddress: Int64;
-  const Description: string): Integer;
-begin
-  Result := AddBlockComment(CurrentAddr, EndAddress, Description);
-end;
-
-function TDataMap.AddBlockComment(StartAddress, EndAddress: Int64;
-  const Description: string): Integer;
-var
-  LineData: TMapRow;
-begin
-  LineData := Default(TMapRow);
-  LineData.Index := FData.Count;
-  LineData.Style := rsBlockComment;
-  LineData.Address := StartAddress;
-  LineData.Description := Description + ' start';
-  LineData.BlockCommentStart := True;
-  Result := AddMapLine(LineData);
-
-  // если концовка попадает на границу региона, ну просто не добавляем её
-
-  // If the ending falls on a region boundary, well, just don't add it.
-
-  if FOwner.Pages.CheckAddrInPages(EndAddress, StartAddress = EndAddress) then
-  begin
-    LineData.Index := FData.Count;
-    LineData.Address := EndAddress;
-    LineData.Description := Description + ' end';
-    LineData.BlockCommentStart := False;
-    AddMapLine(LineData);
-  end;
-  CurrentAddr := StartAddress;
-end;
-
 function TDataMap.AddComment(const Description: string): Integer;
 begin
   Result := AddComment(CurrentAddr, Description);
@@ -1494,21 +1696,18 @@ begin
   CurrentAddr := Address + DataLength;
 end;
 
-function TDataMap.AddLine(UnBroken: Boolean): Integer;
+function TDataMap.AddLine: Integer;
 begin
-  Result := AddLine(CurrentAddr, UnBroken);
+  Result := AddLine(CurrentAddr);
 end;
 
-function TDataMap.AddLine(Address: Int64; UnBroken: Boolean): Integer;
+function TDataMap.AddLine(Address: Int64): Integer;
 var
   LineData: TMapRow;
 begin
   LineData := Default(TMapRow);
   LineData.Index := FData.Count;
-  if UnBroken then
-    LineData.Style := rsUnbrokenLine
-  else
-    LineData.Style := rsLine;
+  LineData.Style := rsLine;
   LineData.Address := Address;
   Result := AddMapLine(LineData);
   CurrentAddr := Address;
@@ -1518,19 +1717,19 @@ function TDataMap.AddMapLine(Value: TMapRow): Integer;
 begin
   case CheckAddr(Value.Address, Value.RawLength) of
     acStartOutOfPool:
-      raise Exception.CreateFmt('Line start address %x, out of pages pool',
+      raise Exception.CreateFmt('Line start address 0x%x, out of pages pool',
         [Value.Address]);
     acEndOutOfPool:
-      raise Exception.CreateFmt('Line end address %x, out of pages pool',
+      raise Exception.CreateFmt('Line end address 0x%x, out of pages pool',
         [Value.Address + Value.RawLength]);
     acStartOutOfSpace:
-      raise Exception.CreateFmt('Line start address %x, out of space %x',
+      raise Exception.CreateFmt('Line start address 0x%x, out of space 0x%x',
         [Value.Address, FOwner.StartAddress]);
     acEndOutOfSpace:
-      raise Exception.CreateFmt('Line end address %x, out of space %x',
+      raise Exception.CreateFmt('Line end address 0x%x, out of space 0x%x',
         [Value.Address + Value.RawLength, FOwner.Pages.MaxAddrAware]);
     acIntersect:
-      raise Exception.CreateFmt('DataMap address %x already contains data',
+      raise Exception.CreateFmt('DataMap address 0x%x already contains data',
         [Value.Address]);
   end;
 
@@ -1641,9 +1840,19 @@ begin
   Result := AddNone(CurrentAddr);
 end;
 
+function TDataMap.AddRaw(const Comment: string): Integer;
+begin
+  Result := AddRaw(CurrentAddr, FOwner.BytesInRow, Comment);
+end;
+
 function TDataMap.AddRaw(DataLength: Int64): Integer;
 begin
   Result := AddRaw(CurrentAddr, DataLength);
+end;
+
+function TDataMap.AddRaw(DataLength: Int64; const Comment: string): Integer;
+begin
+  Result := AddRaw(CurrentAddr, DataLength, Comment);
 end;
 
 function TDataMap.AddRaw(Address, DataLength: Int64): Integer;
@@ -1652,9 +1861,10 @@ var
 begin
   LineData := Default(TMapRow);
   LineData.Index := FData.Count;
-  LineData.Style := rsRaw;
+  LineData.Style := rsRawCustom;
   LineData.Address := Address;
   LineData.RawLength := DataLength;
+  LineData.Color := clDefault;
   CurrentAddr := Address + DataLength;
   Result := AddMapLine(LineData);
 end;
@@ -1666,12 +1876,146 @@ var
 begin
   LineData := Default(TMapRow);
   LineData.Index := FData.Count;
-  LineData.Style := rsRawWithComment;
+  LineData.Style := rsRawCustom;
   LineData.Address := Address;
   LineData.RawLength := DataLength;
   LineData.Comment := Comment;
   CurrentAddr := Address + DataLength;
   Result := AddMapLine(LineData);
+end;
+
+function TDataMap.AddRegion(RegionSize: Int64;
+  const Description: string; Expanded: Boolean): TRegion;
+begin
+  Result := AddRegion(CurrentAddr, RegionSize, Description, Expanded);
+end;
+
+function TDataMap.AddRegion(Address, RegionSize: Int64;
+  const Description: string; Expanded: Boolean): TRegion;
+begin
+  Result := AddRegion(Address, RegionSize, Description, rdsComment, Expanded);
+end;
+
+function TDataMap.AddRegion(RegionSize: Int64; const Description: string;
+  DrawStyle: TRegionDrawStyle; Expanded: Boolean): TRegion;
+begin
+  Result := AddRegion(CurrentAddr, RegionSize, Description, DrawStyle, Expanded);
+end;
+
+function TDataMap.AddRegion(Address, RegionSize: Int64;
+  const Description: string; DrawStyle: TRegionDrawStyle;
+  Expanded: Boolean): TRegion;
+var
+  LineData: TMapRow;
+  LastRegionAddrVa: Int64;
+  I, RegionPageIndex: Integer;
+  RegionPage: TVirtualPage;
+begin
+  if RegionSize <= 0 then
+    raise Exception.CreateFmt('Invalid region size (%d)', [RegionSize]);
+
+  // регион не должен находится на разных страницах
+
+  // the region cannot be located on different pages
+
+  LastRegionAddrVa := Address + RegionSize;
+  if FOwner.Pages.Count > 0 then
+  begin
+    if FOwner.Pages.GetPageIndex(Address, RegionPageIndex) = pirPagePresent then
+    begin
+      RegionPage := FOwner.Pages.GetItem(RegionPageIndex);
+      if LastRegionAddrVa > RegionPage.VirtualAddress + RegionPage.Size then
+        raise Exception.CreateFmt('The lower boundary of the new region (0x%x) is' +
+          ' located outside the page boundaries [%d](0x%x-0x%x).',
+        [
+          LastRegionAddrVa,
+          RegionPageIndex,
+          RegionPage.VirtualAddress,
+          RegionPage.VirtualAddress + RegionPage.Size
+        ]);
+    end;
+  end;
+
+  // регион не может пересекать границы других регионов.
+  // он может либо полностью входить в существующий регион,
+  // либо охватывать целиком уже существующий регион.
+
+  // a region cannot cross the borders of other regions.
+  // It can either be completely included in an existing region
+  // or cover an entire existing region.
+
+  for I := 0 to FRegions.Count - 1 do
+  begin
+    case CompareRegion(Address, RegionSize, FRegions[I]) of
+      rcrNotMatching:;
+      rcrNested:;
+      rcrFullNested:;
+      rcrExternal:;
+      rcrPartialIntersectTop:
+      begin
+        raise Exception.CreateFmt('The lower boundary of the new region (0x%x) ' +
+          'intersects with the existing region [%d](0x%x-0x%x).',
+        [
+          LastRegionAddrVa,
+          I,
+          FRegions[I].Address,
+          FRegions[I].Address + FRegions[I].Size
+        ]);
+      end;
+      rcrPartialIntersectBottom:
+      begin
+        raise Exception.CreateFmt('The upper  boundary of the new region (0x%x) ' +
+          'intersects with the existing region [%d](0x%x-0x%x).',
+        [
+          Address,
+          I,
+          FRegions[I].Address,
+          FRegions[I].Address + FRegions[I].Size
+        ]);
+      end;
+      rcrSame:
+      begin
+        raise Exception.CreateFmt('The region duplicates the existing one [%d](0x%x-0x%x).',
+        [
+          I,
+          FRegions[I].Address,
+          FRegions[I].Address + FRegions[I].Size
+        ]);
+      end;
+      rcrError:
+      begin
+        raise Exception.CreateFmt('Unexpected error when adding a region (0x%x-0x%x).',
+        [
+          Address, Address + RegionSize
+        ]);
+      end;
+    end;
+  end;
+
+  LineData := Default(TMapRow);
+  LineData.Index := FData.Count;
+  LineData.Style := rsRegion;
+  LineData.Address := Address;
+  LineData.Description := Description;
+  LineData.RegionStart := True;
+  LineData.RegionSizeOrAddr := RegionSize;
+
+  Result := TRegion.Create(Self, FData.Count, Address, RegionSize);
+  Result.Expanded := Expanded;
+  Result.Header.DrawStyle := DrawStyle;
+  Result.Footer.DrawStyle := DrawStyle;
+
+  LineData.RegionIndex := FRegions.Add(Result);
+  AddMapLine(LineData);
+
+  LineData.Index := FData.Count;
+  LineData.Address := LastRegionAddrVa;
+  LineData.Description := Description;
+  LineData.RegionStart := False;
+  LineData.RegionSizeOrAddr := Address;
+  AddMapLine(LineData);
+
+  CurrentAddr := Address;
 end;
 
 function TDataMap.AddSeparator(const Description: string): Integer;
@@ -1694,9 +2038,22 @@ begin
 end;
 
 procedure TDataMap.Assign(Value: TDataMap);
+var
+  Item: TPair<Int64, Int64>;
+  I, R: TRegion;
 begin
   FData.Clear;
-  FData.AddRange(FData.ToArray);
+  FData.AddRange(Value.FData.ToArray);
+  FRawIndex.Clear;
+  for Item in Value.FRawIndex do
+    FRawIndex.AddOrSetValue(Item.Key, Item.Value);
+  FRegions.Clear;
+  for I in Value.Regions do
+  begin
+    R := TRegion.Create(Self, 0, 0, 0);
+    R.Assign(I);
+    FRegions.Add(R);
+  end;
   RebuildDataMap;
 end;
 
@@ -1741,9 +2098,51 @@ begin
   end;
 end;
 
+procedure TDataMap.CollapseAllRegions;
+var
+  RegionAddr: TRegion;
+begin
+  BeginUpdate;
+  try
+    for RegionAddr in FRegions do
+      InternalRegionChangeByAddress(RegionAddr.Address, rctCollapse);
+  finally
+    EndUpdate;
+  end;
+end;
+
+procedure TDataMap.CollapseRegion(Address: Int64);
+begin
+  InternalRegionChangeByAddress(Address, rctCollapse);
+end;
+
+function TDataMap.CompareRegion(AAddress, ASize: Int64; ARegion: TRegion): TRegionCompareResult;
+begin
+  // Region A is above region ARegion.
+  if AAddress + ASize <= ARegion.Address then Exit(rcrNotMatching);
+  // Region A is below region ARegion.
+  if AAddress >= ARegion.Address + ARegion.Size then Exit(rcrNotMatching);
+  // Region A matched region ARegion.
+  if (AAddress = ARegion.Address) and (ASize = ARegion.Size) then Exit(rcrSame);
+  // Region A is partially higher than region ARegion.
+  if (AAddress < ARegion.Address) and (AAddress + ASize > ARegion.Address) and
+    (AAddress + ASize < ARegion.Address + ARegion.Size) then Exit(rcrPartialIntersectTop);
+  // Region A is partially lower than region ARegion.
+  if (AAddress > ARegion.Address) and (AAddress < ARegion.Address + ARegion.Size) and
+    (AAddress + ASize > ARegion.Address + ARegion.Size) then Exit(rcrPartialIntersectBottom);
+  // Region A is included in region ARegion and does not border any boundaries.
+  if (AAddress > ARegion.Address) and (AAddress + ASize < ARegion.Address + ARegion.Size) then Exit(rcrFullNested);
+  // Region A is included in region ARegion.
+  if (AAddress >= ARegion.Address) and (AAddress + ASize <= ARegion.Address + ARegion.Size) then Exit(rcrNested);
+  // Region A covers region ARegion.
+  if (AAddress <= ARegion.Address) and (AAddress + ASize >= ARegion.Address + ARegion.Size) then Exit(rcrExternal);
+  Result := rcrError;
+end;
+
 function DefaultMapRowComparer({$IFDEF USE_CONSTREF}constref{$ELSE}const{$ENDIF} A, B: TMapRow): Integer;
 var
   LongResult: Int64;
+  LeftIsMask, RighIsMask: Boolean;
 begin
 
   // порядок строго по возрастанию адресов
@@ -1760,39 +2159,41 @@ begin
   if LongResult = 0 then
     LongResult := A.RawLength - B.RawLength;
 
-  // отдельная обработка парных блоков коментариев
+  if (A.Style = rsRegion) and (B.Style = rsRegion) then
+  begin
+    if A.Index = B.Index then
+      Exit(0);
+    if A.Address = B.Address then
+    begin
+      if A.RegionStart and not B.RegionStart then
+        Exit(1);
+      if B.RegionStart and not A.RegionStart then
+        Exit(-1);
+      LongResult := B.RegionSizeOrAddr - A.RegionSizeOrAddr
+    end;
+  end;
 
-  // separate processing of paired comment blocks
+    LeftIsMask := A.Style in [rsMaskCheck..rsMaskSeparator];
+    RighIsMask := B.Style in [rsMaskCheck..rsMaskSeparator];
 
   if LongResult = 0 then
   begin
-    if A.Style = rsBlockComment then
-    begin
-      if A.Index = B.Index then
-        Exit(0);
-      if B.Style = rsBlockComment then
-        LongResult := Integer(A.BlockCommentStart) -
-          Integer(B.BlockCommentStart)
-      else
-        if A.BlockCommentStart then
-          LongResult := 1
-        else
-          LongResult := -1;
-    end
-    else
-      if B.Style = rsBlockComment then
-      begin
-        if A.Index = B.Index then
-          Exit(0);
-        if A.Style = rsBlockComment then
-          LongResult := Integer(A.BlockCommentStart) -
-            Integer(B.BlockCommentStart)
-        else
-          if B.BlockCommentStart then
-            LongResult := -1
-          else
-            LongResult := 1;
-      end
+    if (A.Style = rsRegion) and (B.RawLength > 0) then
+      LongResult := 1;
+    if (B.Style = rsRegion) and (A.RawLength > 0) then
+      LongResult := 1;
+    if (A.Style = rsRegion) and RighIsMask then
+      LongResult := 1;
+    if (B.Style = rsRegion) and LeftIsMask then
+      LongResult := -1;
+  end;
+
+  if LongResult = 0 then
+  begin
+    if LeftIsMask and (B.RawLength = 0) and not RighIsMask then
+      LongResult := -1;
+    if RighIsMask and (A.RawLength = 0) and not LeftIsMask then
+      LongResult := 1;
   end;
 
   if LongResult = 0 then
@@ -1813,6 +2214,8 @@ begin
   FData := TListEx<TMapRow>.Create(TComparer<TMapRow>.Construct(DefaultMapRowComparer));
   FData.OnNotify := DataChange;
   FRawIndex := TDictionary<Int64, Int64>.Create;
+  FRegions := TObjectList<TRegion>.Create;
+  FHiddenFooter := TObjectDictionary<Int64, TList<TRegion>>.Create([doOwnsValues]);
 end;
 
 procedure TDataMap.DataChange(Sender: TObject;
@@ -1824,6 +2227,8 @@ end;
 
 destructor TDataMap.Destroy;
 begin
+  FHiddenFooter.Free;
+  FRegions.Free;
   FRawIndex.Free;
   FData.OnNotify := nil;
   FData.Free;
@@ -1836,6 +2241,34 @@ begin
   RebuildDataMap;
 end;
 
+procedure TDataMap.ExpandAllRegions;
+var
+  RegionAddr: TRegion;
+begin
+  BeginUpdate;
+  try
+    for RegionAddr in FRegions do
+      InternalRegionChangeByAddress(RegionAddr.Address, rctExpand);
+  finally
+    EndUpdate;
+  end;
+end;
+
+procedure TDataMap.ExpandRegion(Address: Int64);
+begin
+  InternalRegionChangeByAddress(Address, rctExpand);
+end;
+
+function TDataMap.FindRegionLevel(Address, RegionSize: Int64): Integer;
+var
+  I: TRegion;
+begin
+  Result := 1;
+  for I in FRegions do
+    if CompareRegion(Address, RegionSize, I) in [rcrNested, rcrFullNested] then
+      Inc(Result);
+end;
+
 function TDataMap.GetCurrentAddr: Int64;
 begin
   Result := CurrentAddr;
@@ -1845,7 +2278,29 @@ procedure TDataMap.InternalClear(NewStartAddress: Int64);
 begin
   FData.Clear;
   FRawIndex.Clear;
+  FRegions.Clear;
   FCurrentAddr := NewStartAddress;
+end;
+
+procedure TDataMap.InternalRegionChange(ARegion: TRegion;
+  AChangeType: TRegionChangeType);
+begin
+  if ARegion = nil then Exit;  
+  case AChangeType of
+    rctCollapse: ARegion.Expanded := False;
+    rctExpand: ARegion.Expanded := True;
+    rctToggle: ARegion.Expanded := not ARegion.Expanded;
+  end;
+end;
+
+procedure TDataMap.InternalRegionChangeByAddress(Address: Int64;
+  AChangeType: TRegionChangeType);
+var
+  Idx: Int64;
+begin
+  Idx := FOwner.RawData.AddressToRowIndex(Address);
+  if (Idx >= 0) and (FOwner.RawData[Idx].Style = rsRegion) and FOwner.RawData.RegionStart then
+    InternalRegionChange(FOwner.RawData.Region, AChangeType);
 end;
 
 procedure TDataMap.RebuildDataMap;
@@ -1866,6 +2321,165 @@ end;
 procedure TDataMap.SaveCurrentAddr;
 begin
   FSavedCurrentAddr := CurrentAddr;
+end;
+
+procedure TDataMap.SetRowColor(ADataMapIndex: Integer; AValue: TColor);
+begin
+  Data.List[ADataMapIndex].Color := AValue;
+  RebuildDataMap;
+end;
+
+procedure TDataMap.SetRowComment(ADataMapIndex: Integer; const AValue: string);
+begin
+  Data.List[ADataMapIndex].Comment := AValue;
+  RebuildDataMap;
+end;
+
+procedure TDataMap.SetRowDescription(ADataMapIndex: Integer;
+  const AValue: string);
+begin
+  Data.List[ADataMapIndex].Description := AValue;
+  RebuildDataMap;
+end;
+
+procedure TDataMap.SetRowLineSeparated(ADataMapIndex: Integer; AValue: Boolean);
+begin
+  Data.List[ADataMapIndex].DrawRowSmallSeparator := AValue;
+  RebuildDataMap;
+end;
+
+procedure TDataMap.ToggleRegion(Address: Int64);
+begin
+  InternalRegionChangeByAddress(Address, rctToggle);
+end;
+
+{ TRegionPart }
+
+procedure TRegionPart.Assign(AValue: TRegionPart);
+begin
+  FBackgroundColor := AValue.FBackgroundColor;
+  FDataMapIndex := AValue.FDataMapIndex;
+  FDrawStyle := AValue.FDrawStyle;
+  FRowIndex := AValue.FRowIndex;
+end;
+
+constructor TRegionPart.Create(AOwner: TRegion; ADataMapIndex: Int64);
+begin
+  FOwner := AOwner;
+  FDataMapIndex := ADataMapIndex;
+  FBackgroundColor := clDefault;
+end;
+
+function TRegionPart.GetText: string;
+begin
+  Result := FOwner.DataMap.Data.List[FDataMapIndex].Description;
+end;
+
+function TRegionPart.GetTextColor: TColor;
+begin
+  Result := FOwner.DataMap.Data.List[FDataMapIndex].Color;
+end;
+
+procedure TRegionPart.SetBackgroundColor(const Value: TColor);
+begin
+  FBackgroundColor := Value;
+  FOwner.DoChange;
+end;
+
+procedure TRegionPart.SetDrawStyle(const Value: TRegionDrawStyle);
+begin
+  FDrawStyle := Value;
+  FOwner.DoChange;
+end;
+
+procedure TRegionPart.SetText(const Value: string);
+begin
+  FOwner.DataMap.Data.List[FDataMapIndex].Description := Value;
+  FOwner.DoChange;
+end;
+
+procedure TRegionPart.SetTextColor(const Value: TColor);
+begin
+  FOwner.DataMap.Data.List[FDataMapIndex].Color := Value;
+  FOwner.DoChange;
+end;
+
+{ TRegion }
+
+function TRegion.AddressInRegion(AAddress: Int64): Boolean;
+begin
+  Result := (Address <= AAddress) and (AAddress < Address + Size);
+end;
+
+procedure TRegion.Assign(AValue: TRegion);
+begin
+  FAddress := AValue.FAddress;
+  FSize := AValue.FSize;
+  FExpanded := AValue.FExpanded;
+  FHeader.Assign(AValue.Header);
+  FFooter.Assign(AValue.Footer);
+  FFooterVisible := AValue.FFooterVisible;
+  FLevel := AValue.FLevel;
+  FLineColor := AValue.FLineColor;
+end;
+
+constructor TRegion.Create(AOwner: TDataMap; AHeaderIndex, AAddress, ASize: Int64);
+begin
+  FOwner := AOwner;
+  FAddress := AAddress;
+  FSize := ASize;
+  FHeader := TRegionPart.Create(Self, AHeaderIndex);
+  FFooter := TRegionPart.Create(Self, AHeaderIndex + 1);
+  FLineColor := clDefault;
+end;
+
+destructor TRegion.Destroy;
+begin
+  FHeader.Free;
+  FFooter.Free;
+  inherited;
+end;
+
+procedure TRegion.DoChange;
+begin
+  DataMap.RebuildDataMap;
+end;
+
+function TRegion.FirstRawDataRowIndex: Integer;
+begin
+  Result := Header.RowIndex + 1;
+end;
+
+function TRegion.LastRawDataRowIndex: Integer;
+begin
+  Result := Footer.RowIndex - 1;
+end;
+
+procedure TRegion.SetExpanded(const Value: Boolean);
+begin
+  if Expanded <> Value then
+  begin
+    FExpanded := Value;
+    DoChange;
+  end;
+end;
+
+procedure TRegion.SetFooterVisible(const Value: Boolean);
+begin
+  if FooterVisible <> Value then
+  begin
+    FFooterVisible := Value;
+    DoChange;
+  end;
+end;
+
+procedure TRegion.SetLineColor(const Value: TColor);
+begin
+  if LineColor <> Value then
+  begin
+    FLineColor := Value;
+    DoChange;
+  end;
 end;
 
 { TMapViewColors }
@@ -2141,7 +2755,7 @@ begin
     DataString := Copy(DataString, RawData[RowIndex].LinkStart + 1,
       RawData[RowIndex].LinkLength);
     DrawAlignedTextPart(ACanvas, ctDescription, DataString, R);
-    ACanvas.Font.Style := [];
+    ACanvas.Font.Style := Owner.Font.Style;
   end;
 end;
 
@@ -2352,7 +2966,7 @@ begin
   ACanvas.Rectangle(ARect);
   Inc(ARect.Top);
   ACanvas.Brush.Style := bsClear;
-  ACanvas.Font.Style := [];
+  ACanvas.Font.Style := Owner.Font.Style;
   ACanvas.Font.Color := TMapViewColors(ColorMap).SeparatorTextColor;
   CorrectCanvasFont(ACanvas, AColumn);
   DrawText(ACanvas, PChar(RawData[RowIndex].Description),
@@ -2388,22 +3002,23 @@ procedure TRowComment.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
   var ARect: TRect);
 var
   ADescription: string;
+  Data: TMappedRawData;
 begin
   if AColumn <> ctNone then Exit;
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('TRowComment.DrawColumn');{$ENDIF}
+  Data := RawData[RowIndex];
   ACanvas.Brush.Style := bsSolid;
   ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
-  Inc(ARect.Left, GetLeftNCWidth);
-  ACanvas.Font.Style := [];
+  Inc(ARect.Left, GetLeftNCWidth + TextMargin);
+  ACanvas.Font.Style := Owner.Font.Style;
   ACanvas.Font.Color := TMapViewColors(ColorMap).TextCommentColor;
-  ADescription := RawData[RowIndex].Description;
+  ADescription := Data.Description;
   DrawText(ACanvas, ADescription,
     Length(ADescription), ARect, DT_CALCRECT);
   ACanvas.FillRect(ARect);
   CorrectCanvasFont(ACanvas, AColumn);
   DrawText(ACanvas, ADescription,
     Length(ADescription), ARect, DT_LEFT);
-  ACanvas.Font.Style := [];
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 end;
 
@@ -2460,7 +3075,7 @@ begin
       DrawFrameControl(ACanvas.Handle, CheckRect, DFC_BUTTON, 0);
   end;
   ACanvas.Brush.Color := SelectedColor(GetSelectData(RowIndex).SelectStyle);
-  ACanvas.Font.Style := [];
+  ACanvas.Font.Style := Owner.Font.Style;
   ACanvas.Font.Color := ColorMap.TextColor;
   R := ARect;
   R.Left := CheckRect.Right + ToDpi(4);
@@ -2496,9 +3111,10 @@ begin
     ACanvas.Brush.Color := SelectedColor(GetSelectData(RowIndex).SelectStyle);
   end;
 
-  ACanvas.Font.Style := [];
+  ACanvas.Font.Style := Owner.Font.Style;
   ACanvas.Font.Color := ColorMap.TextCommentColor;
   DrawAlignedTextPart(ACanvas, ctComment, DataString, ARect);
+  ACanvas.Font.Style := Owner.Font.Style;
 end;
 
 procedure TRowCheckRadioMask.DrawRadioPart(ACanvas: TCanvas;
@@ -2524,7 +3140,7 @@ begin
       DrawFrameControl(ACanvas.Handle, CheckRect, DFC_BUTTON, DFCS_BUTTONRADIO);
   end;
   ACanvas.Brush.Color := SelectedColor(GetSelectData(RowIndex).SelectStyle);
-  ACanvas.Font.Style := [];
+  ACanvas.Font.Style := Owner.Font.Style;
   ACanvas.Font.Color := ColorMap.TextColor;
   R := ARect;
   R.Left := CheckRect.Right + ToDpi(4);
@@ -2568,6 +3184,136 @@ end;
 function TRowCheckRadioMask.TextMetric: TAbstractTextMetric;
 begin
   Result := FTextMetric;
+end;
+
+{ TRowRegion }
+
+procedure TRowRegion.CopyRowAsString(Builder: TSimplyStringBuilder);
+begin
+  Builder.Append(RawData[RowIndex].Description + sLineBreak);
+end;
+
+procedure TRowRegion.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
+  var ARect: TRect);
+var
+  ADescription: string;
+  AWidth, ACenteredOffset, ARightOffset: Integer;
+  P: TPoint;
+  R: TRect;
+  Data: TMappedRawData;
+  Region: TRegion;
+  RegionDrawStyle: TRegionDrawStyle;
+  RegionBkColor: TColor;
+begin
+  if AColumn <> ctNone then Exit;
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('TRowRegion.DrawColumn');{$ENDIF}
+  Data := RawData[RowIndex];
+  Region := Data.Region;
+  if Region = nil then Exit;
+  if Data.RegionStart then
+  begin
+    RegionDrawStyle := Region.Header.DrawStyle;
+    RegionBkColor :=  Region.Header.BackgroundColor;
+  end
+  else
+  begin
+    RegionDrawStyle := Region.Footer.DrawStyle;
+    RegionBkColor :=  Region.Footer.BackgroundColor;
+  end;
+  ACanvas.Brush.Style := bsSolid;
+  if RegionDrawStyle <> rdsComment then
+  begin
+    if RegionBkColor = clDefault then
+      ACanvas.Brush.Color := TMapViewColors(ColorMap).SeparatorBackgroundColor
+    else
+      ACanvas.Brush.Color := RegionBkColor;
+    ACanvas.Pen.Color := TMapViewColors(ColorMap).SeparatorBorderColor;
+    R := ARect;
+    Inc(R.Left, GetLeftNCWidth +
+      (Region.Level - 1) * (CharWidth shl 1));
+    Inc(R.Right);
+    Dec(R.Top);
+    ACanvas.Rectangle(R);
+  end;
+  ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
+  ARightOffset := ARect.Right - SplitMargin;
+  Inc(ARect.Left,
+    GetLeftNCWidth + TextMargin +               // text offset
+    RowHeight +                                 // expander
+    (Region.Level - 1) * (CharWidth shl 1)  // level offset
+  );
+  ACanvas.Font.Style := Owner.Font.Style;
+  if Data.Color = clDefault then
+    ACanvas.Font.Color := TMapViewColors(ColorMap).TextCommentColor
+  else
+    ACanvas.Font.Color := Data.Color;
+  ADescription := Data.Description;
+  DrawText(ACanvas, ADescription,
+    Length(ADescription), ARect, DT_CALCRECT);
+  if RegionDrawStyle = rdsComment then
+    ACanvas.FillRect(ARect)
+  else
+    ACanvas.Brush.Style := bsClear;
+  CorrectCanvasFont(ACanvas, AColumn);
+  if RegionDrawStyle = rdsCenteredSeparator then
+  begin
+    R := ARect;
+    R.Left := GetLeftNCWidth + ScrollOffset.X;
+    R.Right := ARightOffset + SplitMargin;
+    DrawText(ACanvas, ADescription, Length(ADescription), R, DT_CENTER);
+  end
+  else
+    DrawText(ACanvas, ADescription, Length(ADescription), ARect, DT_LEFT);
+  ACanvas.Font.Style := Owner.Font.Style;
+  if Data.RegionStart then
+  begin
+    ARect.Width := 0;
+    ARect.Left := ARect.Right - RowHeight - SplitMargin;
+    ACanvas.Brush.Color := ColorMap.BackgroundColor;
+    if RegionDrawStyle = rdsComment then
+      ACanvas.FillRect(ARect);
+    ACanvas.Pen.Color := ColorMap.TextColor;
+    AWidth := ToDpi(3);
+    if Region.Expanded then
+    begin
+      ACenteredOffset := (RowHeight - AWidth) div 2;
+      R := Bounds(ACenteredOffset, ACenteredOffset, AWidth, AWidth);
+      OffsetRect(R, ARect.Left - MulDiv(AWidth, 3, 2) + AWidth, ARect.Top + 1);
+      if R.Right >= ARightOffset then Exit;
+      P := R.TopLeft;
+      Dec(P.Y, AWidth div 2);
+      DrawArrow(ACanvas, sdDown, P, AWidth);
+    end
+    else
+    begin
+      ACenteredOffset := (RowHeight - AWidth * 2) div 2;
+      R := Bounds(ACenteredOffset, ACenteredOffset, AWidth, AWidth);
+      OffsetRect(R, ARect.Left, ARect.Top + 1);
+      if R.Right >= ARightOffset then Exit;
+      P := R.TopLeft;
+      Dec(P.Y, AWidth div 2);
+      DrawArrow(ACanvas, sdRight, P, AWidth);
+    end;
+  end;
+  {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
+end;
+
+procedure TRowRegion.GetHitInfo(var AHitInfo: TMouseHitInfo);
+var
+  Data: TMappedRawData;
+  Region: TRegion;
+  ARect: TRect;
+begin
+  Data := RawData[RowIndex];
+  Region := Data.Region;
+  if Data.RegionStart and Assigned(Region) then
+  begin
+    ARect := Bounds(GetLeftNCWidth + TextMargin - SplitMargin +
+      (Region.Level - 1) * (CharWidth shl 1), 0, RowHeight, RowHeight);
+    if (AHitInfo.ScrolledCursorPos.X >= ARect.Left) and
+      (AHitInfo.ScrolledCursorPos.X <= ARect.Right) then
+      AHitInfo.Cursor := crHandPoint;
+  end;
 end;
 
 { TCommonMapViewPostPainter }
@@ -2785,7 +3531,7 @@ end;
 procedure TCheckRadioRowPostPainter.PostPaint(ACanvas: TCanvas;
   StartRow, EndRow: Int64; var Offset: TPoint);
 var
-  I, TopOffset, StartRowWithMask, EndRowWithMask: Integer;
+  I, TopOffset, StartRowWithMask, EndRowWithMask: Int64;
 begin
   TopOffset := Offset.Y;
 
@@ -2821,23 +3567,180 @@ begin
   // so that not illuminated lines do not overwrite the illuminated ones.
 
   Offset.Y := TopOffset;
-  for I := StartRowWithMask to EndRowWithMask do
+  I := StartRowWithMask;
+  while I <= EndRowWithMask do
+  begin
     if RawData[I].Style in [rsMaskCheck, rsMaskRadio] then
       DrawRow(ACanvas, I, Offset, False, RawData[I].Style = rsMaskRadio)
     else
       Inc(Offset.Y, RowHeight);
+    Inc(I);
+  end;
 
   Offset.Y := TopOffset;
-  for I := StartRowWithMask to EndRowWithMask do
+  I := StartRowWithMask;
+  while I <= EndRowWithMask do
+  begin
     if RawData[I].Style in [rsMaskCheck, rsMaskRadio] then
       DrawRow(ACanvas, I, Offset, True, RawData[I].Style = rsMaskRadio)
     else
       Inc(Offset.Y, RowHeight);
+    Inc(I);
+  end;
 end;
 
 function TCheckRadioRowPostPainter.TextMetric: TAbstractTextMetric;
 begin
   Result := TCustomMappedHexView(Owner).MaskTextMetric;
+end;
+
+{ TRegionPostPainter }
+
+procedure TRegionPostPainter.PostPaint(ACanvas: TCanvas; StartRow,
+  EndRow: Int64; var Offset: TPoint);
+var
+  Data: TMappedRawData;
+  Region: TRegion;
+  I, RowIdx, FooterIdx, AOffset, RegionLevel, LevelOffset, AWidth: Int64;
+  AStartPoint, AEndPoint, AInternalPoint: TPoint;
+  HiddenFootersList: TList<TRegion>;
+
+  procedure CalculateRegion;
+  begin
+    RegionLevel := Region.Level;
+    AOffset := GetLeftNCWidth +
+      (TextMargin + RowHeight - SplitMargin) div 2 +
+      MulDiv(AWidth, 3, 2) - AWidth +
+      (RegionLevel - 1) * (CharWidth shl 1);
+    LevelOffset := (View.RawData.MaxRegionLevel - RegionLevel) * (CharWidth shl 1);
+  end;
+
+  procedure ProcessFooter;
+  begin
+    if FooterIdx > 0 then
+    begin
+
+      if RawData[FooterIdx].Style = rsRegion then
+      begin
+        Region := RawData.Region;
+        if Assigned(Region) and not Region.Expanded then
+          Dec(LevelOffset, TextMargin +
+            (Region.Level - RegionLevel) * (CharWidth shl 1) - 2);
+      end;
+
+      ACanvas.Pen.Color := Region.LineColor;
+      ACanvas.Pen.Width := ToDpi(2);
+      ACanvas.MoveTo(AStartPoint.X + AOffset, AStartPoint.Y + RowHeight);
+      ACanvas.LineTo(AEndPoint.X + AOffset, AEndPoint.Y + RowHeight div 2);
+      ACanvas.LineTo(AEndPoint.X + AOffset + TextMargin + LevelOffset, AEndPoint.Y + RowHeight div 2);
+      ACanvas.Pen.Width := 1;
+    end;
+  end;
+
+begin
+  if View.RawData.MaxRegionLevel = 0 then Exit;  
+  I := StartRow;
+  AWidth := ToDpi(3);
+  while I <= EndRow do
+  begin
+    Data := RawData[I];
+    FooterIdx := -1;
+
+    if Data.Style = rsRegion then
+    begin
+      Region := Data.Region;
+      if Region = nil then
+      begin
+        Inc(I);
+        Continue;
+      end;
+
+      CalculateRegion;
+      AStartPoint := GetRowOffsetPoint(I);
+
+      // Если в видимой области присутствует заголовок региона,
+      // рисуем линию от него вниз
+
+      // If there is a region header in the visible area,
+      // draw a line down from it.
+
+      if RawData.RegionStart and Region.Expanded then
+      begin
+        RowIdx := Region.LastRawDataRowIndex;
+        AEndPoint := GetRowOffsetPoint(RowIdx);
+        FooterIdx := RowIdx;
+      end;
+
+      // если в видимой области только Footer региона, и заголовок скрыт,
+      // то рисуем линию вверх
+
+      // if only the Footer region is visible and the Header is hidden,
+      // then draw a line upwards
+
+      if not RawData.RegionStart then
+      begin
+        RowIdx := Region.FirstRawDataRowIndex;
+        if RowIdx <= StartRow then
+        begin
+          FooterIdx := I - 1;
+          AEndPoint := AStartPoint;
+          Dec(AEndPoint.Y, RowHeight);
+          AStartPoint.Y := 0;
+        end;
+      end;
+
+      ProcessFooter;
+    end;
+
+    // скрытые Footer-ы регионов могут быть расположены на одной строке
+    // поэтому за их обработку отвечает следующий код,
+    // задача которого нарисовать линию вверх в случае если Footer
+    // находится выше отображаемой области
+
+    // hidden region footers may be located on the same line,
+    // so the following code is responsible for processing them.
+    // Its task is to draw a line upward if the footer
+    // is above the displayed area
+
+    if (I > StartRow) and View.DataMap.HiddenFooter.TryGetValue(I, HiddenFootersList) then
+    begin
+      AInternalPoint := GetRowOffsetPoint(I);
+      for Region in HiddenFootersList do
+      begin
+        RowIdx := Region.FirstRawDataRowIndex;
+        if RowIdx <= StartRow then
+        begin
+          CalculateRegion;
+          FooterIdx := I - 1;
+          AEndPoint := AInternalPoint;
+          Dec(AEndPoint.Y, RowHeight);
+          AStartPoint.X := AEndPoint.X;
+          AStartPoint.Y := 0;
+          ProcessFooter;
+        end;
+      end;
+    end;
+
+    // и последняя обрабатываемая ситуация - отображается середина региона
+    // границы которого расположены вне видимой области. В этом случае
+    // необходимо отрисовать вертикальную линию взяв за основу Level региона
+
+    // and the last situation to be processed is when the middle of a region
+    // whose borders are outside the visible area is displayed. In this case,
+    // it is necessary to draw a vertical line based on the Level of the region
+
+    for Region in View.CoveringRegion do
+    begin
+      CalculateRegion;
+      ACanvas.Pen.Color := Region.LineColor;
+      ACanvas.Pen.Width := ToDpi(2);
+      ACanvas.MoveTo(AOffset, 0);
+      ACanvas.LineTo(AOffset, ClientHeight);
+      ACanvas.Pen.Width := 1;
+    end;
+
+    Inc(I);
+  end;
 end;
 
 { TVirtualPage }
@@ -2866,7 +3769,7 @@ begin
   end;
 end;
 
-procedure TVirtualPage.SetSize(const Value: DWORD);
+procedure TVirtualPage.SetSize(const Value: Integer);
 begin
   if Size <> Value then
   begin
@@ -3053,17 +3956,25 @@ function TCustomMappedHexView.CalculateColumnBestSize(
   end;
 
 var
-  I, ARowIndex: Integer;
+  I, EndIdx, ARowIndex: Int64;
   Painter: TAbstractPrimaryRowPainter;
   ATextMetric: TAbstractTextMetric;
 begin
   case Value of
+    ctAddress:
+    begin
+      Result := inherited;
+      if RawData.MaxRegionLevel > 0 then
+        Inc(Result, RawData.MaxRegionLevel * (CharWidth shl 1));
+    end;
     ctWorkSpace: Result := ToDpi(32);
     ctJmpLine: Result := ToDpi(82);
     ctOpcode:
     begin
       Result := ToDpi(255);
-      for I := 0 to RawData.PresentRows.Count - 1 do
+      I := 0;
+      EndIdx := RawData.PresentRows.Count;
+      while I < EndIdx do
       begin
         ARowIndex := RawData.PresentRows.List[I].RowIndex;
         Painter := GetRowPainter(ARowIndex);
@@ -3073,17 +3984,21 @@ begin
           Result := Max(Result, ATextMetric.SelectionLength(Value, 0,
             RawData[ARowIndex].RawLength - 1));
         end;
+        Inc(I);
       end;
       Inc(Result, TextMargin shl 1);
     end;
     ctDescription, ctComment:
     begin
       Result := inherited;
-      for I := 0 to RawData.PresentRows.Count - 1 do
+      I := 0;
+      EndIdx := RawData.PresentRows.Count;
+      while I < EndIdx do
       begin
         ARowIndex := RawData.PresentRows.List[I].RowIndex;
         if RawData[ARowIndex].RawLength > 0 then
           Result := Max(Result, Length(GetRowCustomString) * CharWidth + TextMargin shl 1);
+        Inc(I);
       end;
     end;
   else
@@ -3101,6 +4016,36 @@ begin
   AddressToRowIndexMode := OldAddressToRowMode;
 end;
 
+procedure TCustomMappedHexView.DoBeforePostPaint(const ADiapason: TVisibleRowDiapason);
+var
+  RegAddress, RegSize: Integer;
+  Region: TRegion;
+begin
+  RegAddress := RawData.RowToAddress(ADiapason.StartRow, 0);
+  RegSize := RawData.RowToAddress(ADiapason.EndRow, 0) + RawData[ADiapason.EndRow].RawLength;
+  RegSize := RegSize - RegAddress;
+  CoveringRegion.Clear;
+  for Region in DataMap.Regions do
+    case DataMap.CompareRegion(RegAddress, RegSize, Region) of
+      rcrFullNested: CoveringRegion.Add(Region);
+      rcrNested:
+      begin
+
+        // Регион будет определен как Nested в случае если виден один из заголовков
+        // потому что у заголовков тот-же адрес что и у самого региона.
+        // Поэтому делаем дополнительную проверку на то, что оба заголовка не видны
+
+        // The region will be defined as Nested if one of the headers is visible
+        // because the headers have the same address as the region itself.
+        // Therefore, we perform an additional check to ensure that both headers are invisible
+
+        if (Region.Header.RowIndex < ADiapason.StartRow) and
+          (Region.Footer.RowIndex > ADiapason.EndRow) then
+          CoveringRegion.Add(Region);
+      end;
+    end;
+end;
+
 procedure TCustomMappedHexView.DoCaretKeyDown(var Key: Word; Shift: TShiftState);
 var
   RowIndex: Int64;
@@ -3115,6 +4060,19 @@ begin
     end;
   end;
   inherited;
+end;
+
+procedure TCustomMappedHexView.DoColumnWidthChange(AColumnType: TColumnType;
+  var AWidth: Integer);
+var
+  AMinWidth: Integer;
+begin
+  if (AColumnType = ctAddress) and (RawData.MaxRegionLevel > 0) then
+  begin
+    AMinWidth := CalculateColumnBestSize(ctAddress);
+    if AWidth < AMinWidth then
+      AWidth := AMinWidth;
+  end;
 end;
 
 procedure TCustomMappedHexView.DoGetHint(var AHintParam: THintParam;
@@ -3161,10 +4119,23 @@ begin
   FPages := TVirtualPages.Create(Self);
   FJmpInitList := TList<Int64>.Create;
   FJmpData := TObjectDictionary<Int64, TList<Int64>>.Create([doOwnsValues]);
+  FCoveringRegion := TList<TRegion>.Create;
+end;
+
+procedure TCustomMappedHexView.DblClick;
+begin
+  if RawData[MousePressedHitInfo.SelectPoint.RowIndex].Style = rsRegion then
+  begin
+    if RawData.RegionStart and (MousePressedHitInfo.Cursor <> crHandPoint) then
+      DataMap.InternalRegionChange(RawData.Region, rctToggle);
+  end
+  else
+    inherited;
 end;
 
 destructor TCustomMappedHexView.Destroy;
 begin
+  FCoveringRegion.Free;
   FJmpData.Free;
   FJmpInitList.Free;
   FPages.Free;
@@ -3218,6 +4189,33 @@ begin
     FRadioCheckClick(Self, ARowIndex);
 end;
 
+procedure TCustomMappedHexView.FocusOnAddress(Address: Int64;
+  ACaretChangeMode: TCaretChangeMode);
+var
+  Region: TRegion;
+  RemoveUpdateLevel: Boolean;
+begin
+  RemoveUpdateLevel := False;
+  try
+    for Region in DataMap.Regions do
+    begin
+      if Region.AddressInRegion(Address) and not Region.Expanded then
+      begin
+        if not InUpdateMode then
+        begin
+          BeginUpdate;
+          RemoveUpdateLevel := True;
+        end;
+        Region.Expanded := True;
+      end;
+    end;
+  finally
+    if RemoveUpdateLevel then
+      EndUpdate;
+  end;
+  inherited;
+end;
+
 function TCustomMappedHexView.GetColorMap: TMapViewColors;
 begin
   Result := TMapViewColors(inherited ColorMap);
@@ -3235,17 +4233,24 @@ end;
 
 procedure TCustomMappedHexView.HandleUserInputJump(ARowIndex: Int64);
 begin
-  if RawData[ARowIndex].Style = rsMask then
-  begin
-    DataMap.Data.List[RawData.MapRowIndex].Expanded := not RawData.Expanded;
-    ClearSelection;
-    UpdateDataMap;
-    UpdateTextBoundary;
-    UpdateScrollPos;
-    Invalidate;
-  end
+  case RawData[ARowIndex].Style of
+    rsMask, rsRegion:
+    begin
+      if RawData.Style = rsMask then
+      begin
+        DataMap.Data.List[RawData.MapRowIndex].Expanded := not RawData.Expanded;
+        ClearSelection;
+        UpdateDataMap;
+        UpdateTextBoundary;
+        UpdateScrollPos;
+        Invalidate;
+      end
+      else
+        DataMap.InternalRegionChange(RawData.Region, rctToggle);
+    end;
   else
     JumpToAddress(RawData[ARowIndex].JmpToAddr);
+  end;
 end;
 
 procedure TCustomMappedHexView.InitPainters;
@@ -3258,9 +4263,11 @@ begin
   Painters.Add(GetOverloadPainterClass(TRowComment).Create(Self));
   Painters.Add(GetOverloadPainterClass(TRowMask).Create(Self));
   Painters.Add(GetOverloadPainterClass(TRowCheckRadioMask).Create(Self));
+  Painters.Add(GetOverloadPainterClass(TRowRegion).Create(Self));
 
   PostPainters.Add(TJumpLinesPostPainter.Create(Self));
   PostPainters.Add(TCheckRadioRowPostPainter.Create(Self));
+  PostPainters.Add(TRegionPostPainter.Create(Self));
 
   FMaskTextMetric := TMaskTextMetric.Create(Self);
 end;
@@ -3271,14 +4278,15 @@ begin
   if (ARowIndex < 0) or (ARowIndex >= RawData.Count) then
     Exit(nil);
   case RawData[ARowIndex].Style of
-    rsRaw, rsRawWithComment: Result := Painters[0];
+    rsRaw, rsRawCustom: Result := Painters[0];
     rsRawWithExDescription: Result := Painters[1];
     rsAsm: Result := Painters[2];
     rsSeparator: Result := Painters[3];
     rsLine: Result := Painters[4];
-    rsLineComment, rsBlockComment: Result := Painters[5];
+    rsLineComment: Result := Painters[5];
     rsMask: Result := Painters[6];
     rsMaskCheck, rsMaskRadio: Result := Painters[7];
+    rsRegion: Result := Painters[8];
   else
     Result := nil;
   end;
