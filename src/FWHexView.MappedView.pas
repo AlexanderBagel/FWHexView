@@ -3019,6 +3019,7 @@ begin
   CorrectCanvasFont(ACanvas, AColumn);
   DrawText(ACanvas, ADescription,
     Length(ADescription), ARect, DT_LEFT);
+  ACanvas.Font.Style := Owner.Font.Style;
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 end;
 
