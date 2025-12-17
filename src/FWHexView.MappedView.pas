@@ -134,6 +134,7 @@ type
   TMappedRawData = class(TRawData)
   strict private
     FRows: TListEx<TRowData>;
+    FRowWithData: TList<Int64>;
     FCount: Int64;
     FMaxRegionLevel: Integer;
     procedure CheckDataMap;
@@ -213,7 +214,7 @@ type
       );
   end;
 
-  TRegionDrawStyle = (rdsComment, rdsSeparator, rdsCenteredSeparator);
+  TRegionDrawStyle = (rdsComment, rdsSeparator);
 
   TAddrCheck = (
     acStartOutOfPool,
@@ -348,13 +349,17 @@ type
   TRegionPart = class
   strict private
     FOwner: TRegion;
+    FAlignment: TAlignment;
     FBackgroundColor: TColor;
     FDataMapIndex, FRowIndex: Int64;
     FDrawStyle: TRegionDrawStyle;
+    procedure SetAlignment(const Value: TAlignment);
     procedure SetBackgroundColor(const Value: TColor);
+    procedure SetComment(const Value: string);
     procedure SetDrawStyle(const Value: TRegionDrawStyle);
     procedure SetText(const Value: string);
     procedure SetTextColor(const Value: TColor);
+    function GetComment: string;
     function GetText: string;
     function GetTextColor: TColor;
   protected
@@ -363,8 +368,10 @@ type
     property RowIndex: Int64 read FRowIndex write FRowIndex;
   public
     constructor Create(AOwner: TRegion; ADataMapIndex: Int64);
+    property Alignment: TAlignment read FAlignment write SetAlignment;
     property BackgroundColor: TColor read FBackgroundColor write SetBackgroundColor;
     property DrawStyle: TRegionDrawStyle read FDrawStyle write SetDrawStyle;
+    property Comment: string read GetComment write SetComment;
     property Text: string read GetText write SetText;
     property TextColor: TColor read GetTextColor write SetTextColor;
   end;
@@ -377,10 +384,15 @@ type
     FHeader, FFooter: TRegionPart;
     FLevel: Integer;
     FLineColor: TColor;
+    FLineStyle: TPenStyle;
+    FLineVisible: Boolean;
+    FLineWidth: Integer;
     procedure SetExpanded(const Value: Boolean);
-    procedure SetLineColor(const Value: TColor);
-  private
     procedure SetFooterVisible(const Value: Boolean);
+    procedure SetLineColor(const Value: TColor);
+    procedure SetLineStyle(const Value: TPenStyle);
+    procedure SetLineVisible(const Value: Boolean);
+    procedure SetLineWidth(const Value: Integer);
   protected
     procedure Assign(AValue: TRegion);
     procedure DoChange;
@@ -398,6 +410,9 @@ type
     property Footer: TRegionPart read FFooter;
     property FooterVisible: Boolean read FFooterVisible write SetFooterVisible;
     property LineColor: TColor read FLineColor write SetLineColor;
+    property LineStyle: TPenStyle read FLineStyle write SetLineStyle;
+    property LineVisible: Boolean read FLineVisible write SetLineVisible;
+    property LineWidth: Integer read FLineWidth write SetLineWidth;
     property Size: Int64 read FSize;
   end;
 
@@ -1013,6 +1028,7 @@ constructor TMappedRawData.Create(AOwner: TFWCustomHexView);
 begin
   inherited Create(AOwner);
   FRows := TListEx<TRowData>.Create;
+  FRowWithData := TList<Int64>.Create;
 end;
 
 function TMappedRawData.DataOffset: Int64;
@@ -1028,6 +1044,7 @@ end;
 destructor TMappedRawData.Destroy;
 begin
   FRows.Free;
+  FRowWithData.Free;
   inherited;
 end;
 
@@ -1058,34 +1075,35 @@ begin
     Exit;
   end;
   FLeft := 0;
-  FRight := FRows.Count - 1;
+  FRight := FRowWithData.Count - 1;
   FCurrent := (FRight + FLeft) div 2;
-  if FRows.List[FLeft].Address > AAddr then
+  if FRows.List[FRowWithData[FLeft]].Address > AAddr then
   begin
-    Result := 0;
+    Result := FRowWithData[FLeft];
     Exit;
   end;
-  if FRows.List[FRight].Address < AAddr then
+  if FRows.List[FRowWithData[FRight]].Address < AAddr then
   begin
-    Result := FRight;
+    Result := FRowWithData[FRight];
     Exit;
   end;
   repeat
-    if FRows.List[FCurrent].Address = AAddr then
+    if FRows.List[FRowWithData[FCurrent]].Address = AAddr then
     begin
-      Result := FCurrent;
+      Result := FRowWithData[FCurrent];
       Exit;
     end;
-    if FRows.List[FCurrent].Address < AAddr then
+    if FRows.List[FRowWithData[FCurrent]].Address < AAddr then
       FLeft := FCurrent
     else
       FRight := FCurrent;
     FCurrent := (FRight + FLeft) div 2;
   until FLeft = FCurrent;
-  if FRows.List[FCurrent].Address < AAddr then
-    if FRows.List[FCurrent + 1].Address = AAddr then
-      Inc(FCurrent);
-  Result := FCurrent;
+  if FRows.List[FRowWithData[FCurrent]].Address < AAddr then
+    if FCurrent < FRowWithData.Count - 1 then
+      if FRows.List[FRowWithData[FCurrent + 1]].Address = AAddr then
+        Inc(FCurrent);
+  Result := FRowWithData[FCurrent];
 end;
 
 function TMappedRawData.GetRawIndexByRowIndex(RowIndex: Int64): Integer;
@@ -1123,8 +1141,9 @@ begin
     FCurrent := (FRight + FLeft) div 2;
   until FLeft = FCurrent;
   if FRows.List[FCurrent].RowIndex < RowIndex then
-    if FRows.List[FCurrent + 1].RowIndex = RowIndex then
-      Inc(FCurrent);
+    if FCurrent < FRows.Count - 1 then
+      if FRows.List[FCurrent + 1].RowIndex = RowIndex then
+        Inc(FCurrent);
   Result := FCurrent;
 end;
 
@@ -1268,11 +1287,17 @@ var
   ServiceLineProcessing: Boolean;
 
   procedure AddLine;
+  var
+    Idx: Integer;
   begin
     if LastPageIsRaw and (Line.Style = rsRaw) then
       Inc(FRows.List[FRows.Count - 1].RawLength, Line.RawLength)
     else
-      FRows.Add(Line);
+    begin
+      Idx := FRows.Add(Line);
+      if Line.RawLength > 0 then
+        FRowWithData.Add(Idx);
+    end;
     LastPageIsRaw := (Line.Style = rsRaw) and (Line.RawLength = BytesInRow);
     Inc(FCount);
     if (Line.Style = rsRaw) and (Line.RawLength > BytesInRow) then
@@ -1348,6 +1373,7 @@ begin
   FCount := 0;
   StreamOffset := 0;
   FillChar(Line, SizeOf(Line), 0);
+  FRowWithData.Clear;
   FRows.Clear;
   View.JmpInitList.Clear;
 
@@ -2370,6 +2396,11 @@ begin
   FBackgroundColor := clDefault;
 end;
 
+function TRegionPart.GetComment: string;
+begin
+  Result := FOwner.DataMap.Data.List[FDataMapIndex].Comment;
+end;
+
 function TRegionPart.GetText: string;
 begin
   Result := FOwner.DataMap.Data.List[FDataMapIndex].Description;
@@ -2380,9 +2411,24 @@ begin
   Result := FOwner.DataMap.Data.List[FDataMapIndex].Color;
 end;
 
+procedure TRegionPart.SetAlignment(const Value: TAlignment);
+begin
+  if Alignment <> Value then
+  begin
+    FAlignment := Value;
+    FOwner.DoChange;
+  end;
+end;
+
 procedure TRegionPart.SetBackgroundColor(const Value: TColor);
 begin
   FBackgroundColor := Value;
+  FOwner.DoChange;
+end;
+
+procedure TRegionPart.SetComment(const Value: string);
+begin
+  FOwner.DataMap.Data.List[FDataMapIndex].Comment := Value;
   FOwner.DoChange;
 end;
 
@@ -2431,6 +2477,9 @@ begin
   FHeader := TRegionPart.Create(Self, AHeaderIndex);
   FFooter := TRegionPart.Create(Self, AHeaderIndex + 1);
   FLineColor := clDefault;
+  FLineVisible := True;
+  FLineWidth := 2;
+  FLineStyle := psSolid;
 end;
 
 destructor TRegion.Destroy;
@@ -2478,6 +2527,33 @@ begin
   if LineColor <> Value then
   begin
     FLineColor := Value;
+    DoChange;
+  end;
+end;
+
+procedure TRegion.SetLineWidth(const Value: Integer);
+begin
+  if LineWidth <> Value then
+  begin
+    FLineWidth := Value;
+    DoChange;
+  end;
+end;
+
+procedure TRegion.SetLineStyle(const Value: TPenStyle);
+begin
+  if LineStyle <> Value then
+  begin
+    FLineStyle := Value;
+    DoChange;
+  end;
+end;
+
+procedure TRegion.SetLineVisible(const Value: Boolean);
+begin
+  if LineVisible <> Value then
+  begin
+    FLineVisible := Value;
     DoChange;
   end;
 end;
@@ -3013,13 +3089,14 @@ begin
   ACanvas.Font.Style := Owner.Font.Style;
   ACanvas.Font.Color := TMapViewColors(ColorMap).TextCommentColor;
   ADescription := Data.Description;
+  if Data.MaxRegionLevel > 0 then
+    Inc(ARect.Left, Data.MaxRegionLevel * (CharWidth shl 1));
   DrawText(ACanvas, ADescription,
     Length(ADescription), ARect, DT_CALCRECT);
   ACanvas.FillRect(ARect);
   CorrectCanvasFont(ACanvas, AColumn);
   DrawText(ACanvas, ADescription,
     Length(ADescription), ARect, DT_LEFT);
-  ACanvas.Font.Style := Owner.Font.Style;
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 end;
 
@@ -3196,9 +3273,12 @@ end;
 
 procedure TRowRegion.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
   var ARect: TRect);
+const
+  TextFlag: array [TAlignment] of Integer = (DT_LEFT, DT_RIGHT, DT_CENTER);
+
 var
   ADescription: string;
-  AWidth, ACenteredOffset, ARightOffset: Integer;
+  AWidth, ACenteredOffset, ARightOffset, RegionTextFlag: Integer;
   P: TPoint;
   R: TRect;
   Data: TMappedRawData;
@@ -3215,11 +3295,13 @@ begin
   begin
     RegionDrawStyle := Region.Header.DrawStyle;
     RegionBkColor :=  Region.Header.BackgroundColor;
+    RegionTextFlag := TextFlag[Region.Header.Alignment];
   end
   else
   begin
     RegionDrawStyle := Region.Footer.DrawStyle;
     RegionBkColor :=  Region.Footer.BackgroundColor;
+    RegionTextFlag := TextFlag[Region.Footer.Alignment];
   end;
   ACanvas.Brush.Style := bsSolid;
   if RegionDrawStyle <> rdsComment then
@@ -3241,7 +3323,7 @@ begin
   Inc(ARect.Left,
     GetLeftNCWidth + TextMargin +               // text offset
     RowHeight +                                 // expander
-    (Region.Level - 1) * (CharWidth shl 1)  // level offset
+    (Region.Level - 1) * (CharWidth shl 1)      // level offset
   );
   ACanvas.Font.Style := Owner.Font.Style;
   if Data.Color = clDefault then
@@ -3256,15 +3338,19 @@ begin
   else
     ACanvas.Brush.Style := bsClear;
   CorrectCanvasFont(ACanvas, AColumn);
-  if RegionDrawStyle = rdsCenteredSeparator then
+  if RegionDrawStyle = rdsSeparator then
   begin
     R := ARect;
-    R.Left := GetLeftNCWidth + ScrollOffset.X;
-    R.Right := ARightOffset + SplitMargin;
-    DrawText(ACanvas, ADescription, Length(ADescription), R, DT_CENTER);
+    if RegionTextFlag = DT_CENTER then
+      R.Left := GetLeftNCWidth + ScrollOffset.X;
+    R.Right := ARightOffset - SplitMargin;
+    if Data.Comment <> '' then
+      Dec(R.Right, ColumnWidth[ctComment]);
+    DrawText(ACanvas, ADescription, Length(ADescription), R, RegionTextFlag);
   end
   else
     DrawText(ACanvas, ADescription, Length(ADescription), ARect, DT_LEFT);
+
   ACanvas.Font.Style := Owner.Font.Style;
   if Data.RegionStart then
   begin
@@ -3295,6 +3381,15 @@ begin
       Dec(P.Y, AWidth div 2);
       DrawArrow(ACanvas, sdRight, P, AWidth);
     end;
+  end;
+
+  if Data.Comment <> '' then
+  begin
+    R := GetColumnRect(ctComment, RowIndex);
+    Inc(R.Left, TextMargin);
+    ACanvas.Brush.Style := bsClear;
+    ACanvas.Font.Color := TMapViewColors(ColorMap).TextCommentColor;
+    DrawAlignedTextPart(ACanvas, ctComment, Data.Comment, R);
   end;
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Stop;{$ENDIF}
 end;
@@ -3629,12 +3724,17 @@ var
             (Region.Level - RegionLevel) * (CharWidth shl 1) - 2);
       end;
 
-      ACanvas.Pen.Color := Region.LineColor;
-      ACanvas.Pen.Width := ToDpi(2);
-      ACanvas.MoveTo(AStartPoint.X + AOffset, AStartPoint.Y + RowHeight);
-      ACanvas.LineTo(AEndPoint.X + AOffset, AEndPoint.Y + RowHeight div 2);
-      ACanvas.LineTo(AEndPoint.X + AOffset + TextMargin + LevelOffset, AEndPoint.Y + RowHeight div 2);
-      ACanvas.Pen.Width := 1;
+      if Region.LineVisible then
+      begin
+        ACanvas.Pen.Color := Region.LineColor;
+        ACanvas.Pen.Width := Region.LineWidth;
+        ACanvas.Pen.Style := Region.LineStyle;
+        ACanvas.MoveTo(AStartPoint.X + AOffset, AStartPoint.Y + RowHeight);
+        ACanvas.LineTo(AEndPoint.X + AOffset, AEndPoint.Y + RowHeight div 2);
+        ACanvas.LineTo(AEndPoint.X + AOffset + TextMargin + LevelOffset, AEndPoint.Y + RowHeight div 2);
+        ACanvas.Pen.Width := 1;
+        ACanvas.Pen.Style := psSolid;
+      end;
     end;
   end;
 
@@ -3732,12 +3832,15 @@ begin
 
     for Region in View.CoveringRegion do
     begin
+      if not Region.LineVisible then Continue;
       CalculateRegion;
       ACanvas.Pen.Color := Region.LineColor;
-      ACanvas.Pen.Width := ToDpi(2);
+      ACanvas.Pen.Width := Region.LineWidth;
+      ACanvas.Pen.Style := Region.LineStyle;
       ACanvas.MoveTo(AOffset, 0);
       ACanvas.LineTo(AOffset, ClientHeight);
       ACanvas.Pen.Width := 1;
+      ACanvas.Pen.Style := psSolid;
     end;
 
     Inc(I);
@@ -4336,6 +4439,9 @@ procedure TCustomMappedHexView.UpdateDataMap;
 begin
   FJmpInitList.Clear;
   inherited;
+
+  if RawData.MaxRegionLevel > 0 then
+    FitColumnToBestSize(ctAddress);
 
   // заполнение массива известных прыжков
 

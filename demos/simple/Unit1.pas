@@ -17,7 +17,8 @@ uses
 
   FWHexView,
   FWHexView.Common,
-  FWHexView.MappedView;
+  FWHexView.AsmTokenizer,
+  FWHexView.MappedView, Types;
 
 type
 
@@ -30,9 +31,13 @@ type
     procedure HexJmpTo(Sender: TObject; const {%H-}AJmpAddr: Int64;
       AJmpState: TJmpState; var {%H-}Handled: Boolean);
     procedure HexKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure HexDrawToken(Sender: TObject; ACanvas: TCanvas;
+      ATokenParam: TDrawParam; const ARect: TRect; AToken: PChar;
+      var ATokenLen: Integer);
   private
-    //Hex: TMappedHexView;
     Data: TMemoryStream;
+    Tokenizer: TAsmTokenizer;
+    IsCallInst: Boolean;
     procedure FillHex;
   end;
 
@@ -56,7 +61,7 @@ begin
   // Just to show the capabilities of the controller
 
   Hex.DataMap.BeginUpdate;
-  Hex.DataMap.AddRegion($100, 'IMAGE_DOS_HEADER', rdsCenteredSeparator);
+  Hex.DataMap.AddRegion($100, 'IMAGE_DOS_HEADER', rdsSeparator).Header.Alignment := taCenter;
   Hex.DataMap.AddExDescription(2, 'e_magic = "MZ"', 'Magic number');
   Hex.DataMap.AddExDescription(2, 'e_cblp = 50', 'Bytes on last page of file');
   Hex.DataMap.AddExDescription(2, 'e_cp = 2', 'Pages in file');
@@ -77,9 +82,10 @@ begin
   Hex.DataMap.AddExDescription(20, 'e_res2', 'Reserved words', clGrayText);
   Hex.DataMap.AddExDescription(4, '_lfanew = 100 ($400100)', 'File address of new exe header', $400100, 15, 7);
   Hex.DataMap.AddLine;
-  Hex.DataMap.AddRegion($400100, $78, 'IMAGE_NT_HEADERS', rdsCenteredSeparator);
+  Hex.Selections.Add(0, $400050, $400050 + 35, $0000D2F7);
+  Hex.DataMap.AddRegion($400100, $78, 'IMAGE_NT_HEADERS', rdsSeparator).Header.Alignment := taCenter;
   Hex.DataMap.AddExDescription(4, 'Signature = "PE"');
-  Hex.DataMap.AddRegion($14, 'IMAGE_FILE_HEADER', rdsCenteredSeparator);
+  Hex.DataMap.AddRegion($14, 'IMAGE_FILE_HEADER', rdsSeparator).Header.Alignment := taCenter;
   Hex.DataMap.AddExDescription(2, 'Machine = 14C', 'IMAGE_FILE_MACHINE_I386');
   Hex.DataMap.AddExDescription(2, 'NumberOfSections = C');
   Hex.DataMap.AddExDescription(4, 'TimeDateStamp = 58F333A2', '16.04.2017 9:04:34');
@@ -104,7 +110,7 @@ begin
   Hex.DataMap.AddMaskCheck(14, 'UP_SYSTEM_ONLY', '0x4000', False);
   Hex.DataMap.AddMaskCheck(15, 'BYTES_REVERSED_HI', '0x8000', True);
 
-  Hex.DataMap.AddRegion($60, 'IMAGE_OPTIONAL_HEADER32', rdsCenteredSeparator);
+  Hex.DataMap.AddRegion($60, 'IMAGE_OPTIONAL_HEADER32', rdsSeparator).Header.Alignment := taCenter;
   Hex.DataMap.AddExDescription(2, 'Magic = 10B', 'IMAGE_NT_OPTIONAL_HDR32_MAGIC');
   Hex.DataMap.AddExDescription(1, 'MajorLinkerVersion = 2');
   Hex.DataMap.AddExDescription(1, 'MinorLinkerVersion = 19');
@@ -285,11 +291,46 @@ begin
   Hex.Bookmark[2] := $005E952C;
   Hex.OnKeyDown := HexKeyDown;
   Hex.ReadOnly := False;
+  Tokenizer := TAsmTokenizer.Create;
 end;
 
 procedure TForm1.FormDestroy(Sender: TObject);
 begin
   Data.Free;
+  Tokenizer.Free;
+end;
+
+procedure TForm1.HexDrawToken(Sender: TObject; ACanvas: TCanvas;
+  ATokenParam: TDrawParam; const ARect: TRect; AToken: PChar;
+  var ATokenLen: Integer);
+begin
+
+  // Demonstration of working with a tokenizer for coloring ASM code
+
+  if ATokenParam.AddrVA < $500000 then Exit;
+  if ATokenParam.Column <> ctDescription then Exit;
+  if ATokenParam.CharIndex = 0 then IsCallInst := False;
+  case Tokenizer.GetToken(AToken, ATokenLen) of
+    ttNumber:
+    begin
+      if IsCallInst then
+        ACanvas.Font.Color := $00B87149
+      else
+        ACanvas.Font.Color := clGreen;
+    end;
+    ttInstruction: ACanvas.Font.Color := clNavy;
+    ttSize: ACanvas.Font.Color := clGreen;
+    ttReg: ACanvas.Font.Color := clMaroon;
+    ttPrefix: ACanvas.Font.Color := $5053EF;
+    ttJmp:
+    begin
+      ACanvas.Font.Color := $000080FF;
+      ACanvas.Font.Style := [];
+      IsCallInst := True;
+    end;
+    ttKernel: ACanvas.Font.Color := clRed;
+    ttNop: ACanvas.Font.Color := clDkGray;
+  end;
 end;
 
 procedure TForm1.HexJmpTo(Sender: TObject; const AJmpAddr: Int64;

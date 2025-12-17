@@ -7086,7 +7086,10 @@ begin
   begin
     Painter := GetRowPainter(I, False);
     if Assigned(Painter) then
-      Painter.DrawRow(Canvas, Offset)
+    begin
+      Canvas.Font := Font;
+      Painter.DrawRow(Canvas, Offset);
+    end
     else
       Inc(Offset.Y, FRowHeight);
     if FRawData[I].DrawRowSmallSeparator then

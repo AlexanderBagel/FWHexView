@@ -3,7 +3,7 @@ object Form1: TForm1
   Height = 906
   Top = 327
   Width = 1650
-  Caption = 'Form1'
+  Caption = 'Press "Ctrl+1" or "Ctrl+2"'
   ClientHeight = 906
   ClientWidth = 1650
   Color = clBtnFace
@@ -22,6 +22,7 @@ object Form1: TForm1
     Width = 1650
     Align = alClient
     TabOrder = 0
+    OnDrawToken = HexDrawToken
     OnJmpTo = HexJmpTo
     OnKeyDown = HexKeyDown
   end
