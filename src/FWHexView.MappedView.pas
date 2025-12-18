@@ -340,6 +340,7 @@ type
 
     // modification of existing elements
 
+    function LastDataMapIndex: Integer;
     procedure SetRowColor(ADataMapIndex: Integer; AValue: TColor);
     procedure SetRowComment(ADataMapIndex: Integer; const AValue: string);
     procedure SetRowDescription(ADataMapIndex: Integer; const AValue: string);
@@ -2327,6 +2328,11 @@ begin
   Idx := FOwner.RawData.AddressToRowIndex(Address);
   if (Idx >= 0) and (FOwner.RawData[Idx].Style = rsRegion) and FOwner.RawData.RegionStart then
     InternalRegionChange(FOwner.RawData.Region, AChangeType);
+end;
+
+function TDataMap.LastDataMapIndex: Integer;
+begin
+  Result := FData.Count - 1;
 end;
 
 procedure TDataMap.RebuildDataMap;

@@ -385,9 +385,9 @@ begin
   ShowExtraFields(Stream, Data, Node);
   if Data.FileCommentLength > 0 then
   begin
-    HexView.DataMap.AddLine(True);
+    HexView.DataMap.SetRowLineSeparated(HexView.DataMap.LastDataMapIndex, True);
     HexView.DataMap.AddComment('File Comment buffer');
-    HexView.DataMap.AddLine(True);
+    HexView.DataMap.SetRowLineSeparated(HexView.DataMap.LastDataMapIndex, True);
     HexView.DataMap.AddRaw(Data.FileCommentLength);
     HexView.DataMap.AddLine;
   end;
@@ -596,7 +596,7 @@ begin
         HexView.DataMap.AddSeparator(Node.Text);
         HexView.DataMap.AddExDescription(2, Format('Tag = 0x%x', [HeaderID]));
         HexView.DataMap.AddExDescription(2, Format('Size = %d', [BlockSize]));
-        HexView.DataMap.AddLine(True);
+        HexView.DataMap.SetRowLineSeparated(HexView.DataMap.LastDataMapIndex, True);
         HexView.DataMap.AddRaw(BlockSize);
 
       end;
