@@ -3039,9 +3039,12 @@ procedure TRowSeparator.DrawColumn(ACanvas: TCanvas; AColumn: TColumnType;
   var ARect: TRect);
 begin
   if AColumn <> ctNone then Exit;
-  ACanvas.Brush.Style := bsSolid;
-  ACanvas.Brush.Color := TMapViewColors(ColorMap).SeparatorBackgroundColor;
-  ACanvas.Pen.Color := TMapViewColors(ColorMap).SeparatorBorderColor;
+  if not DrawRowColumnBackground(ACanvas, AColumn, ARect) then
+  begin
+    ACanvas.Brush.Style := bsSolid;
+    ACanvas.Brush.Color := TMapViewColors(ColorMap).SeparatorBackgroundColor;
+    ACanvas.Pen.Color := TMapViewColors(ColorMap).SeparatorBorderColor;
+  end;
   Inc(ARect.Left, GetLeftNCWidth);
   Inc(ARect.Right);
   Dec(ARect.Top);
@@ -3066,8 +3069,11 @@ procedure TRowLineSeparator.DrawColumn(ACanvas: TCanvas;
   AColumn: TColumnType; var ARect: TRect);
 begin
   if AColumn <> ctNone then Exit;
-  ACanvas.Brush.Style := bsSolid;
-  ACanvas.Pen.Color := ColorMap.RowSeparatorColor;
+  if not DrawRowColumnBackground(ACanvas, AColumn, ARect) then
+  begin
+    ACanvas.Brush.Style := bsSolid;
+    ACanvas.Pen.Color := ColorMap.RowSeparatorColor;
+  end;
   Inc(ARect.Left, GetLeftNCWidth);
   ACanvas.MoveTo(ARect.Left, ARect.CenterPoint.Y);
   ACanvas.LineTo(ARect.Right, ARect.CenterPoint.Y);
@@ -3089,8 +3095,11 @@ begin
   if AColumn <> ctNone then Exit;
   {$IFDEF USE_PROFILER}if NeedProfile then uprof.Start('TRowComment.DrawColumn');{$ENDIF}
   Data := RawData[RowIndex];
-  ACanvas.Brush.Style := bsSolid;
-  ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
+  if not DrawRowColumnBackground(ACanvas, AColumn, ARect) then
+  begin
+    ACanvas.Brush.Style := bsSolid;
+    ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
+  end;
   Inc(ARect.Left, GetLeftNCWidth + TextMargin);
   ACanvas.Font.Style := Owner.Font.Style;
   ACanvas.Font.Color := TMapViewColors(ColorMap).TextCommentColor;
@@ -3171,6 +3180,7 @@ procedure TRowCheckRadioMask.DrawColumn(ACanvas: TCanvas;
   AColumn: TColumnType; var ARect: TRect);
 begin
   case AColumn of
+    ctNone: DrawRowColumnBackground(ACanvas, AColumn, ARect);
     ctDescription:
       if RawData[RowIndex].Style = rsMaskRadio then
         DrawRadioPart(ACanvas, ARect)
@@ -3309,22 +3319,27 @@ begin
     RegionBkColor :=  Region.Footer.BackgroundColor;
     RegionTextFlag := TextFlag[Region.Footer.Alignment];
   end;
+
   ACanvas.Brush.Style := bsSolid;
-  if RegionDrawStyle <> rdsComment then
+  if not DrawRowColumnBackground(ACanvas, AColumn, ARect) then
   begin
-    if RegionBkColor = clDefault then
-      ACanvas.Brush.Color := TMapViewColors(ColorMap).SeparatorBackgroundColor
-    else
-      ACanvas.Brush.Color := RegionBkColor;
-    ACanvas.Pen.Color := TMapViewColors(ColorMap).SeparatorBorderColor;
-    R := ARect;
-    Inc(R.Left, GetLeftNCWidth +
-      (Region.Level - 1) * (CharWidth shl 1));
-    Inc(R.Right);
-    Dec(R.Top);
-    ACanvas.Rectangle(R);
+    if RegionDrawStyle <> rdsComment then
+    begin
+      if RegionBkColor = clDefault then
+        ACanvas.Brush.Color := TMapViewColors(ColorMap).SeparatorBackgroundColor
+      else
+        ACanvas.Brush.Color := RegionBkColor;
+      ACanvas.Pen.Color := TMapViewColors(ColorMap).SeparatorBorderColor;
+      R := ARect;
+      Inc(R.Left, GetLeftNCWidth +
+        (Region.Level - 1) * (CharWidth shl 1));
+      Inc(R.Right);
+      Dec(R.Top);
+      ACanvas.Rectangle(R);
+    end;
+    ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
   end;
-  ACanvas.Brush.Color := SelectedColor(SelData.SelectStyle);
+
   ARightOffset := ARect.Right - SplitMargin;
   Inc(ARect.Left,
     GetLeftNCWidth + TextMargin +               // text offset
