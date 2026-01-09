@@ -267,9 +267,9 @@ begin
         Inc(Dx);
       end;
       glyphs^.x := glyphs^.x + GlyphOffset;
-      Inc(BytesLen, ct.Clusters^[I].num_bytes);
       Inc(glyphs);
     end;
+    Inc(BytesLen, ct.Clusters^[I].num_bytes);
     Inc(Len);
   end;
 
