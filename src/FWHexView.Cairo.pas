@@ -450,7 +450,6 @@ var
   num_clusters: LongInt;
   cluster_flags: cairo_text_cluster_flags_t;
   I, A: Integer;
-  R: TRect;
 begin
   ct := cairo_create_context(ACanvas.Handle);
   try
