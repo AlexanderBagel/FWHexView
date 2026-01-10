@@ -348,16 +348,13 @@ begin
   try
     if ARect <> nil then
     begin
-      cairo_rectangle(ct.Context, ARect^.Left, ARect^.Top, ARect^.Width + 1, ARect^.Height);
       if ACanvas.Brush.Style = bsSolid then
-      begin
-        cairo_save(ct.Context);
-        cairo_set_source_color(ct.Context, cairo_get_color(ACanvas.Brush.Color));
-        cairo_fill(ct.Context);
-        cairo_restore(ct.Context);
-      end;
+        ACanvas.FillRect(ARect^);
       if Options and ETO_CLIPPED <> 0 then
+      begin
+        cairo_rectangle(ct.Context, ARect^.Left, ARect^.Top, ARect^.Width + 1, ARect^.Height);
         cairo_clip(ct.Context)
+      end;
     end;
 
     if ct.InvalidGlyphsPresent then
