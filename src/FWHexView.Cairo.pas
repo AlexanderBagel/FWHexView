@@ -194,12 +194,20 @@ end;
 
 procedure DrawPangoGlyph(const ct: TCairoContext; Str: PChar; X: Integer;
   CalcRect: PRect; Dx: PInteger);
+type
+  TCairoItem = record
+    start: Pcairo_glyph_t;
+    Len: Integer;
+  end;
+
 var
   layout: PPangoLayout;
   font_descriptions: PPangoFontDescription;
   glyphs, start: Pcairo_glyph_t;
   I, A, Len, BytesLen, GlyphOffset: Integer;
   CurrentValid, GlyphValid: Boolean;
+  CairoItems: array of TCairoItem;
+  CairoItemsLen: Integer;
 
   procedure DrawPart;
   var
@@ -213,7 +221,13 @@ var
     if CalcRect = nil then
     begin
       if start^.index > 0 then
-        cairo_glyph_path(ct.Context, start, Len)
+      begin
+        if CairoItemsLen = Length(CairoItems) then
+          SetLength(CairoItems, CairoItemsLen + 4);
+        CairoItems[CairoItemsLen].start := start;
+        CairoItems[CairoItemsLen].Len := Len;
+        Inc(CairoItemsLen);
+      end
       else
       begin
         cairo_move_to(ct.Context, start^.x, start^.y);
@@ -249,6 +263,7 @@ begin
   BytesLen := 0;
   Len := 0;
   GlyphOffset := 0;
+  CairoItemsLen := 0;
   CurrentValid := glyphs^.index > 0;
   for I := 0 to ct.ClustersLen - 1 do
   begin
@@ -275,7 +290,11 @@ begin
 
   DrawPart;
   if CalcRect = nil then
+  begin
+    for I := 0 to CairoItemsLen - 1 do
+      cairo_glyph_path(ct.Context, CairoItems[I].start, CairoItems[I].Len);
     cairo_fill_preserve(ct.Context);
+  end;
 
   g_object_unref(layout);
 end;
