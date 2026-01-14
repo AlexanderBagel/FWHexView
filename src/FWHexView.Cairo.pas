@@ -378,8 +378,7 @@ begin
         Inc(Dx);
       end;
 
-    cairo_glyph_path(ct.Context, ct.Glyphs, ct.GlyphsLen);
-    cairo_fill_preserve(ct.Context);
+    cairo_show_glyphs(ct.Context, ct.Glyphs, ct.GlyphsLen);
 
   finally
     ReleaseCairoContext(ct);
