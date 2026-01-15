@@ -1076,6 +1076,7 @@ type
     FDefaultFontColorIsDark: Boolean;
     FDefaultPainter: TAbstractPrimaryRowPainter;
     FEncoder: TCharEncoder;
+    FFontChanged: Boolean;
     FHeader: TCustomHexViewHeader;
     FHideSelection: Boolean;
     FHintHideTimeout, FHintShowPause: Integer;
@@ -1182,6 +1183,7 @@ type
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
     procedure KeyPress(var Key: Char); override;
     procedure KeyUp(var Key: Word; Shift: TShiftState); override;
+    procedure Loaded; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
@@ -6485,6 +6487,8 @@ begin
   end;
   try
     inherited;
+    if keSplitter in MousePressedHitInfo.Elements then
+      FitColumnToBestSize(MousePressedHitInfo.SelectPoint.Column);
     if not EditAtCaretPos then
     begin
       Painter := GetRowPainter(MousePressedHitInfo.SelectPoint.RowIndex);
@@ -6942,7 +6946,11 @@ procedure TFWCustomHexView.DoFontChange(Sender: TObject);
 var
   PresiosTopRow: Integer;
 begin
-  if csLoading in ComponentState then Exit;
+  if csLoading in ComponentState then
+  begin
+    FFontChanged := True;
+    Exit;
+  end;
   if Parent = nil then Exit;
   PresiosTopRow := CurrentVisibleRow;
   if Assigned(FOldOnFontChange) then
@@ -7755,6 +7763,7 @@ begin
 
   Font.PixelsPerInch := FCurrentPPI;
   {$ENDIF}
+
   Font.Height := ToDpi(GetDefaultFontHeight);
   Font.Name := GetDefaultFontName;
 end;
@@ -7853,6 +7862,13 @@ begin
     Result := FSelStart
   else
     Result := FSelEnd;
+end;
+
+procedure TFWCustomHexView.Loaded;
+begin
+  inherited;
+  if not FFontChanged then
+    Font.Height := ToDpi(GetDefaultFontHeight);
 end;
 
 function TFWCustomHexView.RightSelPoint: TSelectPoint;
