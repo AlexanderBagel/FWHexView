@@ -4143,7 +4143,7 @@ end;
 
 procedure TCustomMappedHexView.DoBeforePostPaint(const ADiapason: TVisibleRowDiapason);
 var
-  RegAddress, RegSize: Integer;
+  RegAddress, RegSize: Int64;
   Region: TRegion;
 begin
   RegAddress := RawData.RowToAddress(ADiapason.StartRow, 0);
