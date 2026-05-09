@@ -6,18 +6,19 @@
 //  * Purpose   : Speeding up text output with the Cairo library
 //  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 2.0.15
+//  * Version   : 2.0.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
 //  * Latest Release : https://github.com/AlexanderBagel/FWHexView/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/FWHexView
 //  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MIT
+//  * See LICENSE file in the project root for full license information.
+//  *
+//  ****************************************************************************
 //
-
-{
-License: MPL 2.0 or LGPL
-}
 
 unit FWHexView.Cairo;
 
