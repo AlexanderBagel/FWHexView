@@ -19,7 +19,7 @@
       </Other>
     </CompilerOptions>
     <Description Value="Cross-platform HEX editor"/>
-    <License Value="GPL v3"/>
+    <License Value="MIT"/>
     <Version Major="2" Release="15"/>
     <Files>
       <Item>

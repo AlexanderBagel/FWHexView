@@ -15,7 +15,7 @@
       </SearchPaths>
     </CompilerOptions>
     <Description Value="Cross-platform HEX editor, design time"/>
-    <License Value="GPL v3"/>
+    <License Value="MIT"/>
     <Version Major="2" Release="15"/>
     <Files>
       <Item>
