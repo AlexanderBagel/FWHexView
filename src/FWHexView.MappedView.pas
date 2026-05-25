@@ -4217,6 +4217,7 @@ end;
 
 procedure TCustomMappedHexView.ClearDataMap;
 begin
+  DataMap.Clear;
   SetDataStream(nil, 0);
   RebuildData;
 end;
