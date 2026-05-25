@@ -4079,7 +4079,10 @@ begin
     ctJmpLine: Result := ToDpi(82);
     ctOpcode:
     begin
-      Result := ToDpi(255);
+      if Header.ColumnMinWidth[ctOpcode] = 0 then
+        Result := ToDpi(255)
+      else
+        Result := ToDpi(Header.ColumnMinWidth[ctOpcode]);
       I := 0;
       EndIdx := RawData.PresentRows.Count;
       while I < EndIdx do
