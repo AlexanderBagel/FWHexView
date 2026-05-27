@@ -1400,6 +1400,7 @@ type
     function RowColumnData(ARowIndex: Int64): TRowColumnData;
     function RowRawLength(ARowIndex: Int64): Integer;
     function RowToAddress(ARowIndex: Int64; ValueOffset: Integer): Int64;
+    procedure SelectAll;
     function SelectedColumnAsString(AColumn: TColumnType): string;
     function SelectedRawLength: Integer;
     function SelectedRowIndex: Int64;
@@ -8564,6 +8565,12 @@ function TFWCustomHexView.RowToAddress(ARowIndex: Int64;
   ValueOffset: Integer): Int64;
 begin
   Result := RawData.RowToAddress(ARowIndex, ValueOffset);
+end;
+
+procedure TFWCustomHexView.SelectAll;
+begin
+  UpdateSelection(SelectPoint(0, 0, ctOpcode),
+    SelectPoint(FRawData.Count - 1, -1, ctOpcode));
 end;
 
 function TFWCustomHexView.SelectedColumnAsString(AColumn: TColumnType): string;
