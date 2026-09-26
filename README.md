@@ -1,16 +1,14 @@
+**English** | [Русский](README.RU.md)
+
 # Hex Viewer Project
+
+[![Boosty](https://img.shields.io/badge/Boosty-Support-orange?logo=boosty)](https://boosty.to/processmemorymap)
 
 A set of classes for viewing data in HEX representation mode.
 The basic task of the viewer is to provide the programmer with an implementation of inheritors in order to compose almost any desired display style.
 For this purpose, the architecture is designed to support any data source, both as a data model itself and as part of the display model.
 The base class THexView is designed to simply display the stream passed to it with minimal functionality.
 Extended TMappedHexView - covers the full range of tasks required from this type of controls, working through the RawData abstraction, which performs the role of a model.
-
-Набор классов для просмотра данных в режиме HEX представления.
-Базовая задача вьювера предоставить программисту реализацию наследников с целью компоновки практически любого желаемого стиля отображения.
-Для этого разработана архитектура поддерживающая любые источники данных, как в виде самой модели данных, так и в рамках модели отображения.
-Базовый класс THexView заточен на простое отображение переданного в него стрима с минимальным функционалом.
-Расширенный TMappedHexView - охватывает полный спектр задач требующийся от данного типа контролов, работая через абстракцию RawData, которая выполняет роль модели.
 
 ### Setup:
 
@@ -38,16 +36,25 @@ The framework includes 4 demo applications:
 
 ![4](https://github.com/AlexanderBagel/FWHexView/blob/master/img/zipviewer.png?raw=true "example of working with memory cards using the example of viewing a ZIP archive")
 
-### License / Лицензия:
+### License:
 
 Starting from version 2.0.16, FWHexView is distributed under the MIT License.
 See the [LICENSE](LICENSE) file for full license text.
 
-Начиная с версии 2.0.16, FWHexView распространяется под лицензией MIT.
-Полный текст лицензии находится в файле [LICENSE](LICENSE).
-
 ### Changelog:
+
+#### 2.0.17 (26-05-2026)
+- The OnAfterAutoSizeColumns property has been added to allow for more precise control over column widths.
+- Default fonts are selected based on availability. “Consolas” is replaced with “Lucida Console” on Windows, and “DejaVu Sans Mono” is replaced with “Monospace” on Linux.
+- Added the TFWCustomHexView.SelectAll method
+- ColumnMinWidth is now taken into account when calculating the width of ctOpcode in TCustomMappedHexView
+- BugFix: ClearDataMap did not clear the DataMap itself
 
 #### 2.0.16 (09-05-2026)
 - The project has been relicensed to the **MIT License**.
-- Проект переведён на лицензию **MIT**.
+
+### Support the Project
+
+If you found this project useful, you can support its development on the author's main-project page:
+
+[![Boosty](https://img.shields.io/badge/Boosty-Support-orange?logo=boosty)](https://boosty.to/processmemorymap)

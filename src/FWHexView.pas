@@ -6,7 +6,7 @@
 //  * Purpose   : Implementation of a basic HexView editor
 //  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 2.0.16
+//  * Version   : 2.0.17
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -69,6 +69,10 @@ uses
   {$ENDIF}
   FWHexView.Common,
   FWHexView.Actions;
+
+const
+  FWHexViewVersionInt = $02000011;
+  FWHexViewVersionStr = '2.0.17';
 
 {$IFDEF FPC}
 const
@@ -1108,6 +1112,7 @@ type
     FOnJmpTo: TJmpToEvent;
     FOldOnFontChange: TNotifyEvent;
     FSelectionChange: TNotifyEvent;
+    FOnAfterAutoSizeColumns: TNotifyEvent;
     procedure DoChangeScale(BeforeScaleStep: Boolean);
     function GetBookMark(AIndex: TBookMark): Int64;
     function GetTextExtent: TSize;
@@ -1235,6 +1240,7 @@ type
 
     // internal events
 
+    procedure DoAfterAutoSizeColumns; virtual;
     procedure DoBeforePaint(const ADiapason: TVisibleRowDiapason); virtual;
     procedure DoBeforePostPaint(const ADiapason: TVisibleRowDiapason); virtual;
     procedure DoChange(ChangeCode: Integer); virtual;
@@ -1497,6 +1503,7 @@ type
     property ShortCuts: TViewShortCuts read FShortCuts write SetShortCuts stored IsShortCutsStored;
     property TabStop default True;
     property WheelMultiplier: Integer read FWheelMultiplier write FWheelMultiplier default 0;
+    property OnAfterAutoSizeColumns: TNotifyEvent read FOnAfterAutoSizeColumns write FOnAfterAutoSizeColumns;
     property OnCaretPosChange: TNotifyEvent read FOnCaretPosChange write FOnCaretPosChange;
     property OnEditContextPopup: TContextPopupEvent read FOnEditContextPopup write FOnEditContextPopup;
     property OnDrawColumnBackground: TDrawColumnBackgroundEvent read FOnDrawColBack write FOnDrawColBack;
@@ -1553,6 +1560,7 @@ type
     property TabStop;
     property Visible;
     property WheelMultiplier;
+    property OnAfterAutoSizeColumns;
     property OnCaretPosChange;
     property OnClick;
     property OnContextPopup;
@@ -7154,6 +7162,7 @@ begin
   for I := ctWorkSpace to High(TColumnType) do
     if I in Header.Columns then
       FitColumnToBestSize(I);
+  DoAfterAutoSizeColumns;
 end;
 
 function TFWCustomHexView.Focused: Boolean;
@@ -7470,11 +7479,20 @@ begin
 end;
 
 function TFWCustomHexView.GetDefaultFontName: string;
+
+  function IfFontPresent(const A, B: string): string;
+  begin
+    if Screen.Fonts.IndexOf(A) >= 0 then
+      Result := A
+    else
+      Result := B;
+  end;
+
 begin
   {$IFDEF UNIX}
-  Result := 'DejaVu Sans Mono'; // 'Monospace';
+  Result := IfFontPresent('DejaVu Sans Mono', 'Monospace');
   {$ELSE}
-  Result := 'Consolas'; //'Lucida Console';
+  Result := IfFontPresent('Consolas', 'Lucida Console');
   {$ENDIF}
 end;
 
@@ -9221,6 +9239,12 @@ end;
 procedure TFWCustomHexView.UpdateSelectionAddr(ANewStart, ANewEnd: Int64);
 begin
   UpdateSelection(AddressToSelectPoint(ANewStart), AddressToSelectPoint(ANewEnd), False);
+end;
+
+procedure TFWCustomHexView.DoAfterAutoSizeColumns;
+begin
+  if Assigned(FOnAfterAutoSizeColumns) then
+    FOnAfterAutoSizeColumns(Self);
 end;
 
 procedure TFWCustomHexView.DoBeforePaint(const ADiapason: TVisibleRowDiapason);

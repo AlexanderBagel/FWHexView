@@ -1,49 +1,60 @@
 object dlgHexEditor: TdlgHexEditor
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'HexEditor'
-  ClientHeight = 617
-  ClientWidth = 959
+  ClientHeight = 926
+  ClientWidth = 1439
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
   Menu = MainMenu
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 21
   object StatusBar: TStatusBar
     Left = 0
-    Top = 598
-    Width = 959
-    Height = 19
+    Top = 897
+    Width = 1439
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Panels = <
       item
+        Width = 113
+      end
+      item
+        Width = 263
+      end
+      item
+        Width = 225
+      end
+      item
+        Width = 450
+      end
+      item
         Width = 75
-      end
-      item
-        Width = 175
-      end
-      item
-        Width = 150
-      end
-      item
-        Width = 300
-      end
-      item
-        Width = 50
       end>
     ParentColor = True
   end
   object PageControl: TPageControl
     Left = 0
     Top = 0
-    Width = 959
-    Height = 598
+    Width = 1439
+    Height = 897
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alClient
     PopupMenu = TabPopupMenu
     TabOrder = 1

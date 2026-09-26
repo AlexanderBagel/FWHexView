@@ -762,6 +762,7 @@ type
     property Text;
     property Visible;
     property WheelMultiplier;
+    property OnAfterAutoSizeColumns;
     property OnCaretPosChange;
     property OnClick;
     property OnContextPopup;

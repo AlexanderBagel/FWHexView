@@ -545,7 +545,7 @@ const ArmJmpBuff: array[0..31] of string = (
 const ArmKernelBuff: array[0..7] of string = (
   'AT', 'DC', 'IC', 'SYS', 'SYSL', 'TLBI', 'MRS', 'MSR');
 
-const ArmDataTypeBuff: array[0..14] of string = (
+const {%H-}ArmDataTypeBuff: array[0..14] of string = (
   'I8', 'I16', 'I32', 'I64', 'S8', 'S16', 'S32', 'S64',
   'U8', 'U16', 'U32', 'U64', 'F16', 'F32', 'P8');
 

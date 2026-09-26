@@ -684,6 +684,9 @@ begin
 end;
 
 procedure TdlgHexEditor.UpdateStatusBar(Sender: TObject);
+const
+  FmtSelHex: array [Boolean] of string = ('Sel: %d-%d len: %d', 'Sel: %x-%x len: %d');
+  FmtPosHex: array [Boolean] of string = ('Pos: %d', 'Pos: %x');
 var
   ss, se: Int64;
   cpd: TCaretPosData;
@@ -699,10 +702,10 @@ begin
   if ss < 0 then
     StatusBar.Panels[3].Text := 'Sel: none'
   else
-    StatusBar.Panels[3].Text := Format('Sel: %x-%x len: %d', [ss, se, se - ss + 1]);
+    StatusBar.Panels[3].Text := Format(FmtSelHex[ActiveDoc.HexView.AddressView = avHex], [ss, se, se - ss + 1]);
   cpd := ActiveDoc.HexView.CaretPosData;
   if (cpd.EditMode <> cemDisabled) and (cpd.Column in [ctOpcode, ctDescription]) then
-    StatusBar.Panels[4].Text := Format('Pos: %x', [
+    StatusBar.Panels[4].Text := Format(FmtPosHex[ActiveDoc.HexView.AddressView = avHex], [
       ActiveDoc.HexView.CaretPosToAddress(cpd)])
   else
     StatusBar.Panels[4].Text := '';
