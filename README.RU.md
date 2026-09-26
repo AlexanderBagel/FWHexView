@@ -43,7 +43,7 @@ Lazarus - собрать FWHexView.LCL.lpk, затем собрать и уст�
 
 ### Список изменений:
 
-#### 2.0.17 (26-05-2026)
+#### 2.0.17 (26-09-2026)
 - Для более тонкого управления шириной колонок добавлено свойство OnAfterAutoSizeColumns
 - Шрифты по умолчанию выбираются от их наличия. 'Consolas' меняется на 'Lucida Console' в Windows, 'DejaVu Sans Mono' меняется на 'Monospace' в Linux.
 - Добавлен метод TFWCustomHexView.SelectAll

@@ -43,7 +43,7 @@ See the [LICENSE](LICENSE) file for full license text.
 
 ### Changelog:
 
-#### 2.0.17 (26-05-2026)
+#### 2.0.17 (26-09-2026)
 - The OnAfterAutoSizeColumns property has been added to allow for more precise control over column widths.
 - Default fonts are selected based on availability. “Consolas” is replaced with “Lucida Console” on Windows, and “DejaVu Sans Mono” is replaced with “Monospace” on Linux.
 - Added the TFWCustomHexView.SelectAll method
